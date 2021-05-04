@@ -25,9 +25,7 @@
 #define ENABLE_TRACING
 
 
-/// A Forth instruction. Code is a sequence of these.
-using Instruction = void*;
-
+union Instruction;
 
 /// A native word is a function with this signature.
 /// Interpreted words consist of an array of (mostly) Op pointers.
@@ -36,6 +34,18 @@ using Instruction = void*;
 /// @return    The ending stack pointer. (But almost all ops tail-call
 ///            instead of explicitly returning a value.)
 using Op = int* (*)(int *sp, Instruction *pc);
+
+
+/// A Forth instruction. Code is a sequence of these.
+union Instruction {
+    Op           native;        // Every instruction starts with a native op
+    int          literal;       // This form appears after a LITERAL op
+    Instruction* word;          // This form appears after a CALL op
+
+    Instruction(Op o)           :native(o) { }
+    Instruction(int i)          :literal(i) { }
+    Instruction(Instruction *w) :word(w) { }
+};
 
 
 /// Tracing function called at the end of each native op when `ENABLE_TRACING` is defined.
@@ -50,11 +60,11 @@ using Op = int* (*)(int *sp, Instruction *pc);
 /// that jumps to the next op.
 /// It uses tail-recursion, so (in an optimized build) it literally does jump,
 /// without growing the call stack.
-#define NEXT()    return TRACE(sp, pc), Op(*pc)(sp, pc + 1)
+#define NEXT()    return TRACE(sp, pc), pc->native(sp, pc + 1)
 
 
 /// Calls an interpreted word pointed to by `fn`. Used by `CALL` and `run`.
-#define _CALL(fn)  auto _dst = (Instruction*)(fn); sp = Op(*_dst)(sp, _dst + 1)
+#define _CALL(fn)  auto _dst = (Instruction*)(fn); sp = _dst->native(sp, _dst + 1)
 
 
 /***************** NATIVE OPS *****************/
@@ -62,7 +72,7 @@ using Op = int* (*)(int *sp, Instruction *pc);
 
 // ( -> i)  Pushes the following instruction as an integer
 static int* LITERAL(int *sp, Instruction *pc) {
-    *(--sp) = int(intptr_t(*pc++));
+    *(--sp) = (pc++)->literal;
     NEXT();
 }
 
@@ -95,7 +105,7 @@ static int* RETURN(int *sp, Instruction *pc) {
 
 // ( ? -> ? )  Calls the subroutine pointed to by the following instruction
 static int* CALL(int *sp, Instruction *pc) {
-    _CALL(*pc++);
+    _CALL((pc++)->word);
     NEXT();
 }
 
@@ -109,7 +119,7 @@ static std::array<int,1000> DataStack;
 
 /// Runs the interpreter, starting at the given pc,
 /// and returns the top value on the stack.
-static int run(Op* start) {
+static int run(Instruction* start) {
     int *sp = DataStack.end();
     _CALL(start);
     return *sp;
@@ -122,21 +132,21 @@ static int run(Op* start) {
 using namespace std;
 
 
-static Op Square[] = {
+static Instruction Square[] = {
     DUP,
     MULT,
     RETURN
 };
 
 
-static Op Program[] = {
-    LITERAL, (Op)4,
-    LITERAL, (Op)3,
+static Instruction Program[] = {
+    LITERAL, 4,
+    LITERAL, 3,
     PLUS,
-    CALL,    (Op)Square,
+    CALL,    Square,
     DUP,
     PLUS,
-    CALL,    (Op)Square,
+    CALL,    Square,
     RETURN
 };
 
