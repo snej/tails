@@ -27,19 +27,41 @@
 //  Without it, ops will not use tail recursion _in unoptimized builds_, meaning
 //  the call stack will grow with every word called and eventually overflow.
 //  <https://clang.llvm.org/docs/AttributeReference.html#id398>
-#if defined(__has_attribute) && __has_attribute(musttail)
-#   define MUSTTAIL [[clang::musttail]]
-#else
+#ifdef __has_attribute
+#   if __has_attribute(musttail)
+#       define MUSTTAIL [[clang::musttail]]
+#   endif
+#   if __has_attribute(always_inline)
+#       define ALWAYS_INLINE [[gnu::always_inline]]
+#   endif
+#   if __has_attribute(noinline)
+#       define NOINLINE [[gnu::noinline]]
+#   endif
+#endif
+#ifndef MUSTTAIL
 #   define MUSTTAIL
 #endif
+#ifndef ALWAYS_INLINE
+#   define ALWAYS_INLINE
+#endif
+#ifndef NOINLINE
+#   define NOINLINE
+#endif
 
-#define ALWAYS_INLINE [[gnu::always_inline]]
-#define NOINLINE      [[gnu::noinline]]
+
+union Instruction;
 
 
 // If ENABLE_TRACING is defined, a function `TRACE(sp,pc)` will be called after each Instruction.
+// Enabling this makes the code much less optimal, so only use when debugging.
 #if DEBUG
 #    define ENABLE_TRACING
+#endif
+
+#ifdef ENABLE_TRACING
+    NOINLINE static void TRACE(int *sp, const Instruction *pc);
+#else
+#   define TRACE(SP,PC)  (void)0
 #endif
 
 
@@ -53,7 +75,7 @@
 /// @param pc  Program counter. Points to the _next_ op to run.
 /// @return    The stack pointer. (But almost all ops tail-call via `NEXT()`
 ///            instead of explicitly returning a value.)
-using Op = int* (*)(int *sp, const union Instruction *pc);
+using Op = int* (*)(int *sp, const Instruction *pc);
 
 
 /// A Forth instruction. Code ("words") is a sequence of these.
@@ -73,15 +95,6 @@ private:
 };
 
 
-/// Tracing function called at the end of each native op when `ENABLE_TRACING` is defined.
-/// \warning Enabling this makes the code much less optimal, so only use when debugging.
-#ifdef ENABLE_TRACING
-    NOINLINE static void TRACE(int *sp, const Instruction *pc);
-#else
-#   define TRACE(SP,PC)  (void)0
-#endif
-
-
 // The standard Forth NEXT routine, found at the end of every native op,
 // that jumps to the next op.
 // It uses tail-recursion, so (in an optimized build) it _literally does jump_,
@@ -96,7 +109,7 @@ private:
 ALWAYS_INLINE
 static inline int* call(int *sp, const Instruction *instr) {
     return instr->native(sp, instr + 1);
-    // TODO: It would be more efficient to avoid the native call stack,
+    // TODO: It may be more efficient to avoid the native call stack,
     // and instead pass an interpreter call stack that `call` and `RETURN` manipulate.
 }
 
@@ -104,9 +117,7 @@ static inline int* call(int *sp, const Instruction *instr) {
 //======================== DEFINING WORDS ========================//
 
 
-struct Word;
 struct WordRef;
-extern const Word CALL, RETURN, LITERAL;
 
 
 /// A Forth word definition: name, flags and code.
@@ -130,6 +141,9 @@ struct Word {
 
     static inline const Word* gLatest;          // Last-defined word; start of linked list
 };
+
+
+extern const Word CALL, RETURN, LITERAL;
 
 
 /// A reference to a Word and optional following parameter;
