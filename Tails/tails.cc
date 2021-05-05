@@ -142,30 +142,30 @@
 /// @param pc  Program counter. Points to the _next_ op to run.
 /// @return    The stack pointer. (But almost all ops tail-call via `NEXT()`
 ///            instead of explicitly returning a value.)
-using Op = int* (*)(int *sp, union Instruction *pc);
+using Op = int* (*)(int *sp, const union Instruction *pc);
 
 
 /// A Forth instruction. Code ("words") is a sequence of these.
 union Instruction {
     Op           native;        // Every instruction starts with a native op
     int          param;         // Integer param after some ops like LITERAL, BRANCH, ...
-    Instruction* word;          // This form appears after a CALL op
+    const Instruction* word;          // This form appears after a CALL op
 
-    Instruction(Op o)           :native(o) { }
-    Instruction(int i)          :param(i) { }
-    Instruction(Instruction *w) :word(w) { }
+    constexpr Instruction(Op o)           :native(o) { }
+    constexpr Instruction(int i)          :param(i) { }
+    constexpr Instruction(const Instruction *w) :word(w) { }
 
 private:
     friend class Word;
     friend class WordRef;
-    Instruction()               :word(nullptr) { }
+    constexpr Instruction()               :word(nullptr) { }
 };
 
 
 /// Tracing function called at the end of each native op when `ENABLE_TRACING` is defined.
 /// \warning Enabling this makes the code much less optimal, so only use when debugging.
 #ifdef ENABLE_TRACING
-    NOINLINE static void TRACE(int *sp, Instruction *pc);
+    NOINLINE static void TRACE(int *sp, const Instruction *pc);
 #else
 #   define TRACE(SP,PC)  (void)0
 #endif
@@ -183,7 +183,7 @@ private:
 /// @param instr The first instruction of the word to run
 /// @return      The stack pointer on completion.
 ALWAYS_INLINE
-static inline int* call(int *sp, Instruction *instr) {
+static inline int* call(int *sp, const Instruction *instr) {
     return instr->native(sp, instr + 1);
     // TODO: It would be more efficient to avoid the native call stack,
     // and instead pass an interpreter call stack that `call` and `RETURN` manipulate.
@@ -194,10 +194,11 @@ static inline int* call(int *sp, Instruction *instr) {
 
 
 struct Word;
-extern Word CALL, RETURN, LITERAL;
 struct WordRef;
+extern const Word CALL, RETURN, LITERAL;
 
-/// Metadata of a word
+
+/// A Forth word definition: name, flags and code.
 struct Word {
     enum Flags {
         None = 0,
@@ -208,7 +209,9 @@ struct Word {
 
     Word(const char *name, std::initializer_list<WordRef> words);
 
-    const Word*                    _prev;       // Previously-defined word
+    Word(std::initializer_list<WordRef> words)  :Word(nullptr, words) { }
+
+    mutable const Word*            _prev;       // Previously-defined word
     const char*                    _name;       // Forth name
     Op                             _native {};  // Native function pointer or NULL
     std::unique_ptr<Instruction[]> _instrs {};  // Interpreted instructions or NULL
@@ -218,10 +221,11 @@ struct Word {
 };
 
 
-/// A reference to a Word, used in the initializer list of the Word constructor.
-/// This is really just a convenience for hand-assembling words, not a real part of the system.
+/// A reference to a Word and optional following parameter;
+/// used only temporarily, in the initializer list of the Word constructor.
+/// This is just a convenience for hand-assembling words, not a real part of the system.
 struct WordRef {
-    WordRef(const Word &word) {
+    constexpr WordRef(const Word &word) {
         assert(!(word._flags & Word::HasIntParam));
         if (word._native) {
             _instrs[0] = word._native;
@@ -233,16 +237,16 @@ struct WordRef {
         }
     }
 
-    WordRef(int i)
-    :_instrs{LITERAL._native, i}
-    { }
-
-    WordRef(const Word &word, int param)
+    constexpr WordRef(const Word &word, int param)
     :_instrs{word._native, param}
     {
         assert(word._native);
         assert(word._flags & Word::HasIntParam);
     }
+
+    constexpr WordRef(int i)
+    :WordRef{LITERAL, i}
+    { }
 
     Instruction _instrs[2];
     int8_t      _count = 2;
@@ -262,7 +266,7 @@ Word::Word(const char *name, Op native, Flags flags)
 
 /// Constructor for an interpreted word.
 Word::Word(const char *name, std::initializer_list<WordRef> words)
-:_prev(gLatest)
+:_prev(name ? gLatest : nullptr)
 ,_name(name)
 {
     size_t count = 1;
@@ -276,24 +280,27 @@ Word::Word(const char *name, std::initializer_list<WordRef> words)
     }
     *dst = RETURN._native;
 
-    gLatest = this;
+    if (name)
+        gLatest = this;
 }
 
 
-#define NATIVE_WORD(NAME, FORTHNAME, FLAGS) \
-    static int* f_##NAME(int *sp, Instruction *pc); \
-    Word NAME(FORTHNAME, f_##NAME, FLAGS); \
-    static int* f_##NAME(int *sp, Instruction *pc)
+//======================== NATIVE WORDS ========================//
 
+
+// Shortcut for defining a native word
+#define NATIVE_WORD(NAME, FORTHNAME, FLAGS) \
+    static int* f_##NAME(int *sp, const Instruction *pc); \
+    const Word NAME(FORTHNAME, f_##NAME, FLAGS); \
+    static int* f_##NAME(int *sp, const Instruction *pc)
+
+// Shortcut for defining a native word implementing a binary operator like `+` or `==`
 #define BINARY_OP_WORD(NAME, FORTHNAME, INFIXOP) \
     NATIVE_WORD(NAME, FORTHNAME, Word::None) { \
         sp[1] = sp[1] INFIXOP sp[0];\
         ++sp;\
         NEXT(); \
     }
-
-
-//======================== NATIVE WORDS ========================//
 
 
 //---- The absolute core:
@@ -340,6 +347,15 @@ NATIVE_WORD(SWAP, "SWAP", {}) {
 NATIVE_WORD(OVER, "OVER", {}) {
     --sp;
     sp[0] = sp[2];
+    NEXT();
+}
+
+// (a b c -> b c a)
+NATIVE_WORD(ROT, "ROT", {}) {
+    auto sp2 = sp[2];
+    sp[2] = sp[1];
+    sp[1] = sp[0];
+    sp[0] = sp2;
     NEXT();
 }
 
@@ -411,6 +427,16 @@ const Word ABS("ABS", {
 });
 
 
+const Word MAX("MAX", {
+    OVER,
+    OVER,
+    LT,
+    {ZBRANCH, 1},
+    SWAP,
+    DROP
+});
+
+
 //======================== TOP LEVEL ========================//
 
 
@@ -418,10 +444,18 @@ const Word ABS("ABS", {
 static std::array<int,1000> DataStack;
 
 
-/// Initializes & runs the interpreter, and returns the top value left on the stack.
+/// Top-level function to run a Word.
+/// @return  The top value left on the stack.
 static int run(const Word &word) {
-    assert(word._instrs);
+    assert(word._instrs); // must be interpreted
     return * call(DataStack.end(), word._instrs.get());
+}
+
+
+/// Top-level function to run an anonymous temporary Word.
+/// @return  The top value left on the stack.
+static int run(std::initializer_list<WordRef> words) {
+    return run(Word(words));
 }
 
 
@@ -430,13 +464,23 @@ static int run(const Word &word) {
 
 #ifdef ENABLE_TRACING
     /// Tracing function called at the end of each native op -- prints the stack
-    static void TRACE(int *sp, Instruction *pc) {
-        printf("At %p: ", pc);
+    static void TRACE(int *sp, const Instruction *pc) {
+        printf("\tat %p: ", pc);
         for (auto i = &DataStack.back(); i >= sp; --i)
             printf(" %d", *i);
         putchar('\n');
     }
 #endif
+
+
+static void _test(std::initializer_list<WordRef> words, const char *sourcecode, int expected) {
+    printf("* Testing {%s} ...\n", sourcecode);
+    int n = run(words);
+    printf("\t-> got %d\n", n);
+    assert(n == expected);
+}
+
+#define TEST(EXPECTED, ...) _test({__VA_ARGS__}, #__VA_ARGS__, EXPECTED)
 
 
 int main(int argc, char *argv[]) {
@@ -445,22 +489,25 @@ int main(int argc, char *argv[]) {
         printf(" %s", word->_name);
     printf("\n");
 
-    const Word Program("Program", {
-        4,
-        3,
-        PLUS,
-        SQUARE,
-        DUP,
-        PLUS,
-        SQUARE,
-        ABS
-    });
+    TEST(-1234, -1234);
+    TEST(-1,    3, 4, MINUS);
+    TEST(1,     1, 2, 3, ROT);
+    TEST(16,    4, SQUARE);
+    TEST(1234,  -1234, ABS);
+    TEST(1234,  1234, ABS);
+    TEST(4,     3, 4, MAX);
+    TEST(4,     4, 3, MAX);
 
-    int n = run(Program);
+    TEST(9604,
+         4,
+         3,
+         PLUS,
+         SQUARE,
+         DUP,
+         PLUS,
+         SQUARE,
+         ABS);
 
-    printf("Result is %d\n", n);
-    if (n != 9604)
-        abort();
-    printf("\t\t❣️❣️❣️\n\n");
+    printf("\nTESTS PASSED❣️❣️❣️\n\n");
     return 0;
 }
