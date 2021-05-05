@@ -17,6 +17,7 @@
 //
 
 #include "vocabulary.hh"
+#include "word.hh"
 
 
 Vocabulary gVocabulary;

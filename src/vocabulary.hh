@@ -5,10 +5,10 @@
 //
 
 #pragma once
-#include "tails.hh"
 #include <string_view>
 #include <unordered_map>
 
+class Word;
 
 /// A lookup table to find Words by name. Used by the Forth parser.
 class Vocabulary {

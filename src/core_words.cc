@@ -16,7 +16,6 @@
 // limitations under the License.
 //
 
-#include "tails.hh"
 #include "core_words.hh"
 
 

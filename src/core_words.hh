@@ -5,8 +5,7 @@
 //
 
 #pragma once
-
-class Word;
+#include "word.hh"
 
 extern const Word
     CALL, RETURN, LITERAL,

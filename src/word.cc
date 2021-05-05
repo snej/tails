@@ -1,7 +1,7 @@
 //
-// tails.cc
+// word.cc
 //
-// Copyright (C) 2021 Jens Alfke. All Rights Reserved.
+// Copyright (C) 2020 Jens Alfke. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 // limitations under the License.
 //
 
-#include "tails.hh"
+#include "word.hh"
 #include "core_words.hh"
 #include "vocabulary.hh"
 
@@ -38,13 +38,11 @@ Word::Word(const char *name, std::initializer_list<WordRef> words)
     size_t count = 1;
     for (auto &ref : words)
         count += ref._count;
-    _instrs.reset(new Instruction[count]);
-    Instruction *dst = &_instrs[0];
+    _instrs.reserve(count);
     for (auto &ref : words) {
-        std::copy(&ref._instrs[0], &ref._instrs[ref._count], dst);
-        dst += ref._count;
+        _instrs.insert(_instrs.end(), &ref._instrs[0], &ref._instrs[ref._count]);
     }
-    *dst = RETURN._native;
+    _instrs.push_back(RETURN._native);
 
     if (name)
         gVocabulary.add(*this);
@@ -59,7 +57,7 @@ WordRef::WordRef(const Word &word) {
     } else {
         assert(!word._native);
         _instrs[0] = CALL._native;
-        _instrs[1] = word._instrs.get();
+        _instrs[1] = &word._instrs.front();
     }
 }
 

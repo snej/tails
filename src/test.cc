@@ -16,7 +16,6 @@
 // limitations under the License.
 //
 
-#include "tails.hh"
 #include "core_words.hh"
 #include "vocabulary.hh"
 #include <array>
@@ -32,8 +31,8 @@ static std::array<int,1000> DataStack;
 /// Top-level function to run a Word.
 /// @return  The top value left on the stack.
 static int run(const Word &word) {
-    assert(word._instrs); // must be interpreted
-    return * call(DataStack.end(), word._instrs.get());
+    assert(!word._native); // must be interpreted
+    return * call(DataStack.end(), &word._instrs.front());
 }
 
 
