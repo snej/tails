@@ -8,6 +8,9 @@
 
 /* Begin PBXBuildFile section */
 		273B20902641B8D800A14EC4 /* tails.cc in Sources */ = {isa = PBXBuildFile; fileRef = 273B208F2641B8D800A14EC4 /* tails.cc */; };
+		273B2094264348A400A14EC4 /* core_words.cc in Sources */ = {isa = PBXBuildFile; fileRef = 273B2093264348A400A14EC4 /* core_words.cc */; };
+		273B20962643493E00A14EC4 /* test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 273B20952643493E00A14EC4 /* test.cc */; };
+		273B209A26434A1100A14EC4 /* vocabulary.cc in Sources */ = {isa = PBXBuildFile; fileRef = 273B209926434A1100A14EC4 /* vocabulary.cc */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -26,6 +29,13 @@
 		273B20842641B8AA00A14EC4 /* Tails */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = Tails; sourceTree = BUILT_PRODUCTS_DIR; };
 		273B208F2641B8D800A14EC4 /* tails.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = tails.cc; sourceTree = "<group>"; };
 		273B20912643282500A14EC4 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
+		273B20922643479600A14EC4 /* tails.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = tails.hh; sourceTree = "<group>"; };
+		273B2093264348A400A14EC4 /* core_words.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = core_words.cc; sourceTree = "<group>"; };
+		273B20952643493E00A14EC4 /* test.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = test.cc; sourceTree = "<group>"; };
+		273B20972643498900A14EC4 /* core_words.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = core_words.hh; sourceTree = "<group>"; };
+		273B209826434A1000A14EC4 /* vocabulary.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = vocabulary.hh; sourceTree = "<group>"; };
+		273B209926434A1100A14EC4 /* vocabulary.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = vocabulary.cc; sourceTree = "<group>"; };
+		273B209B26434B6B00A14EC4 /* platform.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = platform.hh; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -59,7 +69,14 @@
 		273B20862641B8AA00A14EC4 /* src */ = {
 			isa = PBXGroup;
 			children = (
+				273B209B26434B6B00A14EC4 /* platform.hh */,
 				273B208F2641B8D800A14EC4 /* tails.cc */,
+				273B20922643479600A14EC4 /* tails.hh */,
+				273B209926434A1100A14EC4 /* vocabulary.cc */,
+				273B209826434A1000A14EC4 /* vocabulary.hh */,
+				273B2093264348A400A14EC4 /* core_words.cc */,
+				273B20972643498900A14EC4 /* core_words.hh */,
+				273B20952643493E00A14EC4 /* test.cc */,
 			);
 			path = src;
 			sourceTree = "<group>";
@@ -120,6 +137,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				273B20962643493E00A14EC4 /* test.cc in Sources */,
+				273B209A26434A1100A14EC4 /* vocabulary.cc in Sources */,
+				273B2094264348A400A14EC4 /* core_words.cc in Sources */,
 				273B20902641B8D800A14EC4 /* tails.cc in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
