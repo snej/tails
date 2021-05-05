@@ -49,9 +49,12 @@
  between the pointers in a word and the native code to run. This adds overhead to each call,
  especially on modern CPUs where memory fetches are serious bottlenecks. But it's more flexible.)
 
+ A great resource for learning how a traditional Forth interpreter works is JonesForth[2], a tiny
+ interpreter in x86 assembly written in "literate" style, almost as much commentary as code.
+
  PERFORMANCE
 
- Tails was inspired by the design of the Wasm3 interpreter[2], which cleverly uses tail calls and
+ Tails was inspired by the design of the Wasm3 interpreter[3], which cleverly uses tail calls and
  register-based parameter passing to remove most of the overhead and allow C (or C++) code to
  be nearly as optimal as hand-written. I realized this would permit the bootstrap part of a
  Forth interpreter -- the part that implements the way words (functions) are called, and the core
@@ -97,11 +100,13 @@
  * The stack is declared as a `std::array`, but you could easily change that to a C array.
 
  [1]: http://www.complang.tuwien.ac.at/forth/threaded-code.html
- [2]: https://github.com/wasm3/wasm3/blob/main/docs/Interpreter.md#m3-massey-meta-machine
+ [2]: https://github.com/nornagon/jonesforth/blob/master/jonesforth.S
+ [3]: https://github.com/wasm3/wasm3/blob/main/docs/Interpreter.md#m3-massey-meta-machine
  */
 
 
 #include <array>
+#include <initializer_list>
 #include <stdlib.h>
 
 
@@ -143,12 +148,17 @@ using Op = int* (*)(int *sp, union Instruction *pc);
 /// A Forth instruction. Code ("words") is a sequence of these.
 union Instruction {
     Op           native;        // Every instruction starts with a native op
-    int          literal;       // This form appears after a LITERAL op
+    int          param;         // Integer param after some ops like LITERAL, BRANCH, ...
     Instruction* word;          // This form appears after a CALL op
 
     Instruction(Op o)           :native(o) { }
-    Instruction(int i)          :literal(i) { }
+    Instruction(int i)          :param(i) { }
     Instruction(Instruction *w) :word(w) { }
+
+private:
+    friend class Word;
+    friend class WordRef;
+    Instruction()               :word(nullptr) { }
 };
 
 
@@ -170,57 +180,235 @@ union Instruction {
 
 /// Calls an interpreted word pointed to by `fn`. Used by `CALL` and `run`.
 /// @param sp    Stack pointer
-/// @param word  The first instruction of the word to run
+/// @param instr The first instruction of the word to run
 /// @return      The stack pointer on completion.
 ALWAYS_INLINE
-static inline int* call(int *sp, Instruction *word) {
-    return word->native(sp, word + 1);
+static inline int* call(int *sp, Instruction *instr) {
+    return instr->native(sp, instr + 1);
     // TODO: It would be more efficient to avoid the native call stack,
     // and instead pass an interpreter call stack that `call` and `RETURN` manipulate.
 }
 
 
-//======================== NATIVE OPS ========================//
+//======================== DEFINING WORDS ========================//
 
 
-// ( -> i)  Pushes the following instruction as an integer
-static int* LITERAL(int *sp, Instruction *pc) {
-    *(--sp) = (pc++)->literal;
+struct Word;
+extern Word CALL, RETURN, LITERAL;
+struct WordRef;
+
+/// Metadata of a word
+struct Word {
+    enum Flags {
+        None = 0,
+        HasIntParam = 1
+    };
+
+    Word(const char *name, Op native, Flags flags =None);
+
+    Word(const char *name, std::initializer_list<WordRef> words);
+
+    const Word*                    _prev;       // Previously-defined word
+    const char*                    _name;       // Forth name
+    Op                             _native {};  // Native function pointer or NULL
+    std::unique_ptr<Instruction[]> _instrs {};  // Interpreted instructions or NULL
+    Flags                          _flags {};
+
+    static inline const Word* gLatest;          // Last-defined word; start of linked list
+};
+
+
+/// A reference to a Word, used in the initializer list of the Word constructor.
+/// This is really just a convenience for hand-assembling words, not a real part of the system.
+struct WordRef {
+    WordRef(const Word &word) {
+        assert(!(word._flags & Word::HasIntParam));
+        if (word._native) {
+            _instrs[0] = word._native;
+            _count = 1;
+        } else {
+            assert(!word._native);
+            _instrs[0] = CALL._native;
+            _instrs[1] = word._instrs.get();
+        }
+    }
+
+    WordRef(int i)
+    :_instrs{LITERAL._native, i}
+    { }
+
+    WordRef(const Word &word, int param)
+    :_instrs{word._native, param}
+    {
+        assert(word._native);
+        assert(word._flags & Word::HasIntParam);
+    }
+
+    Instruction _instrs[2];
+    int8_t      _count = 2;
+};
+
+
+/// Constructor for a native word.
+Word::Word(const char *name, Op native, Flags flags)
+:_prev(gLatest)
+,_name(name)
+,_native(native)
+,_flags(flags)
+{
+    gLatest = this;
+}
+
+
+/// Constructor for an interpreted word.
+Word::Word(const char *name, std::initializer_list<WordRef> words)
+:_prev(gLatest)
+,_name(name)
+{
+    size_t count = 1;
+    for (auto &ref : words)
+        count += ref._count;
+    _instrs.reset(new Instruction[count]);
+    Instruction *dst = &_instrs[0];
+    for (auto &ref : words) {
+        std::copy(&ref._instrs[0], &ref._instrs[ref._count], dst);
+        dst += ref._count;
+    }
+    *dst = RETURN._native;
+
+    gLatest = this;
+}
+
+
+#define NATIVE_WORD(NAME, FORTHNAME, FLAGS) \
+    static int* f_##NAME(int *sp, Instruction *pc); \
+    Word NAME(FORTHNAME, f_##NAME, FLAGS); \
+    static int* f_##NAME(int *sp, Instruction *pc)
+
+#define BINARY_OP_WORD(NAME, FORTHNAME, INFIXOP) \
+    NATIVE_WORD(NAME, FORTHNAME, Word::None) { \
+        sp[1] = sp[1] INFIXOP sp[0];\
+        ++sp;\
+        NEXT(); \
+    }
+
+
+//======================== NATIVE WORDS ========================//
+
+
+//---- The absolute core:
+
+// (? -> ?)  Calls the subroutine pointed to by the following instruction.
+NATIVE_WORD(CALL, "CALL", {}) {
+    sp = call(sp, (pc++)->word);
     NEXT();
 }
 
+// ( -> )  Returns from the current word. Every word ends with this.
+NATIVE_WORD(RETURN, "RETURN", {}) {
+    return sp;
+}
+
+// ( -> i)  Pushes the following instruction as an integer
+NATIVE_WORD(LITERAL, "LITERAL", Word::HasIntParam) {
+    *(--sp) = (pc++)->param;
+    NEXT();
+}
+
+//---- Stack gymnastics:
+
 // (a -> a a)
-static int* DUP(int *sp, Instruction *pc) {
+NATIVE_WORD(DUP, "DUP", {}) {
     --sp;
     sp[0] = sp[1];
     NEXT();
 }
 
-// (a b -> a+b)
-static int* PLUS(int *sp, Instruction *pc) {
-    sp[1] += sp[0];
+// (a -> )
+NATIVE_WORD(DROP, "DROP", {}) {
     ++sp;
     NEXT();
 }
 
-// (a b -> a*b)
-static int* MULT(int *sp, Instruction *pc) {
-    sp[1] *= sp[0];
-    ++sp;
+// (a b -> b a)
+NATIVE_WORD(SWAP, "SWAP", {}) {
+    std::swap(sp[0], sp[1]);
     NEXT();
 }
 
-// ( -> )  Returns from the current word. Every word ends with this.
-static int* RETURN(int *sp, Instruction *pc) {
-    return sp;
-}
-
-
-// (? -> ?)  Calls the subroutine pointed to by the following instruction.
-static int* CALL(int *sp, Instruction *pc) {
-    sp = call(sp, (pc++)->word);
+// (a b -> a b a)
+NATIVE_WORD(OVER, "OVER", {}) {
+    --sp;
+    sp[0] = sp[2];
     NEXT();
 }
+
+//---- Arithmetic & Relational:
+
+NATIVE_WORD(ZERO, "0", {}) {
+    *(--sp) = 0;
+    NEXT();
+}
+
+NATIVE_WORD(ONE, "1", {}) {
+    *(--sp) = 1;
+    NEXT();
+}
+
+BINARY_OP_WORD(PLUS,  "+",  +)
+BINARY_OP_WORD(MINUS, "-",  -)
+BINARY_OP_WORD(MULT,  "*",  *)
+BINARY_OP_WORD(DIV,   "/",  /)
+BINARY_OP_WORD(MOD,   "MOD", %)
+BINARY_OP_WORD(EQ,    "=",  ==)
+BINARY_OP_WORD(NE,    "<>", !=)
+BINARY_OP_WORD(GT,    ">",  >)
+BINARY_OP_WORD(GE,    "<=", <=)
+BINARY_OP_WORD(LT,    "<",  <)
+BINARY_OP_WORD(LE,    "<=", <=)
+
+NATIVE_WORD(EQ_ZERO, "0=", {})  { sp[0] = (sp[0] == 0); NEXT(); }
+NATIVE_WORD(NE_ZERO, "0<>", {}) { sp[0] = (sp[0] != 0); NEXT(); }
+NATIVE_WORD(GT_ZERO, "0>", {})  { sp[0] = (sp[0] > 0); NEXT(); }
+NATIVE_WORD(LT_ZERO, "0<", {})  { sp[0] = (sp[0] < 0); NEXT(); }
+
+//---- Control Flow:
+
+/* "It turns out that all you need in order to define looping constructs, IF-statements, etc.
+    are two primitives.
+    BRANCH is an unconditional branch.
+    0BRANCH is a conditional branch (it only branches if the top of stack is zero)." --JonesForth */
+
+NATIVE_WORD(BRANCH, "BRANCH", Word::HasIntParam) {
+    pc += (pc++)->param;
+    NEXT();
+}
+
+NATIVE_WORD(ZBRANCH, "0BRANCH", Word::HasIntParam) {
+    if (*sp++ == 0)
+        pc += pc->param;
+    ++pc;
+    NEXT();
+}
+
+
+//======================== INTERPRETED WORDS ========================//
+
+
+const Word SQUARE("SQUARE", {
+    DUP,
+    MULT,
+});
+
+
+const Word ABS("ABS", {
+    DUP,
+    LT_ZERO,
+    {ZBRANCH, 3},
+    ZERO,
+    SWAP,
+    MINUS
+});
 
 
 //======================== TOP LEVEL ========================//
@@ -231,31 +419,13 @@ static std::array<int,1000> DataStack;
 
 
 /// Initializes & runs the interpreter, and returns the top value left on the stack.
-static int run(Instruction* start) {
-    return *call(DataStack.end(), start);
+static int run(const Word &word) {
+    assert(word._instrs);
+    return * call(DataStack.end(), word._instrs.get());
 }
 
 
 //======================== TEST CODE ========================//
-
-
-static Instruction Square[] = {
-    DUP,
-    MULT,
-    RETURN
-};
-
-
-static Instruction Program[] = {
-    LITERAL, 4,
-    LITERAL, 3,
-    PLUS,
-    CALL,    Square,
-    DUP,
-    PLUS,
-    CALL,    Square,
-    RETURN
-};
 
 
 #ifdef ENABLE_TRACING
@@ -270,8 +440,21 @@ static Instruction Program[] = {
 
 
 int main(int argc, char *argv[]) {
-    printf("Program is at %p\n", (void*)Program);
-    printf("Square  is at %p\n", (void*)Square);
+    printf("Known words:");
+    for (auto word = Word::gLatest; word; word = word->_prev)
+        printf(" %s", word->_name);
+    printf("\n");
+
+    const Word Program("Program", {
+        4,
+        3,
+        PLUS,
+        SQUARE,
+        DUP,
+        PLUS,
+        SQUARE,
+        ABS
+    });
 
     int n = run(Program);
 
