@@ -19,6 +19,8 @@
 #include <array>
 #include <initializer_list>
 #include <stdlib.h>
+#include <string_view>
+#include <unordered_map>
 
 
 // Magic function attributes!
@@ -133,13 +135,10 @@ struct Word {
 
     Word(std::initializer_list<WordRef> words)  :Word(nullptr, words) { }
 
-    mutable const Word*            _prev;       // Previously-defined word
     const char*                    _name;       // Forth name
     Op                             _native {};  // Native function pointer or NULL
     std::unique_ptr<Instruction[]> _instrs {};  // Interpreted instructions or NULL
     Flags                          _flags {};
-
-    static inline const Word* gLatest;          // Last-defined word; start of linked list
 };
 
 
@@ -178,21 +177,48 @@ struct WordRef {
 };
 
 
+/// A lookup table to find Words by name. Used by the Forth parser.
+class Vocabulary {
+public:
+    void add(const Word &word) {
+        _words.insert({word._name, &word});
+    }
+
+    const Word* lookup(std::string_view name) {
+        if (auto i = _words.find(name); i != _words.end())
+            return i->second;
+        else
+            return nullptr;
+    }
+
+    using map = std::unordered_map<std::string_view, const Word*>;
+    using iterator = map::iterator;
+
+    iterator begin()    {return _words.begin();}
+    iterator end()      {return _words.end();}
+
+private:
+    map _words;
+};
+
+
+/// Global vocabulary. Every named Word adds itself to this.
+Vocabulary gVocabulary;
+
+
 /// Constructor for a native word.
 Word::Word(const char *name, Op native, Flags flags)
-:_prev(gLatest)
-,_name(name)
+:_name(name)
 ,_native(native)
 ,_flags(flags)
 {
-    gLatest = this;
+    gVocabulary.add(*this);
 }
 
 
 /// Constructor for an interpreted word.
 Word::Word(const char *name, std::initializer_list<WordRef> words)
-:_prev(name ? gLatest : nullptr)
-,_name(name)
+:_name(name)
 {
     size_t count = 1;
     for (auto &ref : words)
@@ -206,7 +232,7 @@ Word::Word(const char *name, std::initializer_list<WordRef> words)
     *dst = RETURN._native;
 
     if (name)
-        gLatest = this;
+        gVocabulary.add(*this);
 }
 
 
@@ -410,8 +436,8 @@ static void _test(std::initializer_list<WordRef> words, const char *sourcecode, 
 
 int main(int argc, char *argv[]) {
     printf("Known words:");
-    for (auto word = Word::gLatest; word; word = word->_prev)
-        printf(" %s", word->_name);
+    for (auto word : gVocabulary)
+        printf(" %s", word.second->_name);
     printf("\n");
 
     TEST(-1234, -1234);
