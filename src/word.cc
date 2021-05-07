@@ -21,20 +21,13 @@
 #include "vocabulary.hh"
 
 
-/// Constructor for a native word.
-Word::Word(const char *name, Op native, Flags flags)
-:_name(name)
-,_native(native)
-,_flags(flags)
-{
-    gVocabulary.add(*this);
-}
-
-
 /// Constructor for an interpreted word.
-Word::Word(const char *name, std::initializer_list<WordRef> words)
-:_name(name)
-{
+CompiledWord::CompiledWord(const char *name, std::initializer_list<WordRef> words) {
+    if (name) {
+        _nameStr = name;
+        _name = _nameStr.c_str();
+    }
+
     size_t count = 1;
     for (auto &ref : words)
         count += ref._count;
@@ -42,16 +35,19 @@ Word::Word(const char *name, std::initializer_list<WordRef> words)
     for (auto &ref : words) {
         _instrs.insert(_instrs.end(), &ref._instrs[0], &ref._instrs[ref._count]);
     }
-    _instrs.push_back(RETURN._native);
+    _instrs.push_back(RETURN._instr);
+    _instr = &_instrs.front();
 
     if (name)
         gVocabulary.add(*this);
 }
 
 
-Word::Word(std::vector<Instruction> &&instrs)
+CompiledWord::CompiledWord(std::vector<Instruction> &&instrs)
 :_instrs(std::move(instrs))
-{ }
+{
+    _instr = &_instrs.front();
+}
 
 
 #pragma mark - WORDREF:
@@ -59,22 +55,21 @@ Word::Word(std::vector<Instruction> &&instrs)
 
 WordRef::WordRef(const Word &word) {
     assert(!(word._flags & Word::HasIntParam));
-    if (word._native) {
-        _instrs[0] = word._native;
+    if (word.isNative()) {
+        _instrs[0] = word._instr;
         _count = 1;
     } else {
-        assert(!word._native);
-        _instrs[0] = CALL._native;
-        _instrs[1] = &word._instrs.front();
+        _instrs[0] = CALL._instr;
+        _instrs[1] = word._instr;
+        _count = 2;
     }
 }
 
 
 WordRef::WordRef(const Word &word, int param)
-:_instrs{word._native, param}
+:_instrs{word._instr, param}
 {
-    assert(word._native);
-    assert(word._flags & Word::HasIntParam);
+    assert(word.isNative() && word.hasParam());
 }
 
 

@@ -13,6 +13,10 @@ class Word;
 /// A lookup table to find Words by name. Used by the Forth parser.
 class Vocabulary {
 public:
+    Vocabulary();
+
+    explicit Vocabulary(const Word* const *wordList);
+
     void add(const Word &word);
 
     const Word* lookup(std::string_view name);

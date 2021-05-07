@@ -18,9 +18,16 @@
 
 #include "vocabulary.hh"
 #include "word.hh"
+#include "core_words.hh"
 
 
-Vocabulary gVocabulary;
+Vocabulary gVocabulary(kCoreWords);
+
+
+Vocabulary::Vocabulary(const Word* const *wordList) {
+    while (*wordList)
+        add(**wordList++);
+}
 
 
 void Vocabulary::add(const Word &word) {

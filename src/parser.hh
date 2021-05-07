@@ -8,4 +8,4 @@
 #include "word.hh"
 
 
-Word Parse(const char*);
+CompiledWord Parse(const char*);

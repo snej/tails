@@ -17,24 +17,10 @@
 //
 
 #include "core_words.hh"
+#include "vocabulary.hh"
 
 
 //======================== NATIVE WORDS ========================//
-
-
-// Shortcut for defining a native word
-#define NATIVE_WORD(NAME, FORTHNAME, FLAGS) \
-    static int* f_##NAME(int *sp, const Instruction *pc); \
-    const Word NAME(FORTHNAME, f_##NAME, FLAGS); \
-    static int* f_##NAME(int *sp, const Instruction *pc)
-
-// Shortcut for defining a native word implementing a binary operator like `+` or `==`
-#define BINARY_OP_WORD(NAME, FORTHNAME, INFIXOP) \
-    NATIVE_WORD(NAME, FORTHNAME, Word::None) { \
-        sp[1] = sp[1] INFIXOP sp[0];\
-        ++sp;\
-        NEXT(); \
-    }
 
 
 //---- The absolute core:
@@ -95,16 +81,19 @@ NATIVE_WORD(ROT, "ROT", {}) {
 
 //---- Arithmetic & Relational:
 
+// ( -> 0)
 NATIVE_WORD(ZERO, "0", {}) {
     *(--sp) = 0;
     NEXT();
 }
 
+// ( -> 1)
 NATIVE_WORD(ONE, "1", {}) {
     *(--sp) = 1;
     NEXT();
 }
 
+// (a b -> a{op}b)
 BINARY_OP_WORD(PLUS,  "+",  +)
 BINARY_OP_WORD(MINUS, "-",  -)
 BINARY_OP_WORD(MULT,  "*",  *)
@@ -117,6 +106,7 @@ BINARY_OP_WORD(GE,    "<=", <=)
 BINARY_OP_WORD(LT,    "<",  <)
 BINARY_OP_WORD(LE,    "<=", <=)
 
+// (a -> bool)
 NATIVE_WORD(EQ_ZERO, "0=", {})  { sp[0] = (sp[0] == 0); NEXT(); }
 NATIVE_WORD(NE_ZERO, "0<>", {}) { sp[0] = (sp[0] != 0); NEXT(); }
 NATIVE_WORD(GT_ZERO, "0>", {})  { sp[0] = (sp[0] > 0); NEXT(); }
@@ -129,11 +119,13 @@ NATIVE_WORD(LT_ZERO, "0<", {})  { sp[0] = (sp[0] < 0); NEXT(); }
     BRANCH is an unconditional branch.
     0BRANCH is a conditional branch (it only branches if the top of stack is zero)." --JonesForth */
 
+// ( -> )  and reads offset from *pc
 NATIVE_WORD(BRANCH, "BRANCH", Word::HasIntParam) {
-    pc += (pc++)->param;
+    pc += pc->param + 1;
     NEXT();
 }
 
+// (b -> )  and reads offset from *pc
 NATIVE_WORD(ZBRANCH, "0BRANCH", Word::HasIntParam) {
     if (*sp++ == 0)
         pc += pc->param;
@@ -145,37 +137,54 @@ NATIVE_WORD(ZBRANCH, "0BRANCH", Word::HasIntParam) {
 //======================== INTERPRETED WORDS ========================//
 
 
-const Word SQUARE("SQUARE", {
+// (a -> a^2)
+INTERP_WORD(SQUARE, "SQUARE",
     DUP,
-    MULT,
-});
+    MULT
+);
 
 
-const Word ABS("ABS", {
+// (a -> abs)
+INTERP_WORD(ABS, "ABS",
     DUP,
     LT_ZERO,
-    {ZBRANCH, 3},
+    ZBRANCH, 3,
     ZERO,
     SWAP,
     MINUS
-});
+);
 
-
-const Word MAX("MAX", {
+// (a b -> max)
+INTERP_WORD(MAX, "MAX",
     OVER,
     OVER,
     LT,
-    {ZBRANCH, 1},
+    ZBRANCH, 1,
     SWAP,
     DROP
-});
+);
 
 
-const Word MIN("MIN", {
+// (a b -> min)
+INTERP_WORD (MIN, "MIN",
     OVER,
     OVER,
     GT,
-    {ZBRANCH, 1},
+    ZBRANCH, 1,
     SWAP,
     DROP
-});
+);
+
+
+const Word* const kCoreWords[] = {
+    &CALL, &LITERAL, &RETURN,
+    &DROP, &DUP, &OVER, &ROT, &SWAP,
+    &EQ, &NE, &EQ_ZERO, &NE_ZERO,
+    &GE, &GT, &GT_ZERO,
+    &LE, &LT, &LT_ZERO,
+    &ABS, &MAX, &MIN, &SQUARE,
+    &DIV, &MOD, &MINUS, &MULT, &PLUS,
+    &BRANCH, &ZBRANCH,
+    nullptr
+};
+

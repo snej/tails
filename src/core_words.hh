@@ -7,6 +7,8 @@
 #pragma once
 #include "word.hh"
 
+class Vocabulary;
+
 extern const Word
     CALL, RETURN, LITERAL,
     DROP, DUP, OVER, ROT, SWAP,
@@ -18,3 +20,5 @@ extern const Word
     BRANCH, ZBRANCH,
     ONE, ZERO;
 
+/// Array of pointers to the above core words, ending in nullptr
+extern const Word* const kCoreWords[];

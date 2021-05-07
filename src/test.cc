@@ -32,15 +32,15 @@ static std::array<int,1000> DataStack;
 /// Top-level function to run a Word.
 /// @return  The top value left on the stack.
 static int run(const Word &word) {
-    assert(!word._native); // must be interpreted
-    return * call(DataStack.end(), &word._instrs.front());
+    assert(!word.isNative()); // must be interpreted
+    return * call(DataStack.end(), word._instr.word);
 }
 
 
 /// Top-level function to run an anonymous temporary Word.
 /// @return  The top value left on the stack.
 static int run(std::initializer_list<WordRef> words) {
-    return run(Word(words));
+    return run(CompiledWord(words));
 }
 
 
@@ -67,7 +67,7 @@ static void _test(std::initializer_list<WordRef> words, const char *sourcecode, 
 
 static void TEST_PARSER(int expected, const char *source) {
     printf("* Parsing “%s”\n", source);
-    Word parsed = Parse(source);
+    CompiledWord parsed = Parse(source);
     int n = run(parsed);
     printf("\t-> got %d\n", n);
     assert(n == expected);

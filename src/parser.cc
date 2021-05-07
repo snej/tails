@@ -50,26 +50,23 @@ static optional<int> asNumber(string_view token) {
 }
 
 
-Word Parse(const char *input) {
+CompiledWord Parse(const char *input) {
     vector<Instruction> instrs;
     while (true) {
         string_view token = readToken(input);
         if (token.empty())
             break;
         if (const Word *word = gVocabulary.lookup(token); word) {
-            if (word->_native) {
-                instrs.push_back(word->_native);
-            } else {
-                instrs.push_back(CALL._native);
-                instrs.push_back(&word->_instrs.front());
-            }
+            if (!word->isNative())
+                instrs.push_back(CALL._instr);
+            instrs.push_back(word->_instr);
         } else if (auto ip = asNumber(token); ip) {
-            instrs.push_back(LITERAL._native);
+            instrs.push_back(LITERAL._instr);
             instrs.push_back(*ip);
         } else {
             throw runtime_error("Unknown word '" + string(token) + "'");
         }
     }
-    instrs.push_back(RETURN._native);
-    return Word(move(instrs));
+    instrs.push_back(RETURN._instr);
+    return CompiledWord(move(instrs));
 }
