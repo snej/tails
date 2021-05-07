@@ -1,5 +1,5 @@
 //
-// parser.cc
+// compiler.cc
 //
 // Copyright (C) 2020 Jens Alfke. All Rights Reserved.
 //
@@ -16,14 +16,58 @@
 // limitations under the License.
 //
 
-#include "parser.hh"
-#include "vocabulary.hh"
+#include "compiler.hh"
 #include "core_words.hh"
+#include "vocabulary.hh"
 #include <optional>
 #include <string>
 #include <string_view>
 
 using namespace std;
+
+
+/// Constructor for an interpreted word.
+CompiledWord::CompiledWord(const char *name) {
+    if (name) {
+        _nameStr = name;
+        _name = _nameStr.c_str();
+    }
+}
+
+
+CompiledWord::CompiledWord(const char *name, std::initializer_list<WordRef> words)
+:CompiledWord(name)
+{
+    size_t count = 1;
+    for (auto &ref : words)
+        count += 1 + ref.word.hasParam();
+    _instrs.reserve(count);
+    for (auto &ref : words)
+        add(ref);
+    _instrs.push_back(RETURN);
+    _instr = &_instrs.front();
+}
+
+
+void CompiledWord::add(const WordRef &ref) {
+    if (!ref.word.isNative())
+        _instrs.push_back(CALL);
+    _instrs.push_back(ref.word._instr);
+    if (ref.word.hasParam())
+        _instrs.push_back(ref.param);
+}
+
+
+void CompiledWord::finish() {
+    if (_instrs.empty() || _instrs.back().native != RETURN._instr.native)
+        add(RETURN);
+    _instr = &_instrs.front();
+    if (_name)
+        Vocabulary::global.add(*this);
+}
+
+
+#pragma mark - PARSER:
 
 
 static string_view readToken(const char* &input) {
@@ -50,23 +94,20 @@ static optional<int> asNumber(string_view token) {
 }
 
 
-CompiledWord Parse(const char *input) {
-    vector<Instruction> instrs;
+CompiledWord CompiledWord::parse(const char *input) {
+    CompiledWord parsedWord(nullptr);
     while (true) {
         string_view token = readToken(input);
         if (token.empty())
             break;
-        if (const Word *word = gVocabulary.lookup(token); word) {
-            if (!word->isNative())
-                instrs.push_back(CALL._instr);
-            instrs.push_back(word->_instr);
+        if (const Word *word = Vocabulary::global.lookup(token); word) {
+            parsedWord.add(*word);
         } else if (auto ip = asNumber(token); ip) {
-            instrs.push_back(LITERAL._instr);
-            instrs.push_back(*ip);
+            parsedWord.add(*ip);
         } else {
             throw runtime_error("Unknown word '" + string(token) + "'");
         }
     }
-    instrs.push_back(RETURN._instr);
-    return CompiledWord(move(instrs));
+    parsedWord.finish();
+    return parsedWord;
 }

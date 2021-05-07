@@ -21,7 +21,7 @@
 #include "core_words.hh"
 
 
-Vocabulary gVocabulary(kCoreWords);
+Vocabulary Vocabulary::global(kCoreWords);
 
 
 Vocabulary::Vocabulary(const Word* const *wordList) {

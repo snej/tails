@@ -7,7 +7,6 @@
 #pragma once
 #include "word.hh"
 
-class Vocabulary;
 
 extern const Word
     CALL, RETURN, LITERAL,

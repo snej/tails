@@ -17,7 +17,8 @@
 //
 
 #include "core_words.hh"
-#include "parser.hh"
+#include "compiler.hh"
+#include "compiler.hh"
 #include "vocabulary.hh"
 #include <array>
 
@@ -39,7 +40,7 @@ static int run(const Word &word) {
 
 /// Top-level function to run an anonymous temporary Word.
 /// @return  The top value left on the stack.
-static int run(std::initializer_list<WordRef> words) {
+static int run(std::initializer_list<CompiledWord::WordRef> words) {
     return run(CompiledWord(words));
 }
 
@@ -58,7 +59,7 @@ static int run(std::initializer_list<WordRef> words) {
 #endif
 
 
-static void _test(std::initializer_list<WordRef> words, const char *sourcecode, int expected) {
+static void _test(std::initializer_list<CompiledWord::WordRef> words, const char *sourcecode, int expected) {
     printf("* Testing {%s} ...\n", sourcecode);
     int n = run(words);
     printf("\t-> got %d\n", n);
@@ -67,7 +68,7 @@ static void _test(std::initializer_list<WordRef> words, const char *sourcecode, 
 
 static void TEST_PARSER(int expected, const char *source) {
     printf("* Parsing “%s”\n", source);
-    CompiledWord parsed = Parse(source);
+    CompiledWord parsed = CompiledWord::parse(source);
     int n = run(parsed);
     printf("\t-> got %d\n", n);
     assert(n == expected);
@@ -79,7 +80,7 @@ static void TEST_PARSER(int expected, const char *source) {
 
 int main(int argc, char *argv[]) {
     printf("Known words:");
-    for (auto word : gVocabulary)
+    for (auto word : Vocabulary::global)
         printf(" %s", word.second->_name);
     printf("\n");
 

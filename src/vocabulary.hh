@@ -27,12 +27,8 @@ public:
     iterator begin()    {return _words.begin();}
     iterator end()      {return _words.end();}
 
+    static Vocabulary global;
+
 private:
     map _words;
 };
-
-
-/// Global vocabulary. Every named Word adds itself to this.
-extern Vocabulary gVocabulary;
-
-

@@ -14,9 +14,6 @@
 union Instruction;
 
 
-//======================== TRACING ========================//
-
-
 // If ENABLE_TRACING is defined, a function `TRACE(sp,pc)` will be called after each Instruction.
 // Enabling this makes the code much less optimal, so only use when debugging.
 #if DEBUG
@@ -28,9 +25,6 @@ union Instruction;
 #else
 #   define TRACE(SP,PC)  (void)0
 #endif
-
-
-//======================== INTERPRETER CORE ========================//
 
 
 /// A native word is a C++ function with this signature.

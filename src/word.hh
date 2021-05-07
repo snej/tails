@@ -6,13 +6,6 @@
 
 #pragma once
 #include "instruction.hh"
-#include <string>
-
-
-//======================== DEFINING WORDS ========================//
-
-
-struct WordRef;
 
 
 /// A Forth word definition: name, flags and code.
@@ -50,36 +43,12 @@ protected:
 };
 
 
-/// A Forth word definition compiled at runtime.
-struct CompiledWord : public Word {
-    CompiledWord(const char *name, std::initializer_list<WordRef> words);
-    CompiledWord(std::initializer_list<WordRef> words)  :CompiledWord(nullptr, words) { }
-    CompiledWord(std::vector<Instruction>&&);
-
-    std::string                 _nameStr;       // Backing store for _name
-    std::vector<Instruction>    _instrs {};     // Instructions; backing store for _instr
-};
-
-
-/// A reference to a Word and optional following parameter;
-/// used only temporarily, in the initializer_list of the Word constructor.
-/// This is just a convenience for hand-assembling words, not a real part of the system.
-struct WordRef {
-    WordRef(const Word &word);
-    WordRef(const Word &word, int param);
-    WordRef(int i);
-
-    Instruction _instrs[2];
-    int8_t      _count = 2;
-};
-
-
-
 // Shortcut for defining a native word (see examples in core_words.cc)
 #define NATIVE_WORD(NAME, FORTHNAME, FLAGS) \
     extern "C" int* f_##NAME(int *sp, const Instruction *pc) noexcept; \
     constexpr Word NAME(FORTHNAME, f_##NAME, FLAGS); \
     extern "C" int* f_##NAME(int *sp, const Instruction *pc) noexcept
+
 
 // Shortcut for defining a native word implementing a binary operator like `+` or `==`
 #define BINARY_OP_WORD(NAME, FORTHNAME, INFIXOP) \

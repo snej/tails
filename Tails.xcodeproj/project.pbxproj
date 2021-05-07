@@ -9,10 +9,9 @@
 /* Begin PBXBuildFile section */
 		273B20962643493E00A14EC4 /* test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 273B20952643493E00A14EC4 /* test.cc */; };
 		273B209A26434A1100A14EC4 /* vocabulary.cc in Sources */ = {isa = PBXBuildFile; fileRef = 273B209926434A1100A14EC4 /* vocabulary.cc */; };
-		273B209E264351E400A14EC4 /* word.cc in Sources */ = {isa = PBXBuildFile; fileRef = 273B209D264351E400A14EC4 /* word.cc */; };
-		273B20A1264353C900A14EC4 /* parser.cc in Sources */ = {isa = PBXBuildFile; fileRef = 273B20A0264353C900A14EC4 /* parser.cc */; };
 		273B20AB2645ACED00A14EC4 /* libCoreWords.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 273B20A62645AC8F00A14EC4 /* libCoreWords.a */; };
 		273B20AE2645ACFA00A14EC4 /* core_words.cc in Sources */ = {isa = PBXBuildFile; fileRef = 273B2093264348A400A14EC4 /* core_words.cc */; };
+		273B20B12645D67000A14EC4 /* compiler.cc in Sources */ = {isa = PBXBuildFile; fileRef = 273B20B02645D67000A14EC4 /* compiler.cc */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -48,10 +47,9 @@
 		273B209926434A1100A14EC4 /* vocabulary.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = vocabulary.cc; sourceTree = "<group>"; };
 		273B209B26434B6B00A14EC4 /* platform.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = platform.hh; sourceTree = "<group>"; };
 		273B209C264351E400A14EC4 /* word.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = word.hh; sourceTree = "<group>"; };
-		273B209D264351E400A14EC4 /* word.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = word.cc; sourceTree = "<group>"; };
-		273B209F264353C900A14EC4 /* parser.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = parser.hh; sourceTree = "<group>"; };
-		273B20A0264353C900A14EC4 /* parser.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = parser.cc; sourceTree = "<group>"; };
 		273B20A62645AC8F00A14EC4 /* libCoreWords.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libCoreWords.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		273B20AF2645D67000A14EC4 /* compiler.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = compiler.hh; sourceTree = "<group>"; };
+		273B20B02645D67000A14EC4 /* compiler.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = compiler.cc; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -97,14 +95,13 @@
 			children = (
 				273B209B26434B6B00A14EC4 /* platform.hh */,
 				273B20922643479600A14EC4 /* instruction.hh */,
-				273B209D264351E400A14EC4 /* word.cc */,
 				273B209C264351E400A14EC4 /* word.hh */,
-				273B209926434A1100A14EC4 /* vocabulary.cc */,
-				273B209826434A1000A14EC4 /* vocabulary.hh */,
 				273B2093264348A400A14EC4 /* core_words.cc */,
 				273B20972643498900A14EC4 /* core_words.hh */,
-				273B20A0264353C900A14EC4 /* parser.cc */,
-				273B209F264353C900A14EC4 /* parser.hh */,
+				273B209926434A1100A14EC4 /* vocabulary.cc */,
+				273B209826434A1000A14EC4 /* vocabulary.hh */,
+				273B20AF2645D67000A14EC4 /* compiler.hh */,
+				273B20B02645D67000A14EC4 /* compiler.cc */,
 				273B20952643493E00A14EC4 /* test.cc */,
 			);
 			path = src;
@@ -205,10 +202,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				273B20B12645D67000A14EC4 /* compiler.cc in Sources */,
 				273B20962643493E00A14EC4 /* test.cc in Sources */,
 				273B209A26434A1100A14EC4 /* vocabulary.cc in Sources */,
-				273B209E264351E400A14EC4 /* word.cc in Sources */,
-				273B20A1264353C900A14EC4 /* parser.cc in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

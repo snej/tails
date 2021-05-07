@@ -17,7 +17,6 @@
 //
 
 #include "core_words.hh"
-#include "vocabulary.hh"
 
 
 //======================== NATIVE WORDS ========================//
@@ -135,6 +134,9 @@ NATIVE_WORD(ZBRANCH, "0BRANCH", Word::HasIntParam) {
 
 
 //======================== INTERPRETED WORDS ========================//
+
+
+// Warning: A numeric literal has to be preceded by LITERAL, and an interpreted word by CALL.
 
 
 // (a -> a^2)
