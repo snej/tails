@@ -24,8 +24,9 @@ struct Word {
     Word(const char *name, Op native, Flags flags =None);
     Word(const char *name, std::initializer_list<WordRef> words);
     Word(std::initializer_list<WordRef> words)  :Word(nullptr, words) { }
+    Word(std::vector<Instruction>&&);
 
-    const char*                    _name;       // Forth name
+    const char*                    _name {};    // Forth name, or NULL if anonymous
     Op                             _native {};  // Native function pointer or NULL
     std::vector<Instruction>       _instrs {};  // Interpreted instructions (if not native)
     Flags                          _flags {};

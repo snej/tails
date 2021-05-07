@@ -49,6 +49,14 @@ Word::Word(const char *name, std::initializer_list<WordRef> words)
 }
 
 
+Word::Word(std::vector<Instruction> &&instrs)
+:_instrs(std::move(instrs))
+{ }
+
+
+#pragma mark - WORDREF:
+
+
 WordRef::WordRef(const Word &word) {
     assert(!(word._flags & Word::HasIntParam));
     if (word._native) {

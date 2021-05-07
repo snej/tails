@@ -17,6 +17,7 @@
 //
 
 #include "core_words.hh"
+#include "parser.hh"
 #include "vocabulary.hh"
 #include <array>
 
@@ -64,6 +65,15 @@ static void _test(std::initializer_list<WordRef> words, const char *sourcecode, 
     assert(n == expected);
 }
 
+static void TEST_PARSER(int expected, const char *source) {
+    printf("* Parsing “%s”\n", source);
+    Word parsed = Parse(source);
+    int n = run(parsed);
+    printf("\t-> got %d\n", n);
+    assert(n == expected);
+}
+
+
 #define TEST(EXPECTED, ...) _test({__VA_ARGS__}, #__VA_ARGS__, EXPECTED)
 
 
@@ -91,6 +101,9 @@ int main(int argc, char *argv[]) {
          PLUS,
          SQUARE,
          ABS);
+
+    TEST_PARSER(7, "3 -4 -");
+    TEST_PARSER(9604, "4 3 + SQUARE DUP + SQUARE ABS");
 
     printf("\nTESTS PASSED❣️❣️❣️\n\n");
     return 0;
