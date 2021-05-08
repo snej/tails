@@ -33,19 +33,17 @@ static std::array<int,1000> DataStack;
 /// Top-level function to run a Word.
 /// @return  The top value left on the stack.
 static int run(const Word &word) {
-    assert(!word.isNative()); // must be interpreted
+    assert(!word.isNative());           // must be interpreted
+    assert(word._effect.input() == 0);  // must not require any inputs
+    assert(word._effect.output() > 0);  // must produce results
     return * call(DataStack.end(), word._instr.word);
 }
 
 
-/// Top-level function to run an anonymous temporary Word.
-/// @return  The top value left on the stack.
-static int run(std::initializer_list<CompiledWord::WordRef> words) {
-    return run(CompiledWord(words));
-}
-
-
 //======================== TEST CODE ========================//
+
+
+static_assert( StackEffect(1, 1).then(StackEffect(2,2)) == StackEffect(2, 2));
 
 
 #ifdef ENABLE_TRACING
@@ -61,7 +59,9 @@ static int run(std::initializer_list<CompiledWord::WordRef> words) {
 
 static void _test(std::initializer_list<CompiledWord::WordRef> words, const char *sourcecode, int expected) {
     printf("* Testing {%s} ...\n", sourcecode);
-    int n = run(words);
+    CompiledWord word(words);
+    printf("\t-> stack effect (%d,%d)\n", word.stackEffect().input(), word.stackEffect().output());
+    int n = run(word);
     printf("\t-> got %d\n", n);
     assert(n == expected);
 }
@@ -69,6 +69,7 @@ static void _test(std::initializer_list<CompiledWord::WordRef> words, const char
 static void TEST_PARSER(int expected, const char *source) {
     printf("* Parsing “%s”\n", source);
     CompiledWord parsed = CompiledWord::parse(source);
+    printf("\t-> stack effect (%d,%d)\n", parsed.stackEffect().input(), parsed.stackEffect().output());
     int n = run(parsed);
     printf("\t-> got %d\n", n);
     assert(n == expected);
@@ -105,6 +106,7 @@ int main(int argc, char *argv[]) {
 
     TEST_PARSER(7, "3 -4 -");
     TEST_PARSER(9604, "4 3 + SQUARE DUP + SQUARE ABS");
+    TEST_PARSER(10, "10 20 OVER OVER > 0BRANCH 1 SWAP DROP");
 
     printf("\nTESTS PASSED❣️❣️❣️\n\n");
     return 0;

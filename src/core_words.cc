@@ -25,18 +25,18 @@
 //---- The absolute core:
 
 // (? -> ?)  Calls the subroutine pointed to by the following instruction.
-NATIVE_WORD(CALL, "CALL", {}) {
+NATIVE_WORD(CALL, "CALL", StackEffect(1,1), {}) {
     sp = call(sp, (pc++)->word);
     NEXT();
 }
 
 // ( -> )  Returns from the current word. Every word ends with this.
-NATIVE_WORD(RETURN, "RETURN", {}) {
+NATIVE_WORD(RETURN, "RETURN", StackEffect(0,0), {}) {
     return sp;
 }
 
 // ( -> i)  Pushes the following instruction as an integer
-NATIVE_WORD(LITERAL, "LITERAL", Word::HasIntParam) {
+NATIVE_WORD(LITERAL, "LITERAL", StackEffect(0,1), Word::HasIntParam) {
     *(--sp) = (pc++)->param;
     NEXT();
 }
@@ -44,33 +44,33 @@ NATIVE_WORD(LITERAL, "LITERAL", Word::HasIntParam) {
 //---- Stack gymnastics:
 
 // (a -> a a)
-NATIVE_WORD(DUP, "DUP", {}) {
+NATIVE_WORD(DUP, "DUP", StackEffect(1,2), {}) {
     --sp;
     sp[0] = sp[1];
     NEXT();
 }
 
 // (a -> )
-NATIVE_WORD(DROP, "DROP", {}) {
+NATIVE_WORD(DROP, "DROP", StackEffect(1,0), {}) {
     ++sp;
     NEXT();
 }
 
 // (a b -> b a)
-NATIVE_WORD(SWAP, "SWAP", {}) {
+NATIVE_WORD(SWAP, "SWAP", StackEffect(2,2), {}) {
     std::swap(sp[0], sp[1]);
     NEXT();
 }
 
 // (a b -> a b a)
-NATIVE_WORD(OVER, "OVER", {}) {
+NATIVE_WORD(OVER, "OVER", StackEffect(2,3), {}) {
     --sp;
     sp[0] = sp[2];
     NEXT();
 }
 
 // (a b c -> b c a)
-NATIVE_WORD(ROT, "ROT", {}) {
+NATIVE_WORD(ROT, "ROT", StackEffect(3,3), {}) {
     auto sp2 = sp[2];
     sp[2] = sp[1];
     sp[1] = sp[0];
@@ -78,16 +78,21 @@ NATIVE_WORD(ROT, "ROT", {}) {
     NEXT();
 }
 
+// ( -> )
+NATIVE_WORD(NOP, "NOP", StackEffect(0,0), {}) {
+    NEXT();
+}
+
 //---- Arithmetic & Relational:
 
 // ( -> 0)
-NATIVE_WORD(ZERO, "0", {}) {
+NATIVE_WORD(ZERO, "0", StackEffect(0,1), {}) {
     *(--sp) = 0;
     NEXT();
 }
 
 // ( -> 1)
-NATIVE_WORD(ONE, "1", {}) {
+NATIVE_WORD(ONE, "1", StackEffect(0,1), {}) {
     *(--sp) = 1;
     NEXT();
 }
@@ -106,10 +111,10 @@ BINARY_OP_WORD(LT,    "<",  <)
 BINARY_OP_WORD(LE,    "<=", <=)
 
 // (a -> bool)
-NATIVE_WORD(EQ_ZERO, "0=", {})  { sp[0] = (sp[0] == 0); NEXT(); }
-NATIVE_WORD(NE_ZERO, "0<>", {}) { sp[0] = (sp[0] != 0); NEXT(); }
-NATIVE_WORD(GT_ZERO, "0>", {})  { sp[0] = (sp[0] > 0); NEXT(); }
-NATIVE_WORD(LT_ZERO, "0<", {})  { sp[0] = (sp[0] < 0); NEXT(); }
+NATIVE_WORD(EQ_ZERO, "0=", StackEffect(1,1), {})  { sp[0] = (sp[0] == 0); NEXT(); }
+NATIVE_WORD(NE_ZERO, "0<>", StackEffect(1,1), {}) { sp[0] = (sp[0] != 0); NEXT(); }
+NATIVE_WORD(GT_ZERO, "0>", StackEffect(1,1), {})  { sp[0] = (sp[0] > 0); NEXT(); }
+NATIVE_WORD(LT_ZERO, "0<", StackEffect(1,1), {})  { sp[0] = (sp[0] < 0); NEXT(); }
 
 //---- Control Flow:
 
@@ -119,13 +124,13 @@ NATIVE_WORD(LT_ZERO, "0<", {})  { sp[0] = (sp[0] < 0); NEXT(); }
     0BRANCH is a conditional branch (it only branches if the top of stack is zero)." --JonesForth */
 
 // ( -> )  and reads offset from *pc
-NATIVE_WORD(BRANCH, "BRANCH", Word::HasIntParam) {
+NATIVE_WORD(BRANCH, "BRANCH", StackEffect(0,0), Word::HasIntParam) {
     pc += pc->param + 1;
     NEXT();
 }
 
 // (b -> )  and reads offset from *pc
-NATIVE_WORD(ZBRANCH, "0BRANCH", Word::HasIntParam) {
+NATIVE_WORD(ZBRANCH, "0BRANCH", StackEffect(1,0), Word::HasIntParam) {
     if (*sp++ == 0)
         pc += pc->param;
     ++pc;
@@ -140,14 +145,14 @@ NATIVE_WORD(ZBRANCH, "0BRANCH", Word::HasIntParam) {
 
 
 // (a -> a^2)
-INTERP_WORD(SQUARE, "SQUARE",
+INTERP_WORD(SQUARE, "SQUARE", StackEffect(1,1),
     DUP,
     MULT
 );
 
 
 // (a -> abs)
-INTERP_WORD(ABS, "ABS",
+INTERP_WORD(ABS, "ABS", StackEffect(1,1),
     DUP,
     LT_ZERO,
     ZBRANCH, 3,
@@ -157,7 +162,7 @@ INTERP_WORD(ABS, "ABS",
 );
 
 // (a b -> max)
-INTERP_WORD(MAX, "MAX",
+INTERP_WORD(MAX, "MAX", StackEffect(2,1),
     OVER,
     OVER,
     LT,
@@ -168,7 +173,7 @@ INTERP_WORD(MAX, "MAX",
 
 
 // (a b -> min)
-INTERP_WORD (MIN, "MIN",
+INTERP_WORD (MIN, "MIN", StackEffect(2,1),
     OVER,
     OVER,
     GT,
@@ -180,7 +185,7 @@ INTERP_WORD (MIN, "MIN",
 
 const Word* const kCoreWords[] = {
     &CALL, &LITERAL, &RETURN,
-    &DROP, &DUP, &OVER, &ROT, &SWAP,
+    &DROP, &DUP, &OVER, &ROT, &SWAP, &NOP,
     &EQ, &NE, &EQ_ZERO, &NE_ZERO,
     &GE, &GT, &GT_ZERO,
     &LE, &LT, &LT_ZERO,

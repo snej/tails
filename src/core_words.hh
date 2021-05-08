@@ -10,7 +10,7 @@
 
 extern const Word
     CALL, RETURN, LITERAL,
-    DROP, DUP, OVER, ROT, SWAP,
+    DROP, DUP, OVER, ROT, SWAP, NOP,
     EQ, NE, EQ_ZERO, NE_ZERO,
     GE, GT, GT_ZERO,
     LE, LT, LT_ZERO,

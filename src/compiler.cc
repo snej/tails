@@ -27,7 +27,9 @@ using namespace std;
 
 
 /// Constructor for an interpreted word.
-CompiledWord::CompiledWord(const char *name) {
+CompiledWord::CompiledWord(const char *name)
+:_tempWords(new WordVec())
+{
     if (name) {
         _nameStr = name;
         _name = _nameStr.c_str();
@@ -44,8 +46,7 @@ CompiledWord::CompiledWord(const char *name, std::initializer_list<WordRef> word
     _instrs.reserve(count);
     for (auto &ref : words)
         add(ref);
-    _instrs.push_back(RETURN);
-    _instr = &_instrs.front();
+    finish();
 }
 
 
@@ -55,6 +56,41 @@ void CompiledWord::add(const WordRef &ref) {
     _instrs.push_back(ref.word._instr);
     if (ref.word.hasParam())
         _instrs.push_back(ref.param);
+
+    _tempWords->push_back(ref);
+    if (ref.word.hasParam())
+        _tempWords->push_back(NOP); // placeholder to keep indexes the same as in _instrs
+}
+
+
+StackEffect CompiledWord::computeEffect(WordVec::iterator i) {
+    StackEffect effect(0, 0);
+    while (true) {
+        WordRef ref = *i;
+        if (ref.word.hasParam())
+            ++i;
+        effect = effect.then(ref.word._effect);
+        if (&ref.word == &RETURN) {
+            return effect;
+        } else if (&ref.word == &BRANCH || &ref.word == &ZBRANCH) {
+            if (ref.param < 0)
+                throw runtime_error("Backwards branches not supported yet");    //TODO: Track this
+            auto dst = i + 1 + ref.param;
+            if (dst < _tempWords->begin() || dst >= _tempWords->end())
+                throw runtime_error("Invalid BRANCH destination");
+            if (&ref.word == &BRANCH) {
+                i += ref.param;
+            } else {
+                // Conditional branch: have to follow both paths and see if they match:
+                StackEffect eff1 = computeEffect(i + 1);
+                StackEffect eff2 = computeEffect(dst);
+                if (eff1.net() != eff2.net())
+                    throw runtime_error("Inconsistent stack depths after 0BRANCH");
+                return effect.then( eff1.merge(eff2) );
+            }
+        }
+        ++i;
+    }
 }
 
 
@@ -62,6 +98,15 @@ void CompiledWord::finish() {
     if (_instrs.empty() || _instrs.back().native != RETURN._instr.native)
         add(RETURN);
     _instr = &_instrs.front();
+
+    auto effect = computeEffect(_tempWords->begin());
+    _tempWords.reset();
+    if (_effect) {
+        if (effect != _effect)
+            throw runtime_error("Actual stack effect differs from declaration");
+    } else {
+        _effect = effect;
+    }
     if (_name)
         Vocabulary::global.add(*this);
 }
@@ -101,7 +146,14 @@ CompiledWord CompiledWord::parse(const char *input) {
         if (token.empty())
             break;
         if (const Word *word = Vocabulary::global.lookup(token); word) {
-            parsedWord.add(*word);
+            if (word->hasParam()) {
+                auto param = asNumber(readToken(input));
+                if (!param)
+                    throw runtime_error("Invalid numeric param after " + string(token));
+                parsedWord.add({*word, *param});
+            } else {
+                parsedWord.add(*word);
+            }
         } else if (auto ip = asNumber(token); ip) {
             parsedWord.add(*ip);
         } else {

@@ -35,6 +35,8 @@ public:
 
     //---- Incrementally building words:
 
+    void declareEffect(StackEffect effect)  {_effect = effect;}
+
     /// Initializes a CompiledWord with a name (or none) but no instructions.
     /// \ref add and \ref finish need to be called before the word can be used.
     explicit CompiledWord(const char *name = nullptr);
@@ -47,6 +49,11 @@ public:
     void finish();
 
 private:
+    using WordVec = std::vector<WordRef>;
+    StackEffect computeEffect(WordVec::iterator i);
+
     std::string                 _nameStr;       // Backing store for inherited _name
     std::vector<Instruction>    _instrs {};     // Instructions; backing store for inherited _instr
+
+    std::unique_ptr<WordVec> _tempWords;
 };
