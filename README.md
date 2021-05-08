@@ -1,10 +1,10 @@
 # Tails, A Fast C+\+ Forth Core
 
-**Tails** is a minimal, fast [Forth][FORTH] interpreter core written entirely in C+\+. I created it as a one-day hack to celebrate May Forth 2021 … then kept going because it's fun.
+**Tails** is a minimal, fast [Forth][FORTH]-like interpreter core written entirely in C+\+. I created it as a one-day hack to celebrate May Forth 2021 … then kept going because it's fun.
 
- What can it do? Not much. It knows how to add and multiply integers!! and call functions!!!! It can evaluate `4 3, + SQUARE DUP + SQUARE ABS` and return the expected answer `9604`. But it can't parse Forth source or load external programs; the program has to be hardcoded as a C+\+ static array.
+ What can it do? Not much. It knows how to add and multiply integers!! and call functions!!!! It can evaluate `4 3, + SQUARE DUP + SQUARE ABS` and return the expected answer `9604`. That expression can be written as a hardcoded list of word references, or parsed from a string.
 
- OK, but it's minuscule! Last I checked, the core was only a few hundred bytes, and some of those were NOPs the compiler added for padding.
+ It's not much, but it's pretty tiny! The magic core functions (`NEXT`, `CALL`, `RETURN`, `LITERAL`, `DUP`, etc.) are just a few hundred bytes, some of which are NOPs the compiler adds for padding. The parser/compiler add a few KB more.
  
  And it's very easy to extend -- see the to-do list at the end.
 
@@ -112,8 +112,9 @@ For example, here's the x86-64 assembly code of the PLUS function, compiled by C
 ## To-Do List
 
 * Add memory that programs can read/write
+* Other data types, like strings?
+* Stack bounds checking
 * Define a bunch more core words in native code
-* Write a basic lexer to read words from stdin
 * Define the all-important `:` and `;` words, so words can be defined in Forth itself...
 
 [FORTH]: https://en.wikipedia.org/wiki/Forth_(programming_language)
