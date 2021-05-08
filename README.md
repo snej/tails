@@ -2,13 +2,19 @@
 
 **Tails** is a minimal, fast [Forth][FORTH]-like interpreter core written entirely in C+\+. I created it as a one-day hack to celebrate May Forth 2021 … then kept going because it's fun.
 
- What can it do? Not much. It knows how to add and multiply integers!! and call functions!!!! It can evaluate `4 3, + SQUARE DUP + SQUARE ABS` and return the expected answer `9604`. That expression can be written as a hardcoded list of word references, or parsed from a string.
+What can it do? Not much. It knows how to add and multiply integers!! and call functions!!!! It can evaluate `4 3, + SQUARE DUP + SQUARE ABS` and return the expected answer `9604`. That expression can be written as a hardcoded list of word references, or parsed from a string.
 
- It's not much, but it's pretty tiny! The magic core functions (`NEXT`, `CALL`, `RETURN`, `LITERAL`, `DUP`, etc.) are just a few hundred bytes, some of which are NOPs the compiler adds for padding. The parser/compiler add a few KB more.
+It's not much, but it's pretty tiny! The magic core code (`NEXT`, `CALL`, `RETURN`, `LITERAL`, `DUP`, etc.) is about 200SLOC and compiles to a few hundred bytes, many of which are NOPs the compiler adds for padding. The parser and compiler add a few KB more.
  
- And it's very easy to extend -- see the to-do list at the end.
+And it's very easy to extend -- see the to-do list at the end.
 
- The reason I wrote this, besides to fulfil a decades-old dream of building a working Forth interpreter, is to apply the really elegant and efficient implementation technique used by [Wasm3][WASM3] (a [WebAssembly][WASM] interpreter), which is probably the fastest pure non-JIT interpreter there is. See below under "Performance".
+The reason I wrote this, besides to fulfil a decades-old dream of building a working Forth interpreter, is to apply the really elegant and efficient implementation technique used by [Wasm3][WASM3] (a [WebAssembly][WASM] interpreter), which is probably the fastest pure non-JIT interpreter there is. See below under "Performance".
+ 
+## Just Show Me The Code!
+
+* The absolute core is [instruction.hh](https://github.com/snej/tails/blob/main/src/instruction.hh), which defines how code is structured and called, and how one primitive/native word proceeds to the next.
+* [word.hh](https://github.com/snej/tails/blob/main/src/word.hh) defines the `Word` class that associates a name and flags with an (interpreted or primitive) function.
+* [core_words.cc](https://github.com/snej/tails/blob/main/src/core_words.cc) defines the very basic primitives like `LITERAL`, `DUP`, `+`, and some interpreted words like `ABS` and `MAX`.
  
 ## Theory Of Operation
 
