@@ -106,7 +106,7 @@ BINARY_OP_WORD(MOD,   "MOD", %)
 BINARY_OP_WORD(EQ,    "=",  ==)
 BINARY_OP_WORD(NE,    "<>", !=)
 BINARY_OP_WORD(GT,    ">",  >)
-BINARY_OP_WORD(GE,    "<=", <=)
+BINARY_OP_WORD(GE,    ">=", >=)
 BINARY_OP_WORD(LT,    "<",  <)
 BINARY_OP_WORD(LE,    "<=", <=)
 

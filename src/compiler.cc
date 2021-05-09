@@ -63,52 +63,82 @@ void CompiledWord::add(const WordRef &ref) {
 }
 
 
-StackEffect CompiledWord::computeEffect(WordVec::iterator i) {
-    StackEffect effect(0, 0);
-    while (true) {
-        WordRef ref = *i;
-        if (ref.word.hasParam())
-            ++i;
-        effect = effect.then(ref.word._effect);
-        if (&ref.word == &RETURN) {
-            return effect;
-        } else if (&ref.word == &BRANCH || &ref.word == &ZBRANCH) {
-            if (ref.param < 0)
-                throw runtime_error("Backwards branches not supported yet");    //TODO: Track this
-            auto dst = i + 1 + ref.param;
-            if (dst < _tempWords->begin() || dst >= _tempWords->end())
-                throw runtime_error("Invalid BRANCH destination");
-            if (&ref.word == &BRANCH) {
-                i += ref.param;
-            } else {
-                // Conditional branch: have to follow both paths and see if they match:
-                StackEffect eff1 = computeEffect(i + 1);
-                StackEffect eff2 = computeEffect(dst);
-                if (eff1.net() != eff2.net())
-                    throw runtime_error("Inconsistent stack depths after 0BRANCH");
-                return effect.then( eff1.merge(eff2) );
-            }
-        }
-        ++i;
-    }
+void CompiledWord::declareEffect(StackEffect effect) {
+    if (_effect && effect != _effect)
+        throw runtime_error("Actual stack effect differs from declaration");
+    _effect = effect;
 }
 
 
 void CompiledWord::finish() {
-    if (_instrs.empty() || _instrs.back().native != RETURN._instr.native)
-        add(RETURN);
+    add(RETURN);
+    computeEffect();
     _instr = &_instrs.front();
-
-    auto effect = computeEffect(_tempWords->begin());
-    _tempWords.reset();
-    if (_effect) {
-        if (effect != _effect)
-            throw runtime_error("Actual stack effect differs from declaration");
-    } else {
-        _effect = effect;
-    }
     if (_name)
         Vocabulary::global.add(*this);
+}
+
+
+// Computes the stack effect of the word, throwing if it's inconsistent.
+void CompiledWord::computeEffect() {
+    assert(_tempWords);
+    StackEffect effect;
+    computeEffect(0, StackEffect(), effect);
+    _tempWords.reset();
+    declareEffect(effect);
+}
+
+
+// Subroutine that traces control flow, memoizing stack effects at each instruction.
+// @param i  The index in `_tempWords` to start at
+// @param curEffect  The known stack effect before the word at `i`
+// @param finalEffect  The cumulative stack effect will be stored here.
+void CompiledWord::computeEffect(int i, StackEffect curEffect, StackEffect &finalEffect) {
+    while (true) {
+        // Look at the word at `i`:
+        WordRef &cur = (*_tempWords)[i];
+        //std::cout << "\t\tcomputeEffect at " << i << ", effect (" << curEffect.input() << "," << curEffect.output() << ") before " << cur.word._name << "\n";
+        if (cur.word.hasParam())
+            ++i;
+        assert(cur.word != NOP);
+        if (cur.effectNow) {
+            // If we've been at this instruction before (due to a back BRANCH),
+            // we can stop, but the current effect must match the previous one:
+            if (cur.effectNow != curEffect)
+                throw runtime_error("Inconsistent stack depth");
+            return;
+        }
+        
+        // Remember current effect, then apply the instruction's effect:
+        cur.effectNow = curEffect;
+        curEffect = curEffect.then(cur.word._effect);
+
+        if (cur.word == RETURN) {
+            // The current effect when RETURN is reached is the word's cumulative effect.
+            // If there are multiple RETURNs, each must have the same effect.
+            if (finalEffect && finalEffect != curEffect)
+                throw runtime_error("Inconsistent stack effects at RETURNs");
+            finalEffect = curEffect;
+            return;
+
+        } else if (cur.word == BRANCH || cur.word == ZBRANCH) {
+            // Compute branch destination:
+            auto dst = i + 1 + cur.param;
+            if (dst < 0 || dst >= _tempWords->size() || (*_tempWords)[dst].word == NOP)
+                throw runtime_error("Invalid BRANCH destination");
+
+            // If this is a 0BRANCH, recurse to follow the non-branch case too:
+            if (cur.word == ZBRANCH)
+                computeEffect(i + 1, curEffect, finalEffect);
+
+            // Follow the branch:
+            i = dst;
+
+        } else {
+            // Continue to next instruction:
+            ++i;
+        }
+    }
 }
 
 

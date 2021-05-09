@@ -40,9 +40,12 @@ public:
                            uint8_t(maxInput + this->net() + other.net()));
     }
 
+    /// Returns true if `merge` is legal, i.e. the two have the same net stack effect.
+    bool canMerge(const StackEffect &other) const       {return this->net() == other.net();}
+
     /// Returns the effect of doing either `this` or `other` (which must have the same net.)
     constexpr StackEffect merge(const StackEffect &other) const {
-        assert(this->net() == other.net());
+        assert(canMerge(other));
         return this->input() >= other.input() ? *this : other;
     }
 
@@ -89,6 +92,10 @@ struct Word {
 protected:
     Word() :_instr {}, _name(nullptr), _effect(0, 0), _flags(None) { };
 };
+
+
+inline bool operator==(const Word &a, const Word &b)   {return a._instr.native == b._instr.native;}
+inline bool operator!=(const Word &a, const Word &b)   {return !(a == b);}
 
 
 // Shortcut for defining a native word (see examples in core_words.cc)

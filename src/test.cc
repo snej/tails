@@ -107,6 +107,7 @@ int main(int argc, char *argv[]) {
     TEST_PARSER(7, "3 -4 -");
     TEST_PARSER(9604, "4 3 + SQUARE DUP + SQUARE ABS");
     TEST_PARSER(10, "10 20 OVER OVER > 0BRANCH 1 SWAP DROP");
+    TEST_PARSER(1, "53 DUP 13 >= 0BRANCH 5 13 - BRANCH -11");
 
     printf("\nTESTS PASSED❣️❣️❣️\n\n");
     return 0;
