@@ -53,6 +53,9 @@ private:
     constexpr Instruction()                     :word(nullptr) { }
 };
 
+inline bool operator== (const Instruction &a, const Instruction &b) {return a.native == b.native;}
+inline bool operator!= (const Instruction &a, const Instruction &b) {return !(a == b);}
+
 
 // The standard Forth NEXT routine, found at the end of every native op,
 // that jumps to the next op.

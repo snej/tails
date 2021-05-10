@@ -23,10 +23,6 @@ public:
     constexpr int output() const    {return _in + _net;}
     constexpr int net() const       {return _net;}
 
-    constexpr explicit operator bool() const {
-        return _in > 0 || output() > 0;
-    }
-
     constexpr bool operator== (const StackEffect &other) const {
         return _in == other._in && _net == other._net;
     }

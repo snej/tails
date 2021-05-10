@@ -69,6 +69,16 @@ static void _test(std::initializer_list<CompiledWord::WordRef> words, const char
 static void TEST_PARSER(int expected, const char *source) {
     printf("* Parsing “%s”\n", source);
     CompiledWord parsed = CompiledWord::parse(source);
+
+    printf("\tDisassembly:");
+    auto dis = DisassembleWord(parsed._instr.word);
+    for (auto &wordRef : dis) {
+        printf(" %s", wordRef.word._name);
+        if (wordRef.word.hasParam())
+            printf("-<%d>", wordRef.param);
+    }
+    printf("\n");
+
     printf("\t-> stack effect (%d,%d)\n", parsed.stackEffect().input(), parsed.stackEffect().output());
     int n = run(parsed);
     printf("\t-> got %d\n", n);
@@ -104,10 +114,12 @@ int main(int argc, char *argv[]) {
          SQUARE,
          ABS);
 
-    TEST_PARSER(7, "3 -4 -");
+    TEST_PARSER(7,    "3 -4 -");
     TEST_PARSER(9604, "4 3 + SQUARE DUP + SQUARE ABS");
-    TEST_PARSER(10, "10 20 OVER OVER > 0BRANCH 1 SWAP DROP");
-    TEST_PARSER(1, "53 DUP 13 >= 0BRANCH 5 13 - BRANCH -11");
+    TEST_PARSER(10,   "10 20 OVER OVER > 0BRANCH 1 SWAP DROP");
+    TEST_PARSER(1,    "53 DUP 13 >= 0BRANCH 5 13 - BRANCH -11");
+    TEST_PARSER(123,  "1 IF 123 ELSE 666 THEN");
+    TEST_PARSER(666,  "0 IF 123 ELSE 666 THEN");
 
     printf("\nTESTS PASSED❣️❣️❣️\n\n");
     return 0;

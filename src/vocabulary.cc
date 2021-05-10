@@ -41,3 +41,12 @@ const Word* Vocabulary::lookup(std::string_view name) {
     else
         return nullptr;
 }
+
+
+const Word* Vocabulary::lookup(Instruction instr) {
+    for (auto i = _words.begin(); i != _words.end(); ++i) {
+        if (i->second->_instr == instr)
+            return i->second;
+    }
+    return nullptr;
+}

@@ -5,6 +5,7 @@
 //
 
 #pragma once
+#include "instruction.hh"
 #include <string_view>
 #include <unordered_map>
 
@@ -20,6 +21,8 @@ public:
     void add(const Word &word);
 
     const Word* lookup(std::string_view name);
+
+    const Word* lookup(Instruction);
 
     using map = std::unordered_map<std::string_view, const Word*>;
     using iterator = map::iterator;
