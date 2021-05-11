@@ -6,6 +6,7 @@
 
 #pragma once
 #include "instruction.hh"
+#include <stdexcept>
 
 
 /// Describes the effect upon the stack of a word.
@@ -14,26 +15,36 @@
 class StackEffect {
 public:
     constexpr StackEffect()
-    :_in(0), _net(0) { }
+    :_in(0), _net(0), _max(0) { }
 
     constexpr StackEffect(uint8_t input, uint8_t output)
-    :_in(input), _net(output - input) { }
+    :_in(input), _net(output - input), _max(std::max(input, output)) { }
+
+    constexpr StackEffect(uint8_t input, uint8_t output, uint16_t max)
+    :_in(input), _net(output - input), _max(max) { }
 
     constexpr int input() const     {return _in;}
     constexpr int output() const    {return _in + _net;}
     constexpr int net() const       {return _net;}
+    constexpr int max() const       {return _max;}
 
     constexpr bool operator== (const StackEffect &other) const {
-        return _in == other._in && _net == other._net;
+        return _in == other._in && _net == other._net && _max == other._max;
     }
     
     constexpr bool operator!= (const StackEffect &other) const {return !(*this == other);}
 
     /// Returns the cumulative effect of two StackEffects, first `this` and then `other`.
+    /// This is complicated & confusing, since `other` gets offset by my `net`.
     constexpr StackEffect then(const StackEffect &other) const {
-        int maxInput = std::max(this->input(), other.input() - this->net());
-        return StackEffect(uint8_t(maxInput),
-                           uint8_t(maxInput + this->net() + other.net()));
+        int in = std::max(this->input(), other.input() - this->net());
+        int net = this->net() + other.net();
+        int max = in + std::max(this->max() - this->input(),
+                                this->net() + other.max() - other.input());
+        StackEffect result {uint8_t(in), uint8_t(in + net), uint16_t(max)};
+        if (result._in != in || result._net != net || result._max != max)
+            throw std::runtime_error("StackEffect overflow");
+        return result;
     }
 
     /// Returns true if `merge` is legal, i.e. the two have the same net stack effect.
@@ -42,12 +53,13 @@ public:
     /// Returns the effect of doing either `this` or `other` (which must have the same net.)
     constexpr StackEffect merge(const StackEffect &other) const {
         assert(canMerge(other));
-        return this->input() >= other.input() ? *this : other;
+        return (this->input() >= other.input()) ? *this : other;
     }
 
 private:
-    uint8_t _in;
-    int8_t _net;
+    uint8_t  _in;       // Minimum stack depth on entry
+    int8_t   _net;      // Change in stack depth on exit
+    uint16_t _max;      // Maximum stack depth (relative to `_in`) while running
 };
 
 

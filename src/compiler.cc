@@ -121,15 +121,19 @@ void CompiledWord::computeEffect(int i,
     while (true) {
         // Look at the word at `i`:
         WordRef &cur = (*_tempWords)[i];
-//        std::cout << "\t\tcomputeEffect at " << i << ", effect (" << curEffect.input()
-//                  << "," << curEffect.output() << ") before " << cur.word._name << "\n";
+        std::cout << "\t\tcomputeEffect at " << i << ", effect ("
+                << curEffect.input() << "->" << curEffect.output() << ", max " << curEffect.max()
+                << ") before " << cur.word._name << "\n";
         assert(cur.word != NOP);
 
         // Store (memoize) the current effect at i, or verify it matches a previously stored one:
         if (optional<StackEffect> &instrEffect = instrEffects[i]; instrEffect) {
-            if (*instrEffect != curEffect)
+            if (*instrEffect == curEffect)
+                return;
+            else if (instrEffect->net() != curEffect.net())
                 throw runtime_error("Inconsistent stack depth");
-            return;
+            else
+                instrEffect = curEffect;
         } else {
             instrEffect = curEffect;
         }

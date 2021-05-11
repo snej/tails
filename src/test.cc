@@ -23,11 +23,10 @@
 #include <array>
 
 
-//======================== TOP LEVEL ========================//
-
-
-/// The data stack. Starts at `DataStack.back()` and grows downwards/backwards.
-static std::array<int,1000> DataStack;
+#ifdef ENABLE_TRACING
+// Exposed while running, for the TRACE function to use
+static int * StackTop;
+#endif
 
 
 /// Top-level function to run a Word.
@@ -36,7 +35,13 @@ static int run(const Word &word) {
     assert(!word.isNative());           // must be interpreted
     assert(word._effect.input() == 0);  // must not require any inputs
     assert(word._effect.output() > 0);  // must produce results
-    return * call(DataStack.end(), word._instr.word);
+    size_t stackSize = word._effect.max();
+    auto stack = std::vector<int>(stackSize);
+    auto stackTop = &stack[stackSize];
+#ifdef ENABLE_TRACING
+    StackTop = stackTop;
+#endif
+    return * call(stackTop, word._instr.word);
 }
 
 
@@ -50,17 +55,22 @@ static_assert( StackEffect(1, 1).then(StackEffect(2,2)) == StackEffect(2, 2));
     /// Tracing function called at the end of each native op -- prints the stack
     void TRACE(int *sp, const Instruction *pc) {
         printf("\tat %p: ", pc);
-        for (auto i = &DataStack.back(); i >= sp; --i)
+        for (auto i = StackTop - 1; i >= sp; --i)
             printf(" %d", *i);
         putchar('\n');
     }
 #endif
 
 
+static void printStackEffect(StackEffect f) {
+    printf("\t-> stack effect (%d->%d, max %d)\n", f.input(), f.output(), f.max());
+}
+
+
 static void _test(std::initializer_list<CompiledWord::WordRef> words, const char *sourcecode, int expected) {
     printf("* Testing {%s} ...\n", sourcecode);
     CompiledWord word(words);
-    printf("\t-> stack effect (%d,%d)\n", word.stackEffect().input(), word.stackEffect().output());
+    printStackEffect(word.stackEffect());
     int n = run(word);
     printf("\t-> got %d\n", n);
     assert(n == expected);
@@ -73,13 +83,14 @@ static void TEST_PARSER(int expected, const char *source) {
     printf("\tDisassembly:");
     auto dis = DisassembleWord(parsed._instr.word);
     for (auto &wordRef : dis) {
-        printf(" %s", wordRef.word._name);
+        printf(" %s", (wordRef.word._name ? wordRef.word._name : "???"));
         if (wordRef.word.hasParam())
             printf("-<%d>", wordRef.param);
     }
     printf("\n");
 
-    printf("\t-> stack effect (%d,%d)\n", parsed.stackEffect().input(), parsed.stackEffect().output());
+    printStackEffect(parsed.stackEffect());
+    
     int n = run(parsed);
     printf("\t-> got %d\n", n);
     assert(n == expected);
