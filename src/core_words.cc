@@ -145,14 +145,14 @@ NATIVE_WORD(ZBRANCH, "0BRANCH", StackEffect(1,0), Word::HasIntParam) {
 
 
 // (a -> a^2)
-INTERP_WORD(SQUARE, "SQUARE", StackEffect(1,1, 2),
+INTERP_WORD(SQUARE, "SQUARE", StackEffect(1,1, 1),
     DUP,
     MULT
 );
 
 
 // (a -> abs)
-INTERP_WORD(ABS, "ABS", StackEffect(1,1, 2),
+INTERP_WORD(ABS, "ABS", StackEffect(1,1, 1),
     DUP,
     LT_ZERO,
     ZBRANCH, 3,
@@ -162,7 +162,7 @@ INTERP_WORD(ABS, "ABS", StackEffect(1,1, 2),
 );
 
 // (a b -> max)
-INTERP_WORD(MAX, "MAX", StackEffect(2,1, 4),
+INTERP_WORD(MAX, "MAX", StackEffect(2,1, 2),
     OVER,
     OVER,
     LT,
@@ -173,7 +173,7 @@ INTERP_WORD(MAX, "MAX", StackEffect(2,1, 4),
 
 
 // (a b -> min)
-INTERP_WORD (MIN, "MIN", StackEffect(2,1, 4),
+INTERP_WORD (MIN, "MIN", StackEffect(2,1, 2),
     OVER,
     OVER,
     GT,
