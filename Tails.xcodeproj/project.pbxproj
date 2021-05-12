@@ -37,6 +37,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		2739929B264C61D100301067 /* build.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = build.sh; sourceTree = "<group>"; };
 		273B20842641B8AA00A14EC4 /* Tails */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = Tails; sourceTree = BUILT_PRODUCTS_DIR; };
 		273B20912643282500A14EC4 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		273B20922643479600A14EC4 /* instruction.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = instruction.hh; sourceTree = "<group>"; };
@@ -76,8 +77,8 @@
 			children = (
 				273B20912643282500A14EC4 /* README.md */,
 				273B20862641B8AA00A14EC4 /* src */,
+				2739929B264C61D100301067 /* build.sh */,
 				273B20852641B8AA00A14EC4 /* Products */,
-				273B20AA2645ACED00A14EC4 /* Frameworks */,
 			);
 			sourceTree = "<group>";
 		};
@@ -105,13 +106,6 @@
 				273B20952643493E00A14EC4 /* test.cc */,
 			);
 			path = src;
-			sourceTree = "<group>";
-		};
-		273B20AA2645ACED00A14EC4 /* Frameworks */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -290,6 +284,7 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = macosx;
+				WARNING_CFLAGS = "-Wall";
 			};
 			name = Debug;
 		};
@@ -352,6 +347,7 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = macosx;
+				WARNING_CFLAGS = "-Wall";
 			};
 			name = Release;
 		};

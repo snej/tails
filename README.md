@@ -95,6 +95,19 @@ The other main approach is called "indirect threading", where there's another la
 
 > Tip: A great resource for learning how a traditional Forth interpreter works is [JonesForth][JONES], a tiny interpreter in x86 assembly written in "literate" style, with almost as much commentary as code.
 
+## Compilation
+
+There are several ways to add words to Tails:
+
+1. Define a native word in C++ using the `NATIVE_WORD` macro. The word must end with a call to the `NEXT()` macro.
+2. Define an interpreted word at (native) compile time, using the `INTERP_WORD` macro. This is very low level, not like regular Forth syntax but just a sequence of word symbols defined by earlier uses of `NATIVE_WORD` and `INTERP_WORD`. A `RETURN` will be added at the end. In particular:
+   * A numeric literal has to be written as `LITERAL` followed by the number
+   * A call to an interpreted word has to be written as `CALL` followed by the word
+   * Control flow has to be done using `BRANCH` or `ZBRANCH` followed by the offset
+3. Use the `CompiledWord` class to compile a word at runtime. It can be given a list of words, or it can parse a string like a regular Forth REPL. The string mode supports `IF`, `ELSE` and `THEN` for control flow, and automatically computes/checks stack effects.
+
+There are examples of 1 and 2 in `core_words.cc`, and of 3 in `test.cc`.
+
 ## Performance
 
 Tails was directly inspired by [the design of the Wasm3 interpreter][WASM3INTERP], which cleverly uses tail calls and register-based parameter passing to remove most of the overhead of C, allowing the code to be nearly as optimal as hand-written assembly. I realized this would permit the bootstrap part of a Forth interpreter -- the part that implements the way words (functions) are called, and the primitive words -- to be written in pure C or C+\+.
@@ -119,7 +132,6 @@ For example, here's the x86-64 assembly code of the PLUS function, compiled by C
 
 * Add memory that programs can read/write
 * Other data types, like strings?
-* Stack bounds checking
 * Define a bunch more core words in native code
 * Define the all-important `:` and `;` words, so words can be defined in Forth itself...
 

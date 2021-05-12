@@ -38,14 +38,14 @@ public:
     
     constexpr bool operator!= (const StackEffect &other) const {return !(*this == other);}
 
-    /// Returns the cumulative effect of two StackEffects, first `this` and then `other`.
-    /// (The logic is complicated & confusing, since `other` gets offset by my `net`.)
-    constexpr StackEffect then(const StackEffect &other) const {
+    /// Returns the cumulative effect of two StackEffects, first `this` and then `next`.
+    /// (The logic is complicated & confusing, since `next` gets offset by my `net`.)
+    constexpr StackEffect then(const StackEffect &next) const {
         int in = std::max(this->input(),
-                          other.input() - this->net());
-        int net = this->net() + other.net();
+                          next.input() - this->net());
+        int net = this->net() + next.net();
         int max = std::max(this->max(),
-                           other.max() + this->net());
+                           next.max() + this->net());
         StackEffect result {uint8_t(in), uint8_t(in + net), uint16_t(max)};
         if (result._in != in || result._net != net || result._max != max)
             throw std::runtime_error("StackEffect overflow");
@@ -61,7 +61,8 @@ private:
 
 /// A Forth word definition: name, flags and code.
 /// This base class itself is used for predefined words.
-struct Word {
+class Word {
+public:
     enum Flags : uint8_t {
         None = 0,
         Native = 1,
@@ -88,6 +89,7 @@ struct Word {
     constexpr bool hasParam() const     {return (_flags & HasIntParam) != 0;}
     constexpr StackEffect stackEffect() const   {return _effect;}
 
+    // TODO: Make members private
     Instruction _instr; // Instruction that calls it (either an Op or an Instruction*)
     const char* _name;  // Forth name, or NULL if anonymous
     StackEffect _effect;
