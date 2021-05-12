@@ -35,15 +35,15 @@ static int * StackTop;
 /// @return  The top value left on the stack.
 static int run(const Word &word) {
     assert(!word.isNative());           // must be interpreted
-    assert(word._effect.input() == 0);  // must not require any inputs
-    assert(word._effect.output() > 0);  // must produce results
-    size_t stackSize = word._effect.max();
+    assert(word.stackEffect().input() == 0);  // must not require any inputs
+    assert(word.stackEffect().output() > 0);  // must produce results
+    size_t stackSize = word.stackEffect().max();
     auto stack = std::vector<int>(stackSize);
     auto stackTop = &stack[stackSize];
 #ifdef ENABLE_TRACING
     StackTop = stackTop;
 #endif
-    return * call(stackTop, word._instr.word);
+    return * call(stackTop, word.instruction().word);
 }
 
 
@@ -85,9 +85,9 @@ static void TEST_PARSER(int expected, const char *source) {
     CompiledWord parsed = CompiledWord::parse(source);
 
     printf("\tDisassembly:");
-    auto dis = DisassembleWord(parsed._instr.word);
+    auto dis = DisassembleWord(parsed.instruction().word);
     for (auto &wordRef : dis) {
-        printf(" %s", (wordRef.word._name ? wordRef.word._name : "???"));
+        printf(" %s", (wordRef.word.name() ? wordRef.word.name() : "???"));
         if (wordRef.word.hasParam())
             printf("-<%d>", wordRef.param);
     }
@@ -110,7 +110,7 @@ using namespace tails::core_words;
 int main(int argc, char *argv[]) {
     printf("Known words:");
     for (auto word : Vocabulary::global)
-        printf(" %s", word.second->_name);
+        printf(" %s", word.second->name());
     printf("\n");
 
     TEST(-1234, -1234);

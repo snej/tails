@@ -33,7 +33,7 @@ namespace tails {
 
 
     void Vocabulary::add(const Word &word) {
-        _words.insert({word._name, &word});
+        _words.insert({word.name(), &word});
     }
 
 
@@ -47,7 +47,7 @@ namespace tails {
 
     const Word* Vocabulary::lookup(Instruction instr) {
         for (auto i = _words.begin(); i != _words.end(); ++i) {
-            if (i->second->_instr == instr)
+            if (i->second->instruction() == instr)
                 return i->second;
         }
         return nullptr;

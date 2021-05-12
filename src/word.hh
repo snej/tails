@@ -12,8 +12,12 @@
 namespace tails {
 
     /// Describes the effect upon the stack of a word.
+    ///
     /// `in` is how many values it reads from the stack; `out` is how many it leaves behind.
-    /// Thus the net effect on stack depth is `out - in`.
+    /// Thus its net effect on stack depth is `out - in`.
+    ///
+    /// `max` is the maximum depth of the stack while running the word, relative to when it starts.
+    /// This can be used to allocate the minimally-sized stack when running a program.
     class StackEffect {
     public:
         /// Constructs an no-op empty StackEffect with no in or out.
@@ -67,7 +71,8 @@ namespace tails {
 
 
     /// A Forth word definition: name, flags and code.
-    /// This base class itself is used for predefined words.
+    /// This base class itself is used for predefined words that are constructed at compile time.
+    /// The subclass \ref CompiledWord builds words at runtime.
     class Word {
     public:
         enum Flags : uint8_t {
@@ -90,28 +95,34 @@ namespace tails {
         ,_flags(None)
         { }
 
-        constexpr operator Instruction() const        {return _instr;}
+        constexpr const char* name() const              {return _name;}
+        constexpr Instruction instruction() const       {return _instr;}
+        constexpr StackEffect stackEffect() const       {return _effect;}
 
-        constexpr bool isNative() const     {return (_flags & Native) != 0;}
-        constexpr bool hasParam() const     {return (_flags & HasIntParam) != 0;}
-        constexpr StackEffect stackEffect() const   {return _effect;}
+        constexpr bool isNative() const                 {return (_flags & Native) != 0;}
+        constexpr bool hasParam() const                 {return (_flags & HasIntParam) != 0;}
 
-        // TODO: Make members private
+        constexpr operator Instruction() const          {return _instr;}
+
+    protected:
+        Word() :_instr {}, _name(nullptr), _effect(), _flags(None) { };
+
         Instruction _instr; // Instruction that calls it (either an Op or an Instruction*)
         const char* _name;  // Forth name, or NULL if anonymous
         StackEffect _effect;
         Flags       _flags; // Flags (see above)
-
-    protected:
-        Word() :_instr {}, _name(nullptr), _effect(), _flags(None) { };
     };
 
 
-    inline bool operator==(const Word &a, const Word &b)   {return a._instr.native == b._instr.native;}
-    inline bool operator!=(const Word &a, const Word &b)   {return !(a == b);}
+    constexpr inline bool operator==(const Word &a, const Word &b)
+                                        {return a.instruction().native == b.instruction().native;}
+    constexpr inline bool operator!=(const Word &a, const Word &b)
+                                        {return !(a == b);}
 
 
-    // Shortcut for defining a native word (see examples in core_words.cc)
+    // Shortcut for defining a native word (see examples in core_words.cc.)
+    // It should be followed by the C++ function body in curly braces.
+    // The body can use parameters `sp` and `pc`, and should end by calling `NEXT()`.
     // @param NAME  The C++ name of the Word object to define.
     // @param FORTHNAME  The word's Forth name (a string literal.)
     // @param EFFECT  The \ref StackEffect. Must be accurate!
@@ -122,7 +133,7 @@ namespace tails {
         int* f_##NAME(int *sp, const Instruction *pc) noexcept
 
 
-    // Shortcut for defining a native word implementing a binary operator like `+` or `==`
+    // Shortcut for defining a native word implementing a binary operator like `+` or `==`.
     // @param NAME  The C++ name of the Word object to define.
     // @param FORTHNAME  The word's Forth name (a string literal.)
     // @param INFIXOP  The raw C++ infix operator to implement, e.g. `+` or `==`.
@@ -134,7 +145,9 @@ namespace tails {
         }
 
 
-    // Shortcut for defining an interpreted word (see examples in core_words.cc)
+    // Shortcut for defining an interpreted word (see examples in core_words.cc.)
+    // The variable arguments must be a list of previously-defined Word objects.
+    // (A `RETURN` will be appended automatically.)
     // @param NAME  The C++ name of the Word object to define.
     // @param FORTHNAME  The word's Forth name (a string literal.)
     // @param EFFECT  The \ref StackEffect. Must be accurate!

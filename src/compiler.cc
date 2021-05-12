@@ -56,7 +56,7 @@ namespace tails {
     CompiledWord::InstructionPos CompiledWord::add(const WordRef &ref) {
         if (!ref.word.isNative())
             _instrs.push_back(CALL);
-        _instrs.push_back(ref.word._instr);
+        _instrs.push_back(ref.word);
         _tempWords->push_back(ref);
         if (ref.word.hasParam()) {
             _instrs.push_back(ref.param);
@@ -140,7 +140,7 @@ namespace tails {
             }
 
             // apply the instruction's effect:
-            curEffect = curEffect.then(cur.word._effect);
+            curEffect = curEffect.then(cur.word.stackEffect());
 
             if (cur.word.hasParam())
                 ++i;

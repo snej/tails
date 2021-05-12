@@ -374,7 +374,6 @@
 		273B20A82645AC8F00A14EC4 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = Z62S7RW88Y;
 				EXECUTABLE_PREFIX = lib;
@@ -386,7 +385,6 @@
 		273B20A92645AC8F00A14EC4 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = Z62S7RW88Y;
 				EXECUTABLE_PREFIX = lib;
