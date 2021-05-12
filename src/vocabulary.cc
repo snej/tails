@@ -21,32 +21,36 @@
 #include "core_words.hh"
 
 
-Vocabulary Vocabulary::global(kCoreWords);
+namespace tails {
+
+    Vocabulary Vocabulary::global(core_words::kWords);
 
 
-Vocabulary::Vocabulary(const Word* const *wordList) {
-    while (*wordList)
-        add(**wordList++);
-}
-
-
-void Vocabulary::add(const Word &word) {
-    _words.insert({word._name, &word});
-}
-
-
-const Word* Vocabulary::lookup(std::string_view name) {
-    if (auto i = _words.find(name); i != _words.end())
-        return i->second;
-    else
-        return nullptr;
-}
-
-
-const Word* Vocabulary::lookup(Instruction instr) {
-    for (auto i = _words.begin(); i != _words.end(); ++i) {
-        if (i->second->_instr == instr)
-            return i->second;
+    Vocabulary::Vocabulary(const Word* const *wordList) {
+        while (*wordList)
+            add(**wordList++);
     }
-    return nullptr;
+
+
+    void Vocabulary::add(const Word &word) {
+        _words.insert({word._name, &word});
+    }
+
+
+    const Word* Vocabulary::lookup(std::string_view name) {
+        if (auto i = _words.find(name); i != _words.end())
+            return i->second;
+        else
+            return nullptr;
+    }
+
+
+    const Word* Vocabulary::lookup(Instruction instr) {
+        for (auto i = _words.begin(); i != _words.end(); ++i) {
+            if (i->second->_instr == instr)
+                return i->second;
+        }
+        return nullptr;
+    }
+
 }

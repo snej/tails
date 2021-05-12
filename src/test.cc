@@ -23,6 +23,8 @@
 #include <array>
 
 
+using namespace tails;
+
 #ifdef ENABLE_TRACING
 // Exposed while running, for the TRACE function to use
 static int * StackTop;
@@ -52,12 +54,14 @@ static_assert( StackEffect(1, 1).then(StackEffect(2,2)) == StackEffect(2, 2));
 
 
 #ifdef ENABLE_TRACING
-    /// Tracing function called at the end of each native op -- prints the stack
-    void TRACE(int *sp, const Instruction *pc) {
-        printf("\tat %p: ", pc);
-        for (auto i = StackTop - 1; i >= sp; --i)
-            printf(" %d", *i);
-        putchar('\n');
+    namespace tails {
+        /// Tracing function called at the end of each native op -- prints the stack
+        void TRACE(int *sp, const Instruction *pc) {
+            printf("\tat %p: ", pc);
+            for (auto i = StackTop - 1; i >= sp; --i)
+                printf(" %d", *i);
+            putchar('\n');
+        }
     }
 #endif
 
@@ -98,6 +102,9 @@ static void TEST_PARSER(int expected, const char *source) {
 
 
 #define TEST(EXPECTED, ...) _test({__VA_ARGS__}, #__VA_ARGS__, EXPECTED)
+
+
+using namespace tails::core_words;
 
 
 int main(int argc, char *argv[]) {
