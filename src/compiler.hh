@@ -1,7 +1,19 @@
 //
 // compiler.hh
 //
-// Copyright (C) 2020 Jens Alfke. All Rights Reserved.
+// Copyright (C) 2021 Jens Alfke. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 //
 
 #pragma once
@@ -22,16 +34,20 @@ namespace tails {
     class CompiledWord : public Word {
     public:
         struct WordRef {
-            constexpr WordRef(const Word &w)            :word(w), param(0) {assert(!w.hasParam());}
-            constexpr WordRef(const Word &w, int p)     :word(w), param(p) {assert(w.hasParam());}
-            constexpr WordRef(int i)                    :WordRef(core_words::LITERAL, i) { }
+            WordRef(const Word &w)            :word(w), param((Op)0) {assert(!w.hasAnyParam());}
+            WordRef(const Word &w, Instruction p):word(w), param(p) {assert(w.hasAnyParam());}
+            WordRef(const Word &w, Value v)   :word(w), param(v) {assert(w.hasValParam());}
+            WordRef(const Word &w, intptr_t o):word(w), param(o) {assert(w.hasIntParam());}
+
+            WordRef(Value v)                  :WordRef(core_words::LITERAL, v) { }
+            WordRef(double d)                  :WordRef(core_words::LITERAL, Value(d)) { }
 
             const Word& word;
-            int         param;
+            Instruction param;
         };
 
         /// Compiles Forth source code to an unnamed Word, but doesn't run it.
-        static CompiledWord parse(const char *name = nullptr);
+        static CompiledWord parse(const char *name = nullptr, bool allowParams =false);
 
         /// Creates a finished CompiledWord from a list of word references.
         CompiledWord(const char *name, std::initializer_list<WordRef> words);
@@ -46,7 +62,7 @@ namespace tails {
         explicit CompiledWord(const char *name = nullptr);
 
         /// An opaque reference to an instruction written to a CompiledWord in progress.
-        enum class InstructionPos : int { None = 0 };
+        enum class InstructionPos : intptr_t { None = 0 };
 
         /// Adds an instruction to a word being compiled.
         /// @return  An opaque reference to this instruction, that can be used later to fix branches.
@@ -72,7 +88,7 @@ namespace tails {
         using EffectVec = std::vector<std::optional<StackEffect>>;
 
         void computeEffect();
-        void computeEffect(int i,
+        void computeEffect(intptr_t i,
                            StackEffect effect,
                            EffectVec &instrEffects,
                            std::optional<StackEffect> &finalEffect);

@@ -1,11 +1,24 @@
 //
 // instruction.hh
 //
-// Copyright (C) 2020 Jens Alfke. All Rights Reserved.
+// Copyright (C) 2021 Jens Alfke. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 //
 
 #pragma once
 #include "platform.hh"
+#include "value.hh"
 #include <initializer_list>
 #include <stdlib.h>
 #include <vector>
@@ -22,7 +35,7 @@ namespace tails {
     #endif
 
     #ifdef ENABLE_TRACING
-        NOINLINE void TRACE(int *sp, const Instruction *pc);
+        NOINLINE void TRACE(Value *sp, const Instruction *pc);
     #else
     #   define TRACE(SP,PC)  (void)0
     #endif
@@ -35,18 +48,20 @@ namespace tails {
     /// @param pc  Program counter. Points to the _next_ op to run.
     /// @return    The stack pointer. (But almost all ops tail-call via `NEXT()`
     ///            instead of explicitly returning a value.)
-    using Op = int* (*)(int *sp, const Instruction *pc);
+    using Op = Value* (*)(Value *sp, const Instruction *pc);
 
 
     /// A Forth instruction. Interpreted code is a sequence of these.
     union Instruction {
-        Op                 native; // Every instruction starts with a native op
-        int                param;  // Integer param after some ops like LITERAL, BRANCH, ...
-        const Instruction* word;   // This form appears after a CALL op
+        Op                 native;  // Every instruction starts with a native op
+        const Instruction* word;    // Interpreted word to call; parameter to CALL
+        intptr_t           offset;  // PC offset; parameter to BRANCH and ZBRANCH
+        Value              literal; // Value to push on stack; parameter to LITERAL
 
         constexpr Instruction(Op o)                 :native(o) { }
-        constexpr Instruction(int i)                :param(i) { }
         constexpr Instruction(const Instruction *w) :word(w) { }
+        constexpr Instruction(Value v)              :literal(v) { }
+        explicit constexpr Instruction(intptr_t o)  :offset(o) { }
 
     private:
         friend class Word;
@@ -70,7 +85,7 @@ namespace tails {
     /// @param start The first instruction of the word to run
     /// @return      The stack pointer on completion.
     ALWAYS_INLINE
-    static inline int* call(int *sp, const Instruction *start) {
+    static inline Value* call(Value *sp, const Instruction *start) {
         return start->native(sp, start + 1);
     }
 

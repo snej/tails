@@ -1,7 +1,7 @@
 //
 // core_words.cc
 //
-// Copyright (C) 2020 Jens Alfke. All Rights Reserved.
+// Copyright (C) 2021 Jens Alfke. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -38,8 +38,8 @@ namespace tails::core_words {
     }
 
     // ( -> i)  Pushes the following instruction as an integer
-    NATIVE_WORD(LITERAL, "LITERAL", StackEffect(0,1), Word::HasIntParam) {
-        *(--sp) = (pc++)->param;
+    NATIVE_WORD(LITERAL, "LITERAL", StackEffect(0,1), Word::HasValParam) {
+        *(--sp) = (pc++)->literal;
         NEXT();
     }
 
@@ -87,15 +87,24 @@ namespace tails::core_words {
 
     //---- Arithmetic & Relational:
 
+    // NOTE: This code requires that `Value` has methods `asNumber` and `asInt`,
+    //       and that there are conversions from integer and double to Value.
+
     // ( -> 0)
     NATIVE_WORD(ZERO, "0", StackEffect(0,1), {}) {
-        *(--sp) = 0;
+        *(--sp) = Value(0);
         NEXT();
     }
 
     // ( -> 1)
     NATIVE_WORD(ONE, "1", StackEffect(0,1), {}) {
-        *(--sp) = 1;
+        *(--sp) = Value(1);
+        NEXT();
+    }
+
+    // ( -> null)
+    NATIVE_WORD(NULL_, "NULL", StackEffect(0,1), {}) {
+        *(--sp) = Value();
         NEXT();
     }
 
@@ -104,7 +113,7 @@ namespace tails::core_words {
     BINARY_OP_WORD(MINUS, "-",  -)
     BINARY_OP_WORD(MULT,  "*",  *)
     BINARY_OP_WORD(DIV,   "/",  /)
-    BINARY_OP_WORD(MOD,   "MOD", %)
+    BINARY_OP_WORD(MOD,   "MOD",%)
     BINARY_OP_WORD(EQ,    "=",  ==)
     BINARY_OP_WORD(NE,    "<>", !=)
     BINARY_OP_WORD(GT,    ">",  >)
@@ -113,10 +122,10 @@ namespace tails::core_words {
     BINARY_OP_WORD(LE,    "<=", <=)
 
     // (a -> bool)
-    NATIVE_WORD(EQ_ZERO, "0=", StackEffect(1,1), {})  { sp[0] = (sp[0] == 0); NEXT(); }
-    NATIVE_WORD(NE_ZERO, "0<>", StackEffect(1,1), {}) { sp[0] = (sp[0] != 0); NEXT(); }
-    NATIVE_WORD(GT_ZERO, "0>", StackEffect(1,1), {})  { sp[0] = (sp[0] > 0); NEXT(); }
-    NATIVE_WORD(LT_ZERO, "0<", StackEffect(1,1), {})  { sp[0] = (sp[0] < 0); NEXT(); }
+    NATIVE_WORD(EQ_ZERO, "0=", StackEffect(1,1), {})  { sp[0] = Value(sp[0] == Value(0)); NEXT(); }
+    NATIVE_WORD(NE_ZERO, "0<>", StackEffect(1,1), {}) { sp[0] = Value(sp[0] != Value(0)); NEXT(); }
+    NATIVE_WORD(GT_ZERO, "0>", StackEffect(1,1), {})  { sp[0] = Value(sp[0] > Value(0)); NEXT(); }
+    NATIVE_WORD(LT_ZERO, "0<", StackEffect(1,1), {})  { sp[0] = Value(sp[0] < Value(0)); NEXT(); }
 
     //---- Control Flow:
 
@@ -127,18 +136,17 @@ namespace tails::core_words {
 
     // ( -> )  and reads offset from *pc
     NATIVE_WORD(BRANCH, "BRANCH", StackEffect(0,0), Word::HasIntParam) {
-        pc += pc->param + 1;
+        pc += pc->offset + 1;
         NEXT();
     }
 
-    // (b -> )  and reads offset from *pc
+    // (b -> )  and reads offset from *pc ... Assumes Value supports operator `!`
     NATIVE_WORD(ZBRANCH, "0BRANCH", StackEffect(1,0), Word::HasIntParam) {
-        if (*sp++ == 0)
-            pc += pc->param;
+        if (!(*sp++))
+            pc += pc->offset;
         ++pc;
         NEXT();
     }
-
 
     //======================== INTERPRETED WORDS ========================//
 
@@ -157,7 +165,7 @@ namespace tails::core_words {
     INTERP_WORD(ABS, "ABS", StackEffect(1,1, 1),
         DUP,
         LT_ZERO,
-        ZBRANCH, 3,
+        ZBRANCH, Instruction(intptr_t(3)),
         ZERO,
         SWAP,
         MINUS
@@ -168,7 +176,7 @@ namespace tails::core_words {
         OVER,
         OVER,
         LT,
-        ZBRANCH, 1,
+        ZBRANCH, Instruction(intptr_t(1)),
         SWAP,
         DROP
     );
@@ -179,7 +187,7 @@ namespace tails::core_words {
         OVER,
         OVER,
         GT,
-        ZBRANCH, 1,
+        ZBRANCH, Instruction(intptr_t(1)),
         SWAP,
         DROP
     );
@@ -188,6 +196,7 @@ namespace tails::core_words {
     const Word* const kWords[] = {
         &CALL, &LITERAL, &RETURN,
         &DROP, &DUP, &OVER, &ROT, &SWAP, &NOP,
+        &ZERO, &ONE, &NULL_,
         &EQ, &NE, &EQ_ZERO, &NE_ZERO,
         &GE, &GT, &GT_ZERO,
         &LE, &LT, &LT_ZERO,

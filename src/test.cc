@@ -1,7 +1,7 @@
 //
 // test.cc
 //
-// Copyright (C) 2020 Jens Alfke. All Rights Reserved.
+// Copyright (C) 2021 Jens Alfke. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,24 +21,26 @@
 #include "compiler.hh"
 #include "vocabulary.hh"
 #include <array>
+#include <iostream>
 
-
+using namespace std;
 using namespace tails;
 
 #ifdef ENABLE_TRACING
 // Exposed while running, for the TRACE function to use
-static int * StackTop;
+static Value * StackTop;
 #endif
 
 
 /// Top-level function to run a Word.
 /// @return  The top value left on the stack.
-static int run(const Word &word) {
+static Value run(const Word &word) {
     assert(!word.isNative());           // must be interpreted
     assert(word.stackEffect().input() == 0);  // must not require any inputs
     assert(word.stackEffect().output() > 0);  // must produce results
     size_t stackSize = word.stackEffect().max();
-    auto stack = std::vector<int>(stackSize);
+    std::vector<Value> stack;
+    stack.resize(stackSize);
     auto stackTop = &stack[stackSize];
 #ifdef ENABLE_TRACING
     StackTop = stackTop;
@@ -56,11 +58,11 @@ static_assert( StackEffect(1, 1).then(StackEffect(2,2)) == StackEffect(2, 2));
 #ifdef ENABLE_TRACING
     namespace tails {
         /// Tracing function called at the end of each native op -- prints the stack
-        void TRACE(int *sp, const Instruction *pc) {
-            printf("\tat %p: ", pc);
+        void TRACE(Value *sp, const Instruction *pc) {
+            cout << "\tat " << pc << ": ";
             for (auto i = StackTop - 1; i >= sp; --i)
-                printf(" %d", *i);
-            putchar('\n');
+                cout << ' ' << *i;
+            cout << '\n';
         }
     }
 #endif
@@ -71,50 +73,59 @@ static void printStackEffect(StackEffect f) {
 }
 
 
-static void _test(std::initializer_list<CompiledWord::WordRef> words, const char *sourcecode, int expected) {
-    printf("* Testing {%s} ...\n", sourcecode);
+static void _test(std::initializer_list<CompiledWord::WordRef> words,
+                  const char *sourcecode,
+                  double expected)
+{
+    cout << "* Testing {" << sourcecode << "} ...\n";
     CompiledWord word(words);
     printStackEffect(word.stackEffect());
-    int n = run(word);
-    printf("\t-> got %d\n", n);
-    assert(n == expected);
+    Value result = run(word);
+    cout << "\t-> got " << result << "\n";
+    assert(result == Value(expected));
 }
 
-static void TEST_PARSER(int expected, const char *source) {
-    printf("* Parsing “%s”\n", source);
-    CompiledWord parsed = CompiledWord::parse(source);
 
-    printf("\tDisassembly:");
+static Value _runParser(const char *source) {
+    cout << "* Parsing “" << source << "”\n";
+    CompiledWord parsed = CompiledWord::parse(source, true);
+
+    cout << "\tDisassembly:";
     auto dis = DisassembleWord(parsed.instruction().word);
     for (auto &wordRef : dis) {
-        printf(" %s", (wordRef.word.name() ? wordRef.word.name() : "???"));
-        if (wordRef.word.hasParam())
-            printf("-<%d>", wordRef.param);
+        cout << ' ' << (wordRef.word.name() ? wordRef.word.name() : "???");
+        if (wordRef.word.hasIntParam())
+            cout << "+<" << (int)wordRef.param.offset << '>';
+        else if (wordRef.word.hasValParam())
+            cout << ":<" << wordRef.param.literal << '>';
     }
-    printf("\n");
+    cout << "\n";
 
     printStackEffect(parsed.stackEffect());
     
-    int n = run(parsed);
-    printf("\t-> got %d\n", n);
-    assert(n == expected);
+    Value result = run(parsed);
+    cout << "\t-> got " << result << '\n';
+    return result;
 }
 
 
 #define TEST(EXPECTED, ...) _test({__VA_ARGS__}, #__VA_ARGS__, EXPECTED)
+
+#define TEST_PARSER(EXPECTED, SRC)  assert(_runParser(SRC) == Value(EXPECTED))
 
 
 using namespace tails::core_words;
 
 
 int main(int argc, char *argv[]) {
-    printf("Known words:");
+    cout << "Known words:";
     for (auto word : Vocabulary::global)
-        printf(" %s", word.second->name());
-    printf("\n");
+        cout << ' ' << word.second->name();
+    cout << "\n";
 
     TEST(-1234, -1234);
     TEST(-1,    3, 4, MINUS);
+    TEST(0.75,  3, 4, DIV);
     TEST(1,     1, 2, 3, ROT);
     TEST(16,    4, SQUARE);
     TEST(1234,  -1234, ABS);
@@ -139,6 +150,12 @@ int main(int argc, char *argv[]) {
     TEST_PARSER(123,  "1 IF 123 ELSE 666 THEN");
     TEST_PARSER(666,  "0 IF 123 ELSE 666 THEN");
 
-    printf("\nTESTS PASSED❣️❣️❣️\n\n");
-    return 0;
+#ifndef SIMPLE_VALUE
+    TEST_PARSER("hello",   R"( "hello" )");
+    TEST_PARSER("truthy",  R"( 1 IF "truthy" ELSE "falsey" THEN )");
+    TEST_PARSER("HiThere", R"( "Hi" "There" + )");
+    TEST_PARSER(nullptr,   R"( "Hi" "There" / )");
+#endif
+    
+    cout << "\nTESTS PASSED❣️❣️❣️\n\n";
 }

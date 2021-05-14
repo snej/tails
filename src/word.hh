@@ -1,7 +1,19 @@
 //
 // word.hh
 //
-// Copyright (C) 2020 Jens Alfke. All Rights Reserved.
+// Copyright (C) 2021 Jens Alfke. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 //
 
 #pragma once
@@ -78,7 +90,8 @@ namespace tails {
         enum Flags : uint8_t {
             None = 0,
             Native = 1,
-            HasIntParam = 2 ///< This word is followed by an int parameter (LITERAL, BRANCH, 0BRANCH)
+            HasIntParam = 2, ///< This word is followed by an integer param (BRANCH, 0BRANCH)
+            HasValParam = 4  ///< This word is followed by a Value param (LITERAL)
         };
 
         constexpr Word(const char *name, Op native, StackEffect effect, Flags flags =None)
@@ -100,7 +113,9 @@ namespace tails {
         constexpr StackEffect stackEffect() const       {return _effect;}
 
         constexpr bool isNative() const                 {return (_flags & Native) != 0;}
-        constexpr bool hasParam() const                 {return (_flags & HasIntParam) != 0;}
+        constexpr bool hasIntParam() const              {return (_flags & HasIntParam) != 0;}
+        constexpr bool hasValParam() const              {return (_flags & HasValParam) != 0;}
+        constexpr bool hasAnyParam() const              {return (_flags & (HasIntParam | HasValParam)) != 0;}
 
         constexpr operator Instruction() const          {return _instr;}
 
@@ -128,9 +143,9 @@ namespace tails {
     // @param EFFECT  The \ref StackEffect. Must be accurate!
     // @param FLAGS  Flags; use \ref HasIntParam if this word takes a following parameter.
     #define NATIVE_WORD(NAME, FORTHNAME, EFFECT, FLAGS) \
-        int* f_##NAME(int *sp, const Instruction *pc) noexcept; \
+        Value* f_##NAME(Value *sp, const Instruction *pc) noexcept; \
         constexpr Word NAME(FORTHNAME, f_##NAME, EFFECT, FLAGS); \
-        int* f_##NAME(int *sp, const Instruction *pc) noexcept
+        Value* f_##NAME(Value *sp, const Instruction *pc) noexcept
 
 
     // Shortcut for defining a native word implementing a binary operator like `+` or `==`.
@@ -139,7 +154,7 @@ namespace tails {
     // @param INFIXOP  The raw C++ infix operator to implement, e.g. `+` or `==`.
     #define BINARY_OP_WORD(NAME, FORTHNAME, INFIXOP) \
         NATIVE_WORD(NAME, FORTHNAME, StackEffect(2,1), Word::None) { \
-            sp[1] = sp[1] INFIXOP sp[0];\
+            sp[1] = Value(sp[1] INFIXOP sp[0]);\
             ++sp;\
             NEXT(); \
         }

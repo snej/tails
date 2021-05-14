@@ -1,7 +1,7 @@
 //
 // compiler.cc
 //
-// Copyright (C) 2020 Jens Alfke. All Rights Reserved.
+// Copyright (C) 2021 Jens Alfke. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -45,7 +45,7 @@ namespace tails {
     {
         size_t count = 1;
         for (auto &ref : words)
-            count += 1 + ref.word.hasParam();
+            count += 1 + ref.word.hasAnyParam();
         _instrs.reserve(count);
         for (auto &ref : words)
             add(ref);
@@ -58,7 +58,7 @@ namespace tails {
             _instrs.push_back(CALL);
         _instrs.push_back(ref.word);
         _tempWords->push_back(ref);
-        if (ref.word.hasParam()) {
+        if (ref.word.hasAnyParam()) {
             _instrs.push_back(ref.param);
             _tempWords->push_back(NOP); // placeholder to keep indexes the same as in _instrs
             return InstructionPos(_instrs.size() - 1);
@@ -69,21 +69,21 @@ namespace tails {
 
 
     const CompiledWord::WordRef& CompiledWord::operator[] (InstructionPos pos) {
-        int i = int(pos) - 1;
+        intptr_t i = intptr_t(pos) - 1;
         assert(_tempWords && i >= 0 && i < _tempWords->size());
         return (*_tempWords)[i];
     }
 
 
     void CompiledWord::fixBranch(InstructionPos src, InstructionPos dst) {
-        int srcPos = int(src) - 1, paramPos = srcPos + 1, dstPos = int(dst) - 1;
+        intptr_t srcPos = intptr_t(src) - 1, paramPos = srcPos + 1, dstPos = intptr_t(dst) - 1;
         assert(srcPos >= 0 && paramPos < _instrs.size());
         assert(dstPos > srcPos && dstPos <= _instrs.size());
-        auto &branch = (*_tempWords)[srcPos];
+        WordRef &branch = (*_tempWords)[srcPos];
         assert(branch.word == ZBRANCH || branch.word == BRANCH);
         assert((*_tempWords)[paramPos].word == NOP);
-        branch.param = (dstPos - paramPos - 1);
-        _instrs[paramPos].param = branch.param;
+        branch.param.offset = dstPos - paramPos - 1;
+        _instrs[paramPos] = branch.param;
     }
 
 
@@ -114,7 +114,7 @@ namespace tails {
     // @param instrEffects  Vector of known/memoized StackEffects at each instruction index
     // @param finalEffect  The cumulative stack effect will be stored here.
     // @throw runtime_error if stack is inconsistent or there's an invalid branch offset.
-    void CompiledWord::computeEffect(int i,
+    void CompiledWord::computeEffect(intptr_t i,
                                      StackEffect curEffect,
                                      EffectVec &instrEffects,
                                      optional<StackEffect> &finalEffect)
@@ -142,7 +142,7 @@ namespace tails {
             // apply the instruction's effect:
             curEffect = curEffect.then(cur.word.stackEffect());
 
-            if (cur.word.hasParam())
+            if (cur.word.hasAnyParam())
                 ++i;
 
             if (cur.word == RETURN) {
@@ -155,7 +155,7 @@ namespace tails {
 
             } else if (cur.word == BRANCH || cur.word == ZBRANCH) {
                 // Compute branch destination:
-                auto dst = i + 1 + cur.param;
+                auto dst = i + 1 + cur.param.offset;
                 if (dst < 0 || dst >= _tempWords->size() || (*_tempWords)[dst].word == NOP)
                     throw runtime_error("Invalid BRANCH destination");
 
@@ -183,8 +183,16 @@ namespace tails {
             ++input;
         // Read token
         auto start = input;
-        while (*input != 0 && !isspace(*input))
-            ++input;
+        if (*input == '"') {
+            do {
+                ++input;
+            } while (*input != 0 && *input != '"');
+            if (*input)
+                ++input; // include the trailing quote
+        } else {
+            while (*input != 0 && !isspace(*input))
+                ++input;
+        }
         return {start, size_t(input - start)};
     }
 
@@ -201,16 +209,24 @@ namespace tails {
     }
 
 
-    CompiledWord CompiledWord::parse(const char *input) {
+    CompiledWord CompiledWord::parse(const char *input, bool allowParams) {
         vector<InstructionPos> ifStack;
         CompiledWord parsedWord(nullptr);
         while (true) {
             string_view token = readToken(input);
-            if (token.empty())
+            if (token.empty()) {
+                // End of input
                 break;
-            if (token == "IF") {
+            } else if (token[0] == '"') {
+                // String literal:
+                if (token.size() == 1 || token[token.size()-1] != '"')
+                    throw runtime_error("Unfinished string literal");
+                token = token.substr(1, token.size() - 2);
+                parsedWord.add({LITERAL, Value(token.data(), token.size())});
+            } else if (token == "IF") {
                 // IF compiles into 0BRANCH, with offset TBD:
-                ifStack.push_back(parsedWord.add({ZBRANCH, -1}));
+                ifStack.push_back(parsedWord.add({ZBRANCH, intptr_t(-1)}));
+
             } else if (token == "ELSE") {
                 // ELSE compiles into BRANCH, with offset TBD, and resolves the IF's branch:
                 if (ifStack.empty())
@@ -218,28 +234,38 @@ namespace tails {
                 InstructionPos ifPos = ifStack.back();
                 if (parsedWord[ifPos].word != ZBRANCH)
                     throw runtime_error("ELSE following ELSE");
-                InstructionPos elsePos = parsedWord.add({BRANCH, -1});
+                InstructionPos elsePos = parsedWord.add({BRANCH, intptr_t(-1)});
                 parsedWord.fixBranch(ifStack.back(), parsedWord.nextInstructionPos());
                 ifStack.back() = elsePos;
+
             } else if (token == "THEN") {
                 // THEN generates no code but completes the remaining branch from IF or ELSE:
                 if (ifStack.empty())
                     throw runtime_error("THEN without a matching IF");
                 parsedWord.fixBranch(ifStack.back(), parsedWord.nextInstructionPos());
                 ifStack.pop_back();
+
             } else if (const Word *word = Vocabulary::global.lookup(token); word) {
                 // Known word is added as an instruction:
-                if (word->hasParam()) {
+                if (word->hasAnyParam()) {
+                    if (!allowParams)
+                        throw runtime_error("Special word " + string(token)
+                                            + " cannot be added by parser");
                     auto param = asNumber(readToken(input));
                     if (!param)
-                        throw runtime_error("Invalid numeric param after " + string(token));
-                    parsedWord.add({*word, *param});
+                        throw runtime_error("Invalid param after " + string(token));
+                    if (word->hasIntParam())
+                        parsedWord.add({*word, (intptr_t)*param});
+                    else
+                        parsedWord.add({*word, Value(*param)});
                 } else {
                     parsedWord.add(*word);
                 }
+
             } else if (auto ip = asNumber(token); ip) {
-                // Number is added as a LITERAL instruction:
-                parsedWord.add({LITERAL, *ip});
+                // A number is added as a LITERAL instruction:
+                parsedWord.add({LITERAL, Value(*ip)});
+
             } else {
                 throw runtime_error("Unknown word '" + string(token) + "'");
             }
@@ -260,8 +286,8 @@ namespace tails {
             word = Vocabulary::global.lookup(instr[1]);
         if (!word)
             return nullopt;
-        else if (word->hasParam())
-            return CompiledWord::WordRef(*word, instr[1].param);
+        else if (word->hasAnyParam())
+            return CompiledWord::WordRef(*word, instr[1]);
         else
             return CompiledWord::WordRef(*word);
     }
@@ -269,17 +295,17 @@ namespace tails {
 
     vector<CompiledWord::WordRef> DisassembleWord(const Instruction *instr) {
         vector<CompiledWord::WordRef> instrs;
-        int maxJumpTo = 0;
+        intptr_t maxJumpTo = 0;
         for (int i = 0; ; i++) {
             auto ref = DisassembleInstruction(&instr[i]);
             if (!ref)
                 throw runtime_error("Unknown instruction");
             instrs.push_back(*ref);
             if (ref->word == BRANCH || ref->word == ZBRANCH)
-                maxJumpTo = max(maxJumpTo, i + 2 + instr[i+1].param);
+                maxJumpTo = max(maxJumpTo, i + 2 + instr[i+1].offset);
             else if (ref->word == RETURN && i >= maxJumpTo)
                 return instrs;
-            if (ref->word.hasParam())
+            if (ref->word.hasAnyParam())
                 ++i;
         }
     }
