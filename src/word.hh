@@ -154,8 +154,8 @@ namespace tails {
     // @param INFIXOP  The raw C++ infix operator to implement, e.g. `+` or `==`.
     #define BINARY_OP_WORD(NAME, FORTHNAME, INFIXOP) \
         NATIVE_WORD(NAME, FORTHNAME, StackEffect(2,1), Word::None) { \
-            sp[1] = Value(sp[1] INFIXOP sp[0]);\
-            ++sp;\
+            sp[-1] = Value(sp[-1] INFIXOP sp[0]);\
+            --sp;\
             NEXT(); \
         }
 

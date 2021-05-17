@@ -18,7 +18,6 @@
 
 #include "core_words.hh"
 #include "compiler.hh"
-#include "compiler.hh"
 #include "vocabulary.hh"
 #include <array>
 #include <iostream>
@@ -28,7 +27,7 @@ using namespace tails;
 
 #ifdef ENABLE_TRACING
 // Exposed while running, for the TRACE function to use
-static Value * StackTop;
+static Value * StackBase;
 #endif
 
 
@@ -41,11 +40,11 @@ static Value run(const Word &word) {
     size_t stackSize = word.stackEffect().max();
     std::vector<Value> stack;
     stack.resize(stackSize);
-    auto stackTop = &stack[stackSize];
+    auto stackBase = &stack.front();
 #ifdef ENABLE_TRACING
-    StackTop = stackTop;
+    StackBase = stackBase;
 #endif
-    return * call(stackTop, word.instruction().word);
+    return * call(stackBase - 1, word.instruction().word);
 }
 
 
@@ -60,7 +59,7 @@ static_assert( StackEffect(1, 1).then(StackEffect(2,2)) == StackEffect(2, 2));
         /// Tracing function called at the end of each native op -- prints the stack
         void TRACE(Value *sp, const Instruction *pc) {
             cout << "\tat " << pc << ": ";
-            for (auto i = StackTop - 1; i >= sp; --i)
+            for (auto i = StackBase; i <= sp; ++i)
                 cout << ' ' << *i;
             cout << '\n';
         }

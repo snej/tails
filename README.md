@@ -24,7 +24,7 @@ Tails's world is currently very simple: a stack of values, a call stack, and a p
 
 Tails's core primitives are C+\+ functions of the form `int* FN(Value *sp, const Instruction *pc)`.
 
-* `sp` is the stack pointer. It grows downward, so `sp[0]` is the top value, `sp[1]` is below it, etc.
+* `sp` is the stack pointer. It grows upward, so `sp[0]` is the top value, `sp[-1]` is below it, etc.
 * `pc` is the program counter, which points to an array of `Instruction`s, specifically to the next instruction to execute.
 * The return value is the updated stack pointer.
 

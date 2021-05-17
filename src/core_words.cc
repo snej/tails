@@ -39,7 +39,7 @@ namespace tails::core_words {
 
     // ( -> i)  Pushes the following instruction as an integer
     NATIVE_WORD(LITERAL, "LITERAL", StackEffect(0,1), Word::HasValParam) {
-        *(--sp) = (pc++)->literal;
+        *(++sp) = (pc++)->literal;
         NEXT();
     }
 
@@ -47,35 +47,35 @@ namespace tails::core_words {
 
     // (a -> a a)
     NATIVE_WORD(DUP, "DUP", StackEffect(1,2), {}) {
-        --sp;
-        sp[0] = sp[1];
+        ++sp;
+        sp[0] = sp[-1];
         NEXT();
     }
 
     // (a -> )
     NATIVE_WORD(DROP, "DROP", StackEffect(1,0), {}) {
-        ++sp;
+        --sp;
         NEXT();
     }
 
     // (a b -> b a)
     NATIVE_WORD(SWAP, "SWAP", StackEffect(2,2), {}) {
-        std::swap(sp[0], sp[1]);
+        std::swap(sp[0], sp[-1]);
         NEXT();
     }
 
     // (a b -> a b a)
     NATIVE_WORD(OVER, "OVER", StackEffect(2,3), {}) {
-        --sp;
-        sp[0] = sp[2];
+        ++sp;
+        sp[0] = sp[-2];
         NEXT();
     }
 
     // (a b c -> b c a)
     NATIVE_WORD(ROT, "ROT", StackEffect(3,3), {}) {
-        auto sp2 = sp[2];
-        sp[2] = sp[1];
-        sp[1] = sp[0];
+        auto sp2 = sp[-2];
+        sp[-2] = sp[-1];
+        sp[-1] = sp[0];
         sp[0] = sp2;
         NEXT();
     }
@@ -92,19 +92,19 @@ namespace tails::core_words {
 
     // ( -> 0)
     NATIVE_WORD(ZERO, "0", StackEffect(0,1), {}) {
-        *(--sp) = Value(0);
+        *(++sp) = Value(0);
         NEXT();
     }
 
     // ( -> 1)
     NATIVE_WORD(ONE, "1", StackEffect(0,1), {}) {
-        *(--sp) = Value(1);
+        *(++sp) = Value(1);
         NEXT();
     }
 
     // ( -> null)
     NATIVE_WORD(NULL_, "NULL", StackEffect(0,1), {}) {
-        *(--sp) = Value();
+        *(++sp) = Value();
         NEXT();
     }
 
@@ -142,7 +142,7 @@ namespace tails::core_words {
 
     // (b -> )  and reads offset from *pc ... Assumes Value supports operator `!`
     NATIVE_WORD(ZBRANCH, "0BRANCH", StackEffect(1,0), Word::HasIntParam) {
-        if (!(*sp++))
+        if (!(*sp--))
             pc += pc->offset;
         ++pc;
         NEXT();

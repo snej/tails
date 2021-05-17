@@ -44,7 +44,7 @@ namespace tails {
     /// A native word is a C++ function with this signature.
     /// Interpreted words consist of an array of (mostly) Op pointers,
     /// but some native ops are followed by a parameter read by the function.
-    /// @param sp  Stack pointer. Top is sp[0], next is sp[1], ...
+    /// @param sp  Stack pointer. Top is sp[0], next is sp[-1], sp[-2] ...
     /// @param pc  Program counter. Points to the _next_ op to run.
     /// @return    The stack pointer. (But almost all ops tail-call via `NEXT()`
     ///            instead of explicitly returning a value.)
