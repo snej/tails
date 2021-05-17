@@ -1,0 +1,3 @@
+[submodule "vendor/linenoise"]
+	path = vendor/linenoise
+	url = https://github.com/rain-1/linenoise-mob.git

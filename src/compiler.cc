@@ -61,6 +61,7 @@ namespace tails {
         if (ref.word.hasAnyParam()) {
             _instrs.push_back(ref.param);
             _tempWords->push_back(NOP); // placeholder to keep indexes the same as in _instrs
+            _tempWords->back().source = ref.source;
             return InstructionPos(_instrs.size() - 1);
         } else {
             return InstructionPos::None;
@@ -88,7 +89,10 @@ namespace tails {
 
 
     void CompiledWord::finish() {
-        add(RETURN);
+        if (_tempWords->empty() || _tempWords->back().word != RETURN) {
+            const char *source = _tempWords->empty() ? nullptr : _tempWords->back().source;
+            add(RETURN, source);
+        }
         computeEffect();
         _instr = &_instrs.front();
         if (_name)
@@ -113,7 +117,7 @@ namespace tails {
     // @param curEffect  The known stack effect before the word at `i`
     // @param instrEffects  Vector of known/memoized StackEffects at each instruction index
     // @param finalEffect  The cumulative stack effect will be stored here.
-    // @throw runtime_error if stack is inconsistent or there's an invalid branch offset.
+    // @throw compile_error if stack is inconsistent or there's an invalid branch offset.
     void CompiledWord::computeEffect(intptr_t i,
                                      StackEffect curEffect,
                                      EffectVec &instrEffects,
@@ -132,7 +136,7 @@ namespace tails {
                 if (*instrEffect == curEffect)
                     return;
                 else if (instrEffect->net() != curEffect.net())
-                    throw runtime_error("Inconsistent stack depth");
+                    throw compile_error("Inconsistent stack depth", cur.source);
                 else
                     instrEffect = curEffect;
             } else {
@@ -149,7 +153,7 @@ namespace tails {
                 // The current effect when RETURN is reached is the word's cumulative effect.
                 // If there are multiple RETURNs, each must have the same effect.
                 if (finalEffect && *finalEffect != curEffect)
-                    throw runtime_error("Inconsistent stack effects at RETURNs");
+                    throw compile_error("Inconsistent stack effects at RETURNs", cur.source);
                 finalEffect = curEffect;
                 return;
 
@@ -157,7 +161,7 @@ namespace tails {
                 // Compute branch destination:
                 auto dst = i + 1 + cur.param.offset;
                 if (dst < 0 || dst >= _tempWords->size() || (*_tempWords)[dst].word == NOP)
-                    throw runtime_error("Invalid BRANCH destination");
+                    throw compile_error("Invalid BRANCH destination", cur.source);
 
                 // If this is a 0BRANCH, recurse to follow the non-branch case too:
                 if (cur.word == ZBRANCH)
@@ -197,13 +201,16 @@ namespace tails {
     }
 
 
-    static optional<int> asNumber(string_view token) {
+    static optional<double> asNumber(string_view token) {
         try {
             size_t pos;
-            int i = stoi(string(token), &pos, 0);
+            double d = stod(string(token), &pos);
             if (pos == token.size())
-                return i;
-        } catch (exception &x) {
+                return d;
+        } catch (const std::out_of_range&) {
+            throw compile_error("Number out of range", token.data());
+        } catch (const std::invalid_argument&) {
+            // ignore
         }
         return nullopt;
     }
@@ -214,34 +221,35 @@ namespace tails {
         CompiledWord parsedWord(nullptr);
         while (true) {
             string_view token = readToken(input);
+            const char *sourcePos = token.data();
             if (token.empty()) {
                 // End of input
                 break;
             } else if (token[0] == '"') {
                 // String literal:
                 if (token.size() == 1 || token[token.size()-1] != '"')
-                    throw runtime_error("Unfinished string literal");
+                    throw compile_error("Unfinished string literal", token.end());
                 token = token.substr(1, token.size() - 2);
-                parsedWord.add({LITERAL, Value(token.data(), token.size())});
+                parsedWord.add({LITERAL, Value(token.data(), token.size())}, sourcePos);
             } else if (token == "IF") {
                 // IF compiles into 0BRANCH, with offset TBD:
-                ifStack.push_back(parsedWord.add({ZBRANCH, intptr_t(-1)}));
+                ifStack.push_back(parsedWord.add({ZBRANCH, intptr_t(-1)}, sourcePos));
 
             } else if (token == "ELSE") {
                 // ELSE compiles into BRANCH, with offset TBD, and resolves the IF's branch:
                 if (ifStack.empty())
-                    throw runtime_error("ELSE without a matching IF");
+                    throw compile_error("ELSE without a matching IF", sourcePos);
                 InstructionPos ifPos = ifStack.back();
                 if (parsedWord[ifPos].word != ZBRANCH)
-                    throw runtime_error("ELSE following ELSE");
-                InstructionPos elsePos = parsedWord.add({BRANCH, intptr_t(-1)});
+                    throw compile_error("ELSE following ELSE", sourcePos);
+                InstructionPos elsePos = parsedWord.add({BRANCH, intptr_t(-1)}, sourcePos);
                 parsedWord.fixBranch(ifStack.back(), parsedWord.nextInstructionPos());
                 ifStack.back() = elsePos;
 
             } else if (token == "THEN") {
                 // THEN generates no code but completes the remaining branch from IF or ELSE:
                 if (ifStack.empty())
-                    throw runtime_error("THEN without a matching IF");
+                    throw compile_error("THEN without a matching IF", sourcePos);
                 parsedWord.fixBranch(ifStack.back(), parsedWord.nextInstructionPos());
                 ifStack.pop_back();
 
@@ -249,29 +257,31 @@ namespace tails {
                 // Known word is added as an instruction:
                 if (word->hasAnyParam()) {
                     if (!allowParams)
-                        throw runtime_error("Special word " + string(token)
-                                            + " cannot be added by parser");
-                    auto param = asNumber(readToken(input));
-                    if (!param)
-                        throw runtime_error("Invalid param after " + string(token));
+                        throw compile_error("Special word " + string(token)
+                                            + " cannot be added by parser", sourcePos);
+                    auto numTok = readToken(input);
+                    auto param = asNumber(numTok);
+                    if (!param || (*param != intptr_t(*param)))
+                        throw compile_error("Invalid param after " + string(token), numTok.data());
                     if (word->hasIntParam())
-                        parsedWord.add({*word, (intptr_t)*param});
+                        parsedWord.add({*word, (intptr_t)*param}, sourcePos);
                     else
-                        parsedWord.add({*word, Value(*param)});
+                        parsedWord.add({*word, Value(*param)}, sourcePos);
                 } else {
-                    parsedWord.add(*word);
+                    parsedWord.add(*word, sourcePos);
                 }
 
             } else if (auto ip = asNumber(token); ip) {
                 // A number is added as a LITERAL instruction:
-                parsedWord.add({LITERAL, Value(*ip)});
+                parsedWord.add({LITERAL, Value(*ip)}, sourcePos);
 
             } else {
-                throw runtime_error("Unknown word '" + string(token) + "'");
+                throw compile_error("Unknown word '" + string(token) + "'", sourcePos);
             }
         }
         if (!ifStack.empty())
-            throw runtime_error("Unfinished IF/ELSE (missing THEN)");
+            throw compile_error("Unfinished IF/ELSE (missing THEN)", input);
+        parsedWord.add(RETURN, input);
         parsedWord.finish();
         return parsedWord;
     }

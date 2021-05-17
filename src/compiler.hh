@@ -19,6 +19,7 @@
 #pragma once
 #include "word.hh"
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -28,6 +29,15 @@ namespace tails {
     namespace core_words {
         extern const Word LITERAL;
     }
+
+
+    class compile_error : public std::runtime_error {
+    public:
+        compile_error(const char *msg, const char *loc) :runtime_error(msg), location(loc) { }
+        compile_error(const std::string &msg, const char *loc) :runtime_error(msg), location(loc) { }
+
+        const char *const location;
+    };
 
 
     /// A Forth word definition compiled at runtime.
@@ -44,6 +54,7 @@ namespace tails {
 
             const Word& word;
             Instruction param;
+            const char *source = nullptr;
         };
 
         /// Compiles Forth source code to an unnamed Word, but doesn't run it.
@@ -67,6 +78,11 @@ namespace tails {
         /// Adds an instruction to a word being compiled.
         /// @return  An opaque reference to this instruction, that can be used later to fix branches.
         InstructionPos add(const WordRef&);
+
+        InstructionPos add(WordRef ref, const char *source) {
+            ref.source = source;
+            return add(ref);
+        }
 
         /// Returns the word at the given position.
         const WordRef& operator[] (InstructionPos);
