@@ -87,6 +87,7 @@
 		2732F9D52652DBEB0013063A /* utf8.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = utf8.h; sourceTree = "<group>"; };
 		2732F9DB2652DC6D0013063A /* liblinenoise.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = liblinenoise.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		2732F9F72652DE510013063A /* Tests */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = Tests; sourceTree = BUILT_PRODUCTS_DIR; };
+		2732FA0D26543FBF0013063A /* stack_effect.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = stack_effect.hh; sourceTree = "<group>"; };
 		2739929B264C61D100301067 /* build.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = build.sh; sourceTree = "<group>"; };
 		273B20842641B8AA00A14EC4 /* Tails */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = Tails; sourceTree = BUILT_PRODUCTS_DIR; };
 		273B20912643282500A14EC4 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
@@ -198,6 +199,7 @@
 				2732F9C2264F0FE10013063A /* value.cc */,
 				27CBF69E264C88FA00EF08C4 /* nan_tagged.hh */,
 				273B20922643479600A14EC4 /* instruction.hh */,
+				2732FA0D26543FBF0013063A /* stack_effect.hh */,
 				273B209C264351E400A14EC4 /* word.hh */,
 				273B2093264348A400A14EC4 /* core_words.cc */,
 				273B20972643498900A14EC4 /* core_words.hh */,
