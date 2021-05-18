@@ -16,6 +16,8 @@
 // limitations under the License.
 //
 
+// Reference: <https://forth-standard.org/standard/core>
+
 #include "core_words.hh"
 
 
@@ -27,18 +29,18 @@ namespace tails::core_words {
     //---- The absolute core:
 
     // (? -> ?)  Calls the subroutine pointed to by the following instruction.
-    NATIVE_WORD(CALL, "CALL", StackEffect(1,1), {}) {
+    NATIVE_WORD(CALL, "CALL", StackEffect(1,1), Word::Magic) {
         sp = call(sp, (pc++)->word);
         NEXT();
     }
 
-    // ( -> )  Returns from the current word. Every word ends with this.
-    NATIVE_WORD(RETURN, "RETURN", StackEffect(0,0), {}) {
+    // ( -> )  Returns from the current word. Every interpreted word ends with this.
+    NATIVE_WORD(RETURN, "RETURN", StackEffect(0,0), 0) {
         return sp;
     }
 
     // ( -> i)  Pushes the following instruction as an integer
-    NATIVE_WORD(LITERAL, "LITERAL", StackEffect(0,1), Word::HasValParam) {
+    NATIVE_WORD(LITERAL, "LITERAL", StackEffect(0,1), Word::Magic | Word::HasValParam) {
         *(++sp) = (pc++)->literal;
         NEXT();
     }
@@ -46,33 +48,33 @@ namespace tails::core_words {
     //---- Stack gymnastics:
 
     // (a -> a a)
-    NATIVE_WORD(DUP, "DUP", StackEffect(1,2), {}) {
+    NATIVE_WORD(DUP, "DUP", StackEffect(1,2), 0) {
         ++sp;
         sp[0] = sp[-1];
         NEXT();
     }
 
     // (a -> )
-    NATIVE_WORD(DROP, "DROP", StackEffect(1,0), {}) {
+    NATIVE_WORD(DROP, "DROP", StackEffect(1,0), 0) {
         --sp;
         NEXT();
     }
 
     // (a b -> b a)
-    NATIVE_WORD(SWAP, "SWAP", StackEffect(2,2), {}) {
+    NATIVE_WORD(SWAP, "SWAP", StackEffect(2,2), 0) {
         std::swap(sp[0], sp[-1]);
         NEXT();
     }
 
     // (a b -> a b a)
-    NATIVE_WORD(OVER, "OVER", StackEffect(2,3), {}) {
+    NATIVE_WORD(OVER, "OVER", StackEffect(2,3), 0) {
         ++sp;
         sp[0] = sp[-2];
         NEXT();
     }
 
     // (a b c -> b c a)
-    NATIVE_WORD(ROT, "ROT", StackEffect(3,3), {}) {
+    NATIVE_WORD(ROT, "ROT", StackEffect(3,3), 0) {
         auto sp2 = sp[-2];
         sp[-2] = sp[-1];
         sp[-1] = sp[0];
@@ -81,7 +83,7 @@ namespace tails::core_words {
     }
 
     // ( -> )
-    NATIVE_WORD(NOP, "NOP", StackEffect(0,0), {}) {
+    NATIVE_WORD(NOP, "NOP", StackEffect(0,0), 0) {
         NEXT();
     }
 
@@ -91,19 +93,19 @@ namespace tails::core_words {
     //       and that there are conversions from integer and double to Value.
 
     // ( -> 0)
-    NATIVE_WORD(ZERO, "0", StackEffect(0,1), {}) {
+    NATIVE_WORD(ZERO, "0", StackEffect(0,1), 0) {
         *(++sp) = Value(0);
         NEXT();
     }
 
     // ( -> 1)
-    NATIVE_WORD(ONE, "1", StackEffect(0,1), {}) {
+    NATIVE_WORD(ONE, "1", StackEffect(0,1), 0) {
         *(++sp) = Value(1);
         NEXT();
     }
 
     // ( -> null)
-    NATIVE_WORD(NULL_, "NULL", StackEffect(0,1), {}) {
+    NATIVE_WORD(NULL_, "NULL", StackEffect(0,1), 0) {
         *(++sp) = Value();
         NEXT();
     }
@@ -122,10 +124,10 @@ namespace tails::core_words {
     BINARY_OP_WORD(LE,    "<=", <=)
 
     // (a -> bool)
-    NATIVE_WORD(EQ_ZERO, "0=", StackEffect(1,1), {})  { sp[0] = Value(sp[0] == Value(0)); NEXT(); }
-    NATIVE_WORD(NE_ZERO, "0<>", StackEffect(1,1), {}) { sp[0] = Value(sp[0] != Value(0)); NEXT(); }
-    NATIVE_WORD(GT_ZERO, "0>", StackEffect(1,1), {})  { sp[0] = Value(sp[0] > Value(0)); NEXT(); }
-    NATIVE_WORD(LT_ZERO, "0<", StackEffect(1,1), {})  { sp[0] = Value(sp[0] < Value(0)); NEXT(); }
+    NATIVE_WORD(EQ_ZERO, "0=", StackEffect(1,1), 0)  { sp[0] = Value(sp[0] == Value(0)); NEXT(); }
+    NATIVE_WORD(NE_ZERO, "0<>", StackEffect(1,1), 0) { sp[0] = Value(sp[0] != Value(0)); NEXT(); }
+    NATIVE_WORD(GT_ZERO, "0>", StackEffect(1,1), 0)  { sp[0] = Value(sp[0] > Value(0)); NEXT(); }
+    NATIVE_WORD(LT_ZERO, "0<", StackEffect(1,1), 0)  { sp[0] = Value(sp[0] < Value(0)); NEXT(); }
 
     //---- Control Flow:
 
@@ -135,18 +137,19 @@ namespace tails::core_words {
         0BRANCH is a conditional branch (it only branches if the top of stack is zero)." --JonesForth */
 
     // ( -> )  and reads offset from *pc
-    NATIVE_WORD(BRANCH, "BRANCH", StackEffect(0,0), Word::HasIntParam) {
+    NATIVE_WORD(BRANCH, "BRANCH", StackEffect(0,0), Word::Magic | Word::HasIntParam) {
         pc += pc->offset + 1;
         NEXT();
     }
 
     // (b -> )  and reads offset from *pc ... Assumes Value supports operator `!`
-    NATIVE_WORD(ZBRANCH, "0BRANCH", StackEffect(1,0), Word::HasIntParam) {
+    NATIVE_WORD(ZBRANCH, "0BRANCH", StackEffect(1,0), Word::Magic | Word::HasIntParam) {
         if (!(*sp--))
             pc += pc->offset;
         ++pc;
         NEXT();
     }
+
 
     //======================== INTERPRETED WORDS ========================//
 
@@ -165,7 +168,7 @@ namespace tails::core_words {
     INTERP_WORD(ABS, "ABS", StackEffect(1,1, 1),
         DUP,
         LT_ZERO,
-        ZBRANCH, Instruction(intptr_t(3)),
+        ZBRANCH, Instruction::withOffset(3),
         ZERO,
         SWAP,
         MINUS
@@ -176,7 +179,7 @@ namespace tails::core_words {
         OVER,
         OVER,
         LT,
-        ZBRANCH, Instruction(intptr_t(1)),
+        ZBRANCH, Instruction::withOffset(1),
         SWAP,
         DROP
     );
@@ -187,11 +190,16 @@ namespace tails::core_words {
         OVER,
         OVER,
         GT,
-        ZBRANCH, Instruction(intptr_t(1)),
+        ZBRANCH, Instruction::withOffset(1),
         SWAP,
         DROP
     );
 
+
+    //======================== LIST OF CORE WORDS ========================//
+
+
+    // This is used to register these words in the Vocabulary at startup.
 
     const Word* const kWords[] = {
         &CALL, &LITERAL, &RETURN,

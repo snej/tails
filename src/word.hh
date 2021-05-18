@@ -88,13 +88,14 @@ namespace tails {
     class Word {
     public:
         enum Flags : uint8_t {
-            None = 0,
-            Native = 1,
+            NoFlags     = 0,
+            Native      = 1, ///< Implemented in native code (at `_instr.op`)
             HasIntParam = 2, ///< This word is followed by an integer param (BRANCH, 0BRANCH)
-            HasValParam = 4  ///< This word is followed by a Value param (LITERAL)
+            HasValParam = 4, ///< This word is followed by a Value param (LITERAL)
+            Magic       = 8, ///< Low-level, not allowed in parsed code (0BRANCH, CALL, etc.)
         };
 
-        constexpr Word(const char *name, Op native, StackEffect effect, Flags flags =None)
+        constexpr Word(const char *name, Op native, StackEffect effect, Flags flags =NoFlags)
         :_instr(native)
         ,_name(name)
         ,_effect(effect)
@@ -105,7 +106,7 @@ namespace tails {
         :_instr(words)
         ,_name(name)
         ,_effect(effect)
-        ,_flags(None)
+        ,_flags(NoFlags)
         { }
 
         constexpr const char* name() const              {return _name;}
@@ -116,11 +117,12 @@ namespace tails {
         constexpr bool hasIntParam() const              {return (_flags & HasIntParam) != 0;}
         constexpr bool hasValParam() const              {return (_flags & HasValParam) != 0;}
         constexpr bool hasAnyParam() const              {return (_flags & (HasIntParam | HasValParam)) != 0;}
+        constexpr bool isMagic() const                  {return (_flags & Magic) != 0;}
 
         constexpr operator Instruction() const          {return _instr;}
 
     protected:
-        Word() :_instr {}, _name(nullptr), _effect(), _flags(None) { };
+        Word() :_instr {}, _name(nullptr), _effect(), _flags(NoFlags) { };
 
         Instruction _instr; // Instruction that calls it (either an Op or an Instruction*)
         const char* _name;  // Forth name, or NULL if anonymous
@@ -144,7 +146,7 @@ namespace tails {
     // @param FLAGS  Flags; use \ref HasIntParam if this word takes a following parameter.
     #define NATIVE_WORD(NAME, FORTHNAME, EFFECT, FLAGS) \
         Value* f_##NAME(Value *sp, const Instruction *pc) noexcept; \
-        constexpr Word NAME(FORTHNAME, f_##NAME, EFFECT, FLAGS); \
+        constexpr Word NAME(FORTHNAME, f_##NAME, EFFECT, Word::Flags(FLAGS)); \
         Value* f_##NAME(Value *sp, const Instruction *pc) noexcept
 
 
@@ -153,7 +155,7 @@ namespace tails {
     // @param FORTHNAME  The word's Forth name (a string literal.)
     // @param INFIXOP  The raw C++ infix operator to implement, e.g. `+` or `==`.
     #define BINARY_OP_WORD(NAME, FORTHNAME, INFIXOP) \
-        NATIVE_WORD(NAME, FORTHNAME, StackEffect(2,1), Word::None) { \
+        NATIVE_WORD(NAME, FORTHNAME, StackEffect(2,1), Word::NoFlags) { \
             sp[-1] = Value(sp[-1] INFIXOP sp[0]);\
             --sp;\
             NEXT(); \

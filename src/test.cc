@@ -20,6 +20,7 @@
 #include "compiler.hh"
 #include "vocabulary.hh"
 #include <array>
+#include <iomanip>
 #include <iostream>
 
 using namespace std;
@@ -58,9 +59,13 @@ static_assert( StackEffect(1, 1).then(StackEffect(2,2)) == StackEffect(2, 2));
     namespace tails {
         /// Tracing function called at the end of each native op -- prints the stack
         void TRACE(Value *sp, const Instruction *pc) {
-            cout << "\tat " << pc << ": ";
+            --pc; // the pc we are passed is of the _next_ Instruction
+            cout << "\tafter " << setw(14) << pc;
+            if (auto dis = DisassembleInstructionOrParam(pc); dis)
+                cout << " " << setw(12) << std::left << dis->word.name();
+            cout << ": ";
             for (auto i = StackBase; i <= sp; ++i)
-                cout << ' ' << *i;
+                cout << ' ' << setw(4) << *i;
             cout << '\n';
         }
     }
@@ -72,12 +77,12 @@ static void printStackEffect(StackEffect f) {
 }
 
 
-static void _test(std::initializer_list<CompiledWord::WordRef> words,
+static void _test(std::initializer_list<Compiler::WordRef> words,
                   const char *sourcecode,
                   double expected)
 {
     cout << "* Testing {" << sourcecode << "} ...\n";
-    CompiledWord word(words);
+    CompiledWord word = Compiler::compile(words);
     printStackEffect(word.stackEffect());
     Value result = run(word);
     cout << "\t-> got " << result << "\n";
@@ -87,7 +92,9 @@ static void _test(std::initializer_list<CompiledWord::WordRef> words,
 
 static Value _runParser(const char *source) {
     cout << "* Parsing “" << source << "”\n";
-    CompiledWord parsed = CompiledWord::parse(source, true);
+    Compiler compiler;
+    compiler.parse(source, true);
+    CompiledWord parsed = compiler.finish();
 
     cout << "\tDisassembly:";
     auto dis = DisassembleWord(parsed.instruction().word);
@@ -148,6 +155,8 @@ int main(int argc, char *argv[]) {
     TEST_PARSER(1,    "53 DUP 13 >= 0BRANCH 5 13 - BRANCH -11");
     TEST_PARSER(123,  "1 IF 123 ELSE 666 THEN");
     TEST_PARSER(666,  "0 IF 123 ELSE 666 THEN");
+
+    TEST_PARSER(120,  "1 5 BEGIN  DUP  WHILE  SWAP OVER * SWAP 1 -  REPEAT  DROP");
 
 #ifndef SIMPLE_VALUE
     TEST_PARSER("hello",   R"( "hello" )");

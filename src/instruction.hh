@@ -63,6 +63,8 @@ namespace tails {
         constexpr Instruction(Value v)              :literal(v) { }
         explicit constexpr Instruction(intptr_t o)  :offset(o) { }
 
+        static constexpr Instruction withOffset(intptr_t o) {return Instruction(o);}
+
     private:
         friend class Word;
         friend class WordRef;
