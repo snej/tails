@@ -55,8 +55,9 @@ namespace tails {
         static constexpr size_t kInlineCapacity = 6;
 
         constexpr NanTagged() noexcept                              :_bits(kPointerType) { }
+        constexpr NanTagged(std::nullptr_t) noexcept                :_bits(kPointerType) { }
         constexpr NanTagged(double d) noexcept                      {setDouble(d);}
-        constexpr NanTagged(const TO *ptr) noexcept                 {setPointer(ptr);}
+        NanTagged(const TO *ptr) noexcept                           {setPointer(ptr);}
         constexpr NanTagged(std::initializer_list<uint8_t> b) noexcept {setInline(b);}
 
         bool operator== (NanTagged n) const noexcept _pure          {return _bits == n._bits;}
@@ -68,6 +69,8 @@ namespace tails {
         bool isPointer() const noexcept _pure       {return (_bits & kTypeMask) == kPointerType;}
         bool isInline() const noexcept _pure        {return (_bits & kTypeMask) == kInlineType;}
 
+        bool isNullPointer() const noexcept _pure   {return _bits == kPointerType;}
+        
         // Getters:
 
         /// Returns the `double` this stores, or an `NaN` if it's not holding a double.
@@ -96,7 +99,7 @@ namespace tails {
                 _asDouble = d;
         }
 
-        constexpr void setPointer(const TO *p) noexcept {
+        void setPointer(const TO *p) noexcept {
             _bits = (uint64_t)p | kPointerType;
         }
 

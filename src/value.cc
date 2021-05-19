@@ -36,6 +36,8 @@ namespace tails {
 
 #else
 
+
+
     Value::Value(const char* str)
     :Value(str, (str ? strlen(str) : 0))
     { }
@@ -51,6 +53,35 @@ namespace tails {
             char *dst = allocString(len);
             memcpy(dst, str, len);
         }
+    }
+
+
+    Value::Value(std::initializer_list<Value> arrayItems)
+    :NanTagged((void**)0)
+    {
+        auto array = new Array(arrayItems);
+        setPointer((char*)array);
+        setTags(kArrayTag);
+    }
+
+
+    Value::Value(Array *array)
+    :NanTagged((void**)0)
+    {
+        setPointer((char*)array);
+        setTags(kArrayTag);
+    }
+
+
+    Value::Type Value::type() const {
+        if (isDouble())
+            return ANumber;
+        else if (isNullPointer())
+            return ANull;
+        else if (tags() == kStringTag)
+            return AString;
+        else
+            return AnArray;
     }
 
 
@@ -71,43 +102,66 @@ namespace tails {
 
 
     string_view Value::asString() const {
-        if (isInline()) {
-            // The inline string ends before the first 0 byte, else at the end of the inline data.
-            auto str = (const char*)asInline().data;
-            size_t len = 0;
-            while (str[len] != 0 && len < NanTagged::kInlineCapacity)
-                ++len;
-            return string_view(str, len);
-        } else if (asPointer()) {
-            return string_view(asPointer());
-        } else {
-            return string_view();
+        if (tags() == kStringTag && !isDouble()) {
+            if (isInline()) {
+                // The inline string ends before the first 0 byte, else at the end of the inline data.
+                auto str = (const char*)asInline().data;
+                size_t len = 0;
+                while (str[len] != 0 && len < NanTagged::kInlineCapacity)
+                    ++len;
+                return string_view(str, len);
+            } else if (!isNull()) {
+                return string_view(asPointer());
+            }
         }
+        return string_view();
+    }
+
+
+    Value::Array* Value::asArray() const {
+        if (tags() == kArrayTag)
+            return (Array*)asPointer();
+        return nullptr;
     }
 
 
     bool Value::operator== (const Value &v) const {
         if (NanTagged::operator==(v))
             return true;
-        else if (isNull() || v.isNull())
+        Type myType = type();
+        if (myType == ANull || myType == ANumber || v.type() != myType)
             return false;
-        else
+        else if (myType == AString)
             return asString() == v.asString();
+        else
+            return *asArray() == *v.asArray();
     }
 
 
+    template <typename T>
+    static inline int _cmp(T a, T b)    {return (a==b) ? 0 : ((a<b) ? -1 : 1);}
+
+
     int Value::cmp(Value v) const {
-        if (int nullA = isNull(), nullB = v.isNull(); nullA || nullB) {
-            return nullB - nullA;
-        } else if (isDouble()) {
-            if (!v.isDouble())
-                return -1;
-            auto a = asDouble(), b = v.asDouble();
-            return (a == b) ? 0 : ((a < b) ? -1 : 1);
-        } else {
-            if (v.isDouble())
-                return 1;
-            return asString().compare(v.asString());
+        Type myType = type(), vType = v.type();
+        if (myType != vType)
+            return int(myType) - int(vType);
+        switch (myType) {
+            case ANull:
+                return 0;
+            case ANumber:
+                return _cmp(asDouble(), v.asDouble());
+            case AString:
+                return asString().compare(v.asString());
+            case AnArray: {
+                const Array *a = asArray(), *b = v.asArray();
+                auto ia = a->begin(), ib = b->begin();
+                for (size_t n = min(a->size(), b->size()); n > 0; --n, ++ia, ++ib) {
+                    if (int c = ia->cmp(*ib); c != 0)
+                        return c;
+                }
+                return _cmp(a->size(), b->size());
+            }
         }
     }
 
@@ -116,22 +170,33 @@ namespace tails {
         if (isDouble() || v.isDouble()) {
             // Addition:
             return Value(asDouble() + v.asDouble());
-        } else {
+        } else if (isString() && v.isString()) {
             // String concatenation:
             auto str1 = asString(), str2 = v.asString();
             if (str1.size() == 0)
                 return v;
             else if (str2.size() == 0)
                 return *this;
-
-            Value result;
-            char *dst = result.allocString(str1.size() + str2.size());
-            memcpy(dst,               str1.data(), str1.size());
-            memcpy(dst + str1.size(), str2.data(), str2.size());
-            return result;
+            else {
+                Value result;
+                char *dst = result.allocString(str1.size() + str2.size());
+                memcpy(dst,               str1.data(), str1.size());
+                memcpy(dst + str1.size(), str2.data(), str2.size());
+                return result;
+            }
+        } else if (isArray()) {
+            // Add item to array:
+            auto newArray = new Array(*asArray());
+            newArray->push_back(v);
+            return Value((char*)newArray);
+        } else {
+            return NullValue;
         }
     }
 
+
+    // Numeric operations don't need type checking. If either value is non-numeric, then
+    // `asDouble` returns a NaN by definition, and the Value constructor changes that to `null`.
 
     Value Value::operator- (Value v) const {
         return Value(asDouble() - v.asDouble());
@@ -154,17 +219,30 @@ namespace tails {
             if (int denom = v.asInt(); denom != 0)
                 return Value(asInt() % denom);
         }
-        return Value();
+        return NullValue;
+    }
+
+
+    static std::ostream& operator<< (std::ostream &out, const Value::Array &array) {
+        out << '[';
+        int n = 0;
+        for (auto value : array) {
+            if (n++ > 0)
+                out << ", ";
+            out << value;
+        }
+        out << ']';
+        return out;
     }
 
 
     std::ostream& operator<< (std::ostream &out, Value value) {
-        if (value.isDouble())
-            out << value.asDouble();
-        else if (value.isString())
-            out << std::quoted(value.asString());
-        else
-            out << "null";
+        switch (value.type()) {
+            case Value::ANull:   return out << "null"; break;
+            case Value::ANumber: return out << value.asDouble(); break;
+            case Value::AString: return out << std::quoted(value.asString()); break;
+            case Value::AnArray: return out << *value.asArray(); break;
+        }
         return out;
     }
 

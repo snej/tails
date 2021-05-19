@@ -21,6 +21,7 @@
 #include "nan_tagged.hh"
 #include <iosfwd>
 #include <string_view>
+#include <vector>
 
 
 namespace tails {
@@ -67,21 +68,38 @@ namespace tails {
     /// It's only advised for 64-bit CPUs with FPUs.
     class Value : private NanTagged<char> {
     public:
-        constexpr Value()                   :NanTagged((const char*)nullptr) { }
+        using Array = std::vector<Value>;
+
+        constexpr Value()                   :NanTagged(nullptr) { }
+        constexpr explicit Value(nullptr_t) :Value() { }
         constexpr explicit Value(double n)  :NanTagged(n) { }
         constexpr explicit Value(int n)     :Value(double(n)) { }
-        constexpr explicit Value(nullptr_t) :Value() { }
+
         explicit Value(const char* str);
         explicit Value(const char* str, size_t len);
 
+        explicit Value(std::initializer_list<Value> arrayItems);
+        explicit Value(Array *array);
+
+        enum Type {
+            ANull,
+            ANumber,
+            AString,
+            AnArray
+        };
+
+        Type type() const;
+
         constexpr bool isDouble() const     {return NanTagged::isDouble();}
-        constexpr bool isString() const     {return asPointer() || isInline();}
-        constexpr bool isNull() const       {return isPointer() && pointerValue() == nullptr;}
+        constexpr bool isString() const     {return (asPointer() || isInline()) && tags() == kStringTag;}
+        constexpr bool isArray() const      {return asPointer() && tags() == kArrayTag;}
+        constexpr bool isNull() const       {return NanTagged::isNullPointer();}
 
         constexpr double asNumber() const   {return asDouble();}
         constexpr double asDouble() const   {return NanTagged::asDouble();}
         constexpr int    asInt() const      {return int(asDoubleOrZero());}
         std::string_view asString() const;
+        Array*           asArray() const;
 
         constexpr explicit operator bool() const {
             if (isDouble())
@@ -100,8 +118,12 @@ namespace tails {
         Value operator% (Value v) const;
 
     private:
+        static constexpr int kStringTag = 0, kArrayTag = 1;
+
         char* allocString(size_t len);
     };
+
+    constexpr Value NullValue;
 
 #endif
 
