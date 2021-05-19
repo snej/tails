@@ -108,10 +108,12 @@ namespace tails {
         /// Returns an opaque reference to the _next_ instruction to be added,
         InstructionPos nextInstructionPos() const       {return InstructionPos(_words.size());}
 
-        /// Updates the branch target of a previously-written `BRANCH` or `ZBRANCH` instruction.
+        void addBranchBackTo(InstructionPos);
+
+        /// Updates a previously-written `BRANCH` or `ZBRANCH` instruction, to branch to the
+        /// next instruction to be written.
         /// @param src  The branch instruction to update.
-        /// @param dst  The instruction it should jump to.
-        void fixBranch(InstructionPos src, InstructionPos dst);
+        void fixBranch(InstructionPos src);
 
         /// Finishes a word being compiled. Adds a RETURN instruction, and registers it with the
         /// global Vocabulary (unless it's unnamed.)
@@ -124,7 +126,10 @@ namespace tails {
 
     private:
         using EffectVec = std::vector<std::optional<StackEffect>>;
+        using BranchTarget = std::pair<char, InstructionPos>;
 
+        void pushBranch(char identifier, const Word *branch =nullptr);
+        InstructionPos popBranch(const char *matching);
         void computeEffect();
         void computeEffect(intptr_t i,
                            StackEffect effect,
@@ -135,6 +140,8 @@ namespace tails {
         std::vector<WordRef>        _words;
         size_t                      _maxInputs = SIZE_MAX;
         std::optional<StackEffect>  _effect;
+        std::string_view            _curToken;
+        std::vector<BranchTarget>   _controlStack;
     };
 
 

@@ -70,10 +70,9 @@ namespace tails {
     }
 
 
-    void Compiler::fixBranch(InstructionPos src, InstructionPos dst) {
-        intptr_t srcPos = intptr_t(src), paramPos = srcPos + 1, dstPos = intptr_t(dst);
-        assert(srcPos >= 0 && paramPos < _words.size());
-        assert(dstPos > srcPos && dstPos <= _words.size());
+    void Compiler::fixBranch(InstructionPos src) {
+        intptr_t srcPos = intptr_t(src), paramPos = srcPos + 1, dstPos = intptr_t(_words.size());
+        assert(srcPos >= 0 && paramPos < dstPos);
         WordRef &branch = _words[srcPos];
         assert(branch.word == ZBRANCH || branch.word == BRANCH);
         assert(_words[paramPos].word == NOP);
@@ -81,7 +80,16 @@ namespace tails {
     }
 
 
+    void Compiler::addBranchBackTo(InstructionPos pos) {
+        intptr_t offset = intptr_t(pos) - (intptr_t(nextInstructionPos()) + 2);
+        add({BRANCH, offset}, _curToken.data());
+    }
+
+
     CompiledWord Compiler::finish() {
+        if (!_controlStack.empty())
+            throw compile_error("Unfinished IF-ELSE-THEN or BEGIN-WHILE-REPEAT)", nullptr);
+
         // Add a RETURN, if there's not one already:
         if (_words.empty() || _words.back().word != RETURN) {
             const char *source = _words.empty() ? nullptr : _words.back().source;
@@ -237,10 +245,34 @@ namespace tails {
     }
 
 
+    /// Adds a branch instruction (unless `branch` is NULL)
+    /// and pushes its location onto the control-flow stack.
+    void Compiler::pushBranch(char identifier, const Word *branch) {
+        InstructionPos pos;
+        if (branch)
+            pos = add({*branch, intptr_t(-1)}, _curToken.data());
+        else
+            pos = nextInstructionPos();
+        _controlStack.push_back({identifier, pos});
+    }
+
+    /// Pops the control flow stack, checks that the popped identifier matches,
+    /// and returns the address of its branch instruction.
+    Compiler::InstructionPos Compiler::popBranch(const char *matching) {
+        if (!_controlStack.empty()) {
+            auto ctrl = _controlStack.back();
+            if (strchr(matching, ctrl.first)) {
+                _controlStack.pop_back();
+                return ctrl.second;
+            }
+        }
+        throw compile_error("no matching IF or WHILE", _curToken.data());
+    }
+
+
     void Compiler::parse(const char *input, bool allowMagic) {
-        vector<pair<char, InstructionPos>> controlStack;
         while (true) {
-            string_view token = readToken(input);
+            string_view token = _curToken = readToken(input);
             const char *sourcePos = token.data();
             if (token.empty()) {
                 // End of input
@@ -255,49 +287,36 @@ namespace tails {
 
             } else if (token == "IF") {
                 // IF compiles into 0BRANCH, with offset TBD:
-                controlStack.push_back({'i', add({ZBRANCH, intptr_t(-1)}, sourcePos)});
+                pushBranch('i', &ZBRANCH);
 
             } else if (token == "ELSE") {
                 // ELSE compiles into BRANCH, with offset TBD, and resolves the IF's branch:
-                if (controlStack.empty())
-                    throw compile_error("no matching IF for this ELSE", sourcePos);
-                auto [ifWord, ifPos] = controlStack.back();
-                if (ifWord != 'i' || (*this)[ifPos].word != ZBRANCH)
-                    throw compile_error("no matching IF for this ELSE", sourcePos);
-                InstructionPos elsePos = add({BRANCH, intptr_t(-1)}, sourcePos);
-                fixBranch(ifPos, nextInstructionPos());
-                controlStack.back() = {'e', elsePos};
+                auto ifPos = popBranch("i");
+                pushBranch('e', &BRANCH);
+                fixBranch(ifPos);
 
             } else if (token == "THEN") {
                 // THEN generates no code but completes the remaining branch from IF or ELSE:
-                if (controlStack.empty())
-                    throw compile_error("THEN without a matching IF", sourcePos);
-                auto [ifWord, ifPos] = controlStack.back();
-                controlStack.pop_back();
-                if (ifWord != 'i' && ifWord != 'e')
-                    throw compile_error("THEN without a matching IF or ELSE", sourcePos);
-                fixBranch(ifPos, nextInstructionPos());
+                auto ifPos = popBranch("ie");
+                fixBranch(ifPos);
 
             } else if (token == "BEGIN") {
-                controlStack.push_back({'b', nextInstructionPos()});
+                // BEGIN generates no code but remembers the current address:
+                pushBranch('b');
 
             } else if (token == "WHILE") {
-                if (controlStack.empty() || controlStack.back().first != 'b')
+                // IF compiles into 0BRANCH, with offset TBD:
+                if (_controlStack.empty() || _controlStack.back().first != 'b')
                     throw compile_error("no matching BEGIN for this WHILE", sourcePos);
-                controlStack.push_back({'w', add({ZBRANCH, intptr_t(-1)}, sourcePos)});
+                pushBranch('w', &ZBRANCH);
 
             } else if (token == "REPEAT") {
-                if (controlStack.size() < 2)
-                    throw compile_error("REPEAT without a matching WHILE", sourcePos);
-                auto [whileWord, whilePos] = controlStack.back();
-                controlStack.pop_back();
-                auto [beginWord, beginPos] = controlStack.back();
-                controlStack.pop_back();
-                if (whileWord != 'w' || beginWord != 'b')
-                    throw compile_error("REPEAT without a matching WHILE", sourcePos);
-                intptr_t offset = intptr_t(beginPos) - (intptr_t(nextInstructionPos()) + 2);
-                add({BRANCH, offset}, sourcePos);
-                fixBranch(whilePos, nextInstructionPos());
+                // REPEAT generates a BRANCH back to the BEGIN's position,
+                // and fixes up the WHILE to point to the next instruction:
+                auto whilePos = popBranch("w");
+                auto beginPos = popBranch("b");
+                addBranchBackTo(beginPos);
+                fixBranch(whilePos);
 
             } else if (const Word *word = Vocabulary::global.lookup(token); word) {
                 // Known word is added as an instruction:
@@ -325,9 +344,7 @@ namespace tails {
                 throw compile_error("Unknown word '" + string(token) + "'", sourcePos);
             }
         }
-        if (!controlStack.empty())
-            throw compile_error("Unfinished IF/ELSE (missing THEN)", input);
-        add(RETURN, input);
+        _curToken = {};
     }
 
 
