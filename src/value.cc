@@ -166,6 +166,16 @@ namespace tails {
     }
 
 
+    Value Value::length() const {
+        if (isString())
+            return asString().size();
+        else if (isArray())
+            return asArray()->size();
+        else
+            return NullValue;
+    }
+
+
     Value Value::operator+ (Value v) const {
         if (isDouble() || v.isDouble()) {
             // Addition:
@@ -195,7 +205,7 @@ namespace tails {
     }
 
 
-    // Numeric operations don't need type checking. If either value is non-numeric, then
+    // Numeric-only operations don't need type checking. If either value is non-numeric, then
     // `asDouble` returns a NaN by definition, and the Value constructor changes that to `null`.
 
     Value Value::operator- (Value v) const {
@@ -224,14 +234,14 @@ namespace tails {
 
 
     static std::ostream& operator<< (std::ostream &out, const Value::Array &array) {
-        out << '[';
+        out << '{';
         int n = 0;
         for (auto value : array) {
             if (n++ > 0)
                 out << ", ";
             out << value;
         }
-        out << ']';
+        out << '}';
         return out;
     }
 

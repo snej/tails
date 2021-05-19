@@ -70,6 +70,31 @@ namespace tails {
     }
 
 
+    /// Adds a branch instruction (unless `branch` is NULL)
+    /// and pushes its location onto the control-flow stack.
+    void Compiler::pushBranch(char identifier, const Word *branch) {
+        InstructionPos pos;
+        if (branch)
+            pos = add({*branch, intptr_t(-1)}, _curToken.data());
+        else
+            pos = nextInstructionPos();
+        _controlStack.push_back({identifier, pos});
+    }
+
+    /// Pops the control flow stack, checks that the popped identifier matches,
+    /// and returns the address of its branch instruction.
+    Compiler::InstructionPos Compiler::popBranch(const char *matching) {
+        if (!_controlStack.empty()) {
+            auto ctrl = _controlStack.back();
+            if (strchr(matching, ctrl.first)) {
+                _controlStack.pop_back();
+                return ctrl.second;
+            }
+        }
+        throw compile_error("no matching IF or WHILE", _curToken.data());
+    }
+
+
     void Compiler::fixBranch(InstructionPos src) {
         intptr_t srcPos = intptr_t(src), paramPos = srcPos + 1, dstPos = intptr_t(_words.size());
         assert(srcPos >= 0 && paramPos < dstPos);
@@ -207,22 +232,43 @@ namespace tails {
     #pragma mark - PARSER:
 
 
-    /// Skips whitespace, then reads & returns the next consecutive non-whitespace bytes.
+    /// Skips whitespace, then reads & returns the next token:
+    /// * an empty string at EOF;
+    /// * a string literal, starting and ending with double-quotes;
+    /// * a "{" or "}";
+    /// * a "[" or "]";
+    /// * else the largest number of consecutive non-whitespace non-closing-brace characters.
     static string_view readToken(const char* &input) {
         // Skip whitespace
         while (*input != 0 && isspace(*input))
             ++input;
+
         // Read token
         auto start = input;
-        if (*input == '"') {
-            do {
+        switch (*input) {
+            case 0:
+                // EOF:
+                break;
+            case '"':
+                // String literal:
+                do {
+                    ++input;
+                    //TODO: Handle escape sequences
+                } while (*input != 0 && *input != '"');
+                if (*input)
+                    ++input; // include the trailing quote
+                break;
+            case '{':
+            case '[':
+                // Open array or quotation -- just return the single delimiter character
                 ++input;
-            } while (*input != 0 && *input != '"');
-            if (*input)
-                ++input; // include the trailing quote
-        } else {
-            while (*input != 0 && !isspace(*input))
-                ++input;
+                break;
+            default:
+                // General token: read until next whitespace or closing brace/bracket:
+                do {
+                    ++input;
+                } while (*input != 0 && !isspace(*input) && *input != '}' && *input != ']');
+                break;
         }
         return {start, size_t(input - start)};
     }
@@ -239,34 +285,9 @@ namespace tails {
         } catch (const std::out_of_range&) {
             throw compile_error("Number out of range", token.data());
         } catch (const std::invalid_argument&) {
-            // ignore
+            // if invalid number, just return nullopt
         }
         return nullopt;
-    }
-
-
-    /// Adds a branch instruction (unless `branch` is NULL)
-    /// and pushes its location onto the control-flow stack.
-    void Compiler::pushBranch(char identifier, const Word *branch) {
-        InstructionPos pos;
-        if (branch)
-            pos = add({*branch, intptr_t(-1)}, _curToken.data());
-        else
-            pos = nextInstructionPos();
-        _controlStack.push_back({identifier, pos});
-    }
-
-    /// Pops the control flow stack, checks that the popped identifier matches,
-    /// and returns the address of its branch instruction.
-    Compiler::InstructionPos Compiler::popBranch(const char *matching) {
-        if (!_controlStack.empty()) {
-            auto ctrl = _controlStack.back();
-            if (strchr(matching, ctrl.first)) {
-                _controlStack.pop_back();
-                return ctrl.second;
-            }
-        }
-        throw compile_error("no matching IF or WHILE", _curToken.data());
     }
 
 
@@ -280,10 +301,10 @@ namespace tails {
 
             } else if (token[0] == '"') {
                 // String literal:
-                if (token.size() == 1 || token[token.size()-1] != '"')
-                    throw compile_error("Unfinished string literal", token.end());
-                token = token.substr(1, token.size() - 2);
-                add({LITERAL, Value(token.data(), token.size())}, sourcePos);
+                add({LITERAL, parseString(token)}, sourcePos);
+
+            } else if (token == "{") {
+                add({LITERAL, parseArray(input)}, token.data());
 
             } else if (token == "IF") {
                 // IF compiles into 0BRANCH, with offset TBD:
@@ -336,15 +357,53 @@ namespace tails {
                     add(*word, sourcePos);
                 }
 
-            } else if (auto ip = asNumber(token); ip) {
+            } else if (auto np = asNumber(token); np) {
                 // A number is added as a LITERAL instruction:
-                add({LITERAL, Value(*ip)}, sourcePos);
+                add({LITERAL, Value(*np)}, sourcePos);
 
             } else {
                 throw compile_error("Unknown word '" + string(token) + "'", sourcePos);
             }
         }
         _curToken = {};
+    }
+
+
+    Value Compiler::parseString(string_view token) {
+#ifdef SIMPLE_VALUE
+        throw compile_error("Strings not supported", token.data());
+#else
+        if (token.size() == 1 || token[token.size()-1] != '"')
+            throw compile_error("Unfinished string literal", token.end());
+        token = token.substr(1, token.size() - 2);
+        return Value(token.data(), token.size());
+#endif
+    }
+
+
+    Value Compiler::parseArray(const char* &input) {
+#ifdef SIMPLE_VALUE
+        throw compile_error("Arrays not supported", input);
+#else
+        Value arrayVal({});
+        Value::Array *array = arrayVal.asArray();
+        while (true) {
+            string_view token = readToken(input);
+            if (token == "}")
+                break;
+            else if (token.empty())
+                throw compile_error("Unfinished array literal", input);
+            else if (token[0] == '"')
+                array->push_back(parseString(token));
+            else if (token == "{")
+                array->push_back(parseArray(input));
+            else if (auto np = asNumber(token); np)
+                array->push_back(Value(*np));
+            else
+                throw compile_error("Invalid literal '" + string(token) + "' in array", token.data());
+        }
+        return arrayVal;
+#endif
     }
 
 

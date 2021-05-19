@@ -65,7 +65,7 @@ static_assert( StackEffect(1, 1).then(StackEffect(2,2)) == StackEffect(2, 2));
                 cout << " " << setw(12) << std::left << dis->word.name();
             cout << ": ";
             for (auto i = StackBase; i <= sp; ++i)
-                cout << ' ' << setw(4) << *i;
+                cout << ' ' << *i;
             cout << '\n';
         }
     }
@@ -117,7 +117,7 @@ static Value _runParser(const char *source) {
 
 #define TEST(EXPECTED, ...) _test({__VA_ARGS__}, #__VA_ARGS__, EXPECTED)
 
-#define TEST_PARSER(EXPECTED, SRC)  assert(_runParser(SRC) == Value(EXPECTED))
+#define TEST_PARSER(EXPECTED, SRC)  assert(_runParser(SRC) == EXPECTED)
 
 
 using namespace tails::core_words;
@@ -159,10 +159,17 @@ int main(int argc, char *argv[]) {
     TEST_PARSER(120,  "1 5 BEGIN  DUP  WHILE  SWAP OVER * SWAP 1 -  REPEAT  DROP");
 
 #ifndef SIMPLE_VALUE
-    TEST_PARSER("hello",   R"( "hello" )");
-    TEST_PARSER("truthy",  R"( 1 IF "truthy" ELSE "falsey" THEN )");
-    TEST_PARSER("HiThere", R"( "Hi" "There" + )");
-    TEST_PARSER(nullptr,   R"( "Hi" "There" / )");
+    TEST_PARSER("hello",            R"( "hello" )");
+    TEST_PARSER("truthy",           R"( 1 IF "truthy" ELSE "falsey" THEN )");
+    TEST_PARSER("HiThere",          R"( "Hi" "There" + )");
+    TEST_PARSER(nullptr,            R"( "Hi" "There" / )");
+    TEST_PARSER(5,                  R"( "hello" LENGTH )");
+
+    TEST_PARSER(Value({12,34,56}),  R"( {12 34 56} )");
+    TEST_PARSER(Value({Value(12)}), R"( {12} )");
+    TEST_PARSER(Value({12,"hi there",Value({}),56}),
+                                    R"( {12 "hi there" {} 56} )");
+    TEST_PARSER(3,                  R"( {12 34 56} LENGTH )");
 #endif
     
     cout << "\nTESTS PASSED❣️❣️❣️\n\n";

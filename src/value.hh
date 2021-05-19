@@ -35,8 +35,8 @@ namespace tails {
     /// pointer, or it'll bloat your code since \ref Instruction contains a `Value`.
     class Value {
     public:
-        constexpr explicit Value(double n = 0)  :_number(n) { }
-        constexpr explicit Value(int n)         :_number(n) { }
+        constexpr Value(double n = 0)       :_number(n) { }
+        constexpr Value(int n)              :_number(n) { }
         explicit Value(const char*, size_t=0);
 
         constexpr double asNumber() const {return _number;}
@@ -63,23 +63,23 @@ namespace tails {
 
     /// Type of values stored on the stack.
     ///
-    /// This is a more complex implementation that can store strings as well as numbers.
-    /// (But there is no garbage collector, so the strings just leak...)
-    /// It's only advised for 64-bit CPUs with FPUs.
+    /// This is a more complex implementation that can store numbers, strings and arrays.
+    /// (But there is no garbage collector, so strings and arrays just leak...)
     class Value : private NanTagged<char> {
     public:
         using Array = std::vector<Value>;
 
-        constexpr Value()                   :NanTagged(nullptr) { }
-        constexpr explicit Value(nullptr_t) :Value() { }
-        constexpr explicit Value(double n)  :NanTagged(n) { }
-        constexpr explicit Value(int n)     :Value(double(n)) { }
+        constexpr Value()          :NanTagged(nullptr) { }
+        constexpr Value(nullptr_t) :Value() { }
+        constexpr Value(double n)  :NanTagged(n) { }
+        constexpr Value(int n)     :Value(double(n)) { }
+        constexpr Value(size_t n)  :Value(double(n)) { }
 
-        explicit Value(const char* str);
-        explicit Value(const char* str, size_t len);
+        Value(const char* str);
+        Value(const char* str, size_t len);
 
-        explicit Value(std::initializer_list<Value> arrayItems);
-        explicit Value(Array *array);
+        Value(std::initializer_list<Value> arrayItems);
+        Value(Array *array);
 
         enum Type {
             ANull,
@@ -95,7 +95,7 @@ namespace tails {
         constexpr bool isArray() const      {return asPointer() && tags() == kArrayTag;}
         constexpr bool isNull() const       {return NanTagged::isNullPointer();}
 
-        constexpr double asNumber() const   {return asDouble();}
+        constexpr double asNumber() const   {return NanTagged::asDouble();}
         constexpr double asDouble() const   {return NanTagged::asDouble();}
         constexpr int    asInt() const      {return int(asDoubleOrZero());}
         std::string_view asString() const;
@@ -110,6 +110,8 @@ namespace tails {
 
         bool operator== (const Value &v) const;
         int cmp(Value v) const;
+
+        Value length() const;
 
         Value operator+ (Value v) const;
         Value operator- (Value v) const;

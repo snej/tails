@@ -87,6 +87,27 @@ namespace tails::core_words {
         NEXT();
     }
 
+    //---- Control Flow:
+
+    /* "It turns out that all you need in order to define looping constructs, IF-statements, etc.
+        are two primitives.
+        BRANCH is an unconditional branch.
+        0BRANCH is a conditional branch (it only branches if the top of stack is zero)." --JonesForth */
+
+    // ( -> )  and reads offset from *pc
+    NATIVE_WORD(BRANCH, "BRANCH", StackEffect(0,0), Word::Magic | Word::HasIntParam) {
+        pc += pc->offset + 1;
+        NEXT();
+    }
+
+    // (b -> )  and reads offset from *pc ... Assumes Value supports operator `!`
+    NATIVE_WORD(ZBRANCH, "0BRANCH", StackEffect(1,0), Word::Magic | Word::HasIntParam) {
+        if (!(*sp--))
+            pc += pc->offset;
+        ++pc;
+        NEXT();
+    }
+
     //---- Arithmetic & Relational:
 
     // NOTE: This code requires that `Value` has methods `asNumber` and `asInt`,
@@ -129,27 +150,16 @@ namespace tails::core_words {
     NATIVE_WORD(GT_ZERO, "0>", StackEffect(1,1), 0)  { sp[0] = Value(sp[0] > Value(0)); NEXT(); }
     NATIVE_WORD(LT_ZERO, "0<", StackEffect(1,1), 0)  { sp[0] = Value(sp[0] < Value(0)); NEXT(); }
 
-    //---- Control Flow:
+#ifndef SIMPLE_VALUE
+    //---- Strings & Arrays:
 
-    /* "It turns out that all you need in order to define looping constructs, IF-statements, etc.
-        are two primitives.
-        BRANCH is an unconditional branch.
-        0BRANCH is a conditional branch (it only branches if the top of stack is zero)." --JonesForth */
-
-    // ( -> )  and reads offset from *pc
-    NATIVE_WORD(BRANCH, "BRANCH", StackEffect(0,0), Word::Magic | Word::HasIntParam) {
-        pc += pc->offset + 1;
+    NATIVE_WORD(LENGTH, "LENGTH", StackEffect(1,1), 0) {
+        *sp = sp->length();
         NEXT();
     }
 
-    // (b -> )  and reads offset from *pc ... Assumes Value supports operator `!`
-    NATIVE_WORD(ZBRANCH, "0BRANCH", StackEffect(1,0), Word::Magic | Word::HasIntParam) {
-        if (!(*sp--))
-            pc += pc->offset;
-        ++pc;
-        NEXT();
-    }
 
+#endif
 
     //======================== INTERPRETED WORDS ========================//
 
@@ -204,13 +214,16 @@ namespace tails::core_words {
     const Word* const kWords[] = {
         &CALL, &LITERAL, &RETURN,
         &DROP, &DUP, &OVER, &ROT, &SWAP, &NOP,
+        &BRANCH, &ZBRANCH,
         &ZERO, &ONE, &NULL_,
         &EQ, &NE, &EQ_ZERO, &NE_ZERO,
         &GE, &GT, &GT_ZERO,
         &LE, &LT, &LT_ZERO,
         &ABS, &MAX, &MIN, &SQUARE,
         &DIV, &MOD, &MINUS, &MULT, &PLUS,
-        &BRANCH, &ZBRANCH,
+#ifndef SIMPLE_VALUE
+        &LENGTH,
+#endif
         nullptr
     };
 

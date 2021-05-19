@@ -128,6 +128,8 @@ namespace tails {
         using EffectVec = std::vector<std::optional<StackEffect>>;
         using BranchTarget = std::pair<char, InstructionPos>;
 
+        Value parseString(std::string_view token);
+        Value parseArray(const char* &input);
         void pushBranch(char identifier, const Word *branch =nullptr);
         InstructionPos popBranch(const char *matching);
         void computeEffect();
