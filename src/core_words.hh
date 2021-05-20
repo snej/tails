@@ -24,14 +24,14 @@ namespace tails::core_words {
 
     /// All the words defined herein.
     extern const Word
-        CALL, RETURN, LITERAL,
+        _INTERP, _RETURN, _LITERAL,
         DROP, DUP, OVER, ROT, SWAP, NOP,
         EQ, NE, EQ_ZERO, NE_ZERO,
         GE, GT, GT_ZERO,
         LE, LT, LT_ZERO,
         ABS, MAX, MIN, SQUARE,
         DIV, MOD, MINUS, MULT, PLUS,
-        BRANCH, ZBRANCH,
+        _BRANCH, _ZBRANCH,
         ONE, ZERO, NULL_;
 
     /// Array of pointers to the above core words, ending in nullptr

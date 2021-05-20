@@ -36,7 +36,7 @@ namespace tails {
             Native      = 1, ///< Implemented in native code (at `_instr.op`)
             HasIntParam = 2, ///< This word is followed by an integer param (BRANCH, 0BRANCH)
             HasValParam = 4, ///< This word is followed by a Value param (LITERAL)
-            Magic       = 8, ///< Low-level, not allowed in parsed code (0BRANCH, CALL, etc.)
+            Magic       = 8, ///< Low-level, not allowed in parsed code (0BRANCH, INTERP, etc.)
         };
 
         constexpr Word(const char *name, Op native, StackEffect effect, Flags flags =NoFlags)
@@ -113,7 +113,7 @@ namespace tails {
     // @param FORTHNAME  The word's Forth name (a string literal.)
     // @param EFFECT  The \ref StackEffect. Must be accurate!
     #define INTERP_WORD(NAME, FORTHNAME, EFFECT, ...) \
-        static constexpr Instruction const i_##NAME[] { __VA_ARGS__, RETURN }; \
+        static constexpr Instruction const i_##NAME[] { __VA_ARGS__, _RETURN }; \
         constexpr Word NAME(FORTHNAME, EFFECT, i_##NAME)
 
 }

@@ -25,22 +25,24 @@ namespace tails::core_words {
 
     //======================== NATIVE WORDS ========================//
 
+    // NOTE: "Magic" words that don't appear in source code are prefixed with an underscore.
+
 
     //---- The absolute core:
 
-    // (? -> ?)  Calls the subroutine pointed to by the following instruction.
-    NATIVE_WORD(CALL, "CALL", StackEffect(1,1), Word::Magic) {
+    // (? -> ??)  Calls the interpreted word pointed to by the following instruction.
+    NATIVE_WORD(_INTERP, "_INTERP", StackEffect(1,1), Word::Magic) {
         sp = call(sp, (pc++)->word);
         NEXT();
     }
 
     // ( -> )  Returns from the current word. Every interpreted word ends with this.
-    NATIVE_WORD(RETURN, "RETURN", StackEffect(0,0), 0) {
+    NATIVE_WORD(_RETURN, "_RETURN", StackEffect(0,0), Word::Magic) {
         return sp;
     }
 
     // ( -> i)  Pushes the following instruction as an integer
-    NATIVE_WORD(LITERAL, "LITERAL", StackEffect(0,1), Word::Magic | Word::HasValParam) {
+    NATIVE_WORD(_LITERAL, "_LITERAL", StackEffect(0,1), Word::Magic | Word::HasValParam) {
         *(++sp) = (pc++)->literal;
         NEXT();
     }
@@ -95,13 +97,13 @@ namespace tails::core_words {
         0BRANCH is a conditional branch (it only branches if the top of stack is zero)." --JonesForth */
 
     // ( -> )  and reads offset from *pc
-    NATIVE_WORD(BRANCH, "BRANCH", StackEffect(0,0), Word::Magic | Word::HasIntParam) {
+    NATIVE_WORD(_BRANCH, "BRANCH", StackEffect(0,0), Word::Magic | Word::HasIntParam) {
         pc += pc->offset + 1;
         NEXT();
     }
 
     // (b -> )  and reads offset from *pc ... Assumes Value supports operator `!`
-    NATIVE_WORD(ZBRANCH, "0BRANCH", StackEffect(1,0), Word::Magic | Word::HasIntParam) {
+    NATIVE_WORD(_ZBRANCH, "0BRANCH", StackEffect(1,0), Word::Magic | Word::HasIntParam) {
         if (!(*sp--))
             pc += pc->offset;
         ++pc;
@@ -125,9 +127,9 @@ namespace tails::core_words {
         NEXT();
     }
 
-    // ( -> null)
+    // ( -> null)   [Appended an "_" to the symbol to avoid conflict with C's `NULL`.]
     NATIVE_WORD(NULL_, "NULL", StackEffect(0,1), 0) {
-        *(++sp) = Value();
+        *(++sp) = NullValue;
         NEXT();
     }
 
@@ -164,7 +166,7 @@ namespace tails::core_words {
     //======================== INTERPRETED WORDS ========================//
 
 
-    // Warning: A numeric literal has to be preceded by LITERAL, and an interpreted word by CALL.
+    // Warning: A numeric literal has to be preceded by LITERAL, and an interpreted word by INTERP.
 
 
     // (a -> a^2)
@@ -178,7 +180,7 @@ namespace tails::core_words {
     INTERP_WORD(ABS, "ABS", StackEffect(1,1, 1),
         DUP,
         LT_ZERO,
-        ZBRANCH, Instruction::withOffset(3),
+        _ZBRANCH, Instruction::withOffset(3),
         ZERO,
         SWAP,
         MINUS
@@ -189,7 +191,7 @@ namespace tails::core_words {
         OVER,
         OVER,
         LT,
-        ZBRANCH, Instruction::withOffset(1),
+        _ZBRANCH, Instruction::withOffset(1),
         SWAP,
         DROP
     );
@@ -200,7 +202,7 @@ namespace tails::core_words {
         OVER,
         OVER,
         GT,
-        ZBRANCH, Instruction::withOffset(1),
+        _ZBRANCH, Instruction::withOffset(1),
         SWAP,
         DROP
     );
@@ -212,9 +214,8 @@ namespace tails::core_words {
     // This is used to register these words in the Vocabulary at startup.
 
     const Word* const kWords[] = {
-        &CALL, &LITERAL, &RETURN,
-        &DROP, &DUP, &OVER, &ROT, &SWAP, &NOP,
-        &BRANCH, &ZBRANCH,
+        &_INTERP, &_LITERAL, &_RETURN, &_BRANCH, &_ZBRANCH,
+        &DROP, &DUP, &OVER, &ROT, &SWAP, &NOP, &CALL,
         &ZERO, &ONE, &NULL_,
         &EQ, &NE, &EQ_ZERO, &NE_ZERO,
         &GE, &GT, &GT_ZERO,

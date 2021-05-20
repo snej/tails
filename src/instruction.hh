@@ -54,7 +54,7 @@ namespace tails {
     /// A Forth instruction. Interpreted code is a sequence of these.
     union Instruction {
         Op                 native;  // Every instruction starts with a native op
-        const Instruction* word;    // Interpreted word to call; parameter to CALL
+        const Instruction* word;    // Interpreted word to call; parameter to INTERP
         intptr_t           offset;  // PC offset; parameter to BRANCH and ZBRANCH
         Value              literal; // Value to push on stack; parameter to LITERAL
 
@@ -82,7 +82,7 @@ namespace tails {
     #define NEXT()    TRACE(sp, pc); MUSTTAIL return pc->native(sp, pc + 1)
 
 
-    /// Calls an interpreted word pointed to by `fn`. Used by `CALL` and `run`.
+    /// Calls an interpreted word pointed to by `fn`. Used by `INTERP` and `run`.
     /// @param sp    Stack pointer
     /// @param start The first instruction of the word to run
     /// @return      The stack pointer on completion.

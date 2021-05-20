@@ -4,7 +4,7 @@
 
 What can it do? Not much on its own. It knows how to add and multiply integers!! and call functions!!!! It can evaluate `4 3 + SQUARE DUP + SQUARE ABS` and return the expected answer `9604`. That expression can be written as a hardcoded list of word references, or parsed from a string.
 
-It's not much, but it's pretty tiny! The magic core code (`NEXT`, `CALL`, `RETURN`, `LITERAL`, `DUP`, etc.) is about 200SLOC and compiles to a few hundred bytes, many of which are NOPs the compiler adds for padding. The parser and compiler add a few KB more.
+It's not much, but it's pretty tiny! The magic core code (`NEXT`, `INTERP`, `RETURN`, `LITERAL`, `DUP`, etc.) is about 200SLOC and compiles to a few hundred bytes, many of which are NOPs the compiler adds for padding. The parser and compiler add a few KB more.
  
 And it's very easy to extend -- see the to-do list at the end.
 
@@ -70,20 +70,22 @@ Excellent. Now you know how the interpreter works:
 
 **But I want to write functions in Forth, not in C+\+.**
 
-Yeah, Tails wouldn't be much of a language if you couldn't define functions in it, so there has to be a way to call a non-native word! This is done by the `CALL` primitive, which gets the address of an interpreted Forth word (i.e. a list of function pointers, as above) and calls the first function pointer in that list.
+Yeah, Tails wouldn't be much of a language if you couldn't define functions in it, so there has to be a way to call a non-native word! This is done by the `INTERP` primitive, which gets the address of an interpreted Forth word (i.e. a list of function pointers, as above) and calls the first function pointer in that list.
 
-**But where does the CALL function get the address of the word to call?**
+>Note: It used to be called `CALL`, but that conflicts with the name of a higher-level word in Factor (and some other Forths?) to call a "quotation" (inline anonymous function.)
+
+**But where does INTERP get the address of the word to call?**
 
 It reads it from the instruction stream, as `pc->word`, which is a pointer to an `Instruction` not a function pointer. (Remember that `pc` points to a `union` value.) Then it increments `pc` to skip over the extra value it just read:
 
 ```c
-    int* CALL(Value *sp, const Instruction *pc) {
+    int* INTERP(Value *sp, const Instruction *pc) {
         sp = call(sp, (pc++)->word);
         NEXT();
     }
 ```
 
-So when laying out some code to run, if you want to call a word implemented in Forth, you just add the primitive `CALL` followed by the address of the word. Easy.
+So when laying out some code to run, if you want to call a word implemented in Forth, you just add the primitive `INTERP` followed by the address of the word. Easy.
 
 >Note: There are a few other primitive words that use the same trick of storing parameters in the instruction stream. `LITERAL` stores the literal Value to push, and `BRANCH` and `ZBRANCH` store the pc offset.
 
@@ -104,7 +106,7 @@ There are several ways to add words to Tails:
 1. **Define a native word in C++ using the `NATIVE_WORD` macro.** It receives the stack pointer in `sp` and the interpreter program counter (from which it can read parameters) in `pc`. It must end with a call to the `NEXT()` macro. The word is declared as a `constexpr Word` object that can be referenced in later definitions.
 2. **Define an interpreted word at (native) compile time**, using the `INTERP_WORD` macro. This is very low level, not like regular Forth syntax but just a sequence of `Word` symbols defined by earlier uses of `NATIVE_WORD` and `INTERP_WORD`. A `RETURN` will be added at the end. In particular:
    * A literal value has to be written as `LITERAL` followed by the number/string
-   * A call to an interpreted word has to be written as `CALL` followed by the word
+   * A call to an interpreted word has to be written as `INTERP` followed by the word
    * Control flow has to be done using `BRANCH` or `ZBRANCH` followed by the offset
 3. **Compile a word at runtime**, using the `CompiledWord` subclass. It can be given a list of `Word` symbols, or it can parse a string. The string mode is by no means a full Forth REPL, just a C++ hack, but it supports `IF`, `ELSE` and `THEN` for control flow.
 

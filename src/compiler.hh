@@ -27,7 +27,7 @@
 namespace tails {
 
     namespace core_words {
-        extern const Word LITERAL;
+        extern const Word _LITERAL;
     }
 
 
@@ -62,8 +62,8 @@ namespace tails {
             WordRef(const Word &w, Value v)      :word(w), param(v) {assert(w.hasValParam());}
             WordRef(const Word &w, intptr_t o)   :word(w), param(o) {assert(w.hasIntParam());}
 
-            WordRef(Value v)                     :WordRef(core_words::LITERAL, v) { }
-            WordRef(double d)                    :WordRef(core_words::LITERAL, Value(d)) { }
+            WordRef(Value v)                     :WordRef(core_words::_LITERAL, v) { }
+            WordRef(double d)                    :WordRef(core_words::_LITERAL, Value(d)) { }
 
             bool hasParam() const                {return word.hasAnyParam() || !word.isNative();}
 
@@ -148,7 +148,7 @@ namespace tails {
 
 
     /// Looks up the word for an instruction and returns it as a WordRef.
-    /// If the word is CALL, the next word (at `instr[1]`) is returned instead.
+    /// If the word is _INTERP, the next word (at `instr[1]`) is returned instead.
     /// If the word has a parameter (like LITERAL or BRANCH), it's read from `instr[1]`.
     std::optional<Compiler::WordRef> DisassembleInstruction(const Instruction*);
 

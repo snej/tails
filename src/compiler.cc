@@ -99,7 +99,7 @@ namespace tails {
         intptr_t srcPos = intptr_t(src), paramPos = srcPos + 1, dstPos = intptr_t(_words.size());
         assert(srcPos >= 0 && paramPos < dstPos);
         WordRef &branch = _words[srcPos];
-        assert(branch.word == ZBRANCH || branch.word == BRANCH);
+        assert(branch.word == _ZBRANCH || branch.word == _BRANCH);
         assert(_words[paramPos].word == NOP);
         branch.param.offset = dstPos - paramPos - 1;
     }
@@ -107,7 +107,7 @@ namespace tails {
 
     void Compiler::addBranchBackTo(InstructionPos pos) {
         intptr_t offset = intptr_t(pos) - (intptr_t(nextInstructionPos()) + 2);
-        add({BRANCH, offset}, _curToken.data());
+        add({_BRANCH, offset}, _curToken.data());
     }
 
 
@@ -116,9 +116,9 @@ namespace tails {
             throw compile_error("Unfinished IF-ELSE-THEN or BEGIN-WHILE-REPEAT)", nullptr);
 
         // Add a RETURN, if there's not one already:
-        if (_words.empty() || _words.back().word != RETURN) {
+        if (_words.empty() || _words.back().word != _RETURN) {
             const char *source = _words.empty() ? nullptr : _words.back().source;
-            add(RETURN, source);
+            add(_RETURN, source);
         }
 
         // Compute the stack effect:
@@ -130,7 +130,7 @@ namespace tails {
         for (WordRef &ref : _words) {
             if (ref.word != NOP) {
                 if (!ref.word.isNative())
-                    instrs.push_back(CALL);
+                    instrs.push_back(_INTERP);
                 instrs.push_back(ref.word);
                 if (ref.word.hasAnyParam())
                     instrs.push_back(ref.param);
@@ -200,7 +200,7 @@ namespace tails {
             if (cur.hasParam())
                 ++i;
 
-            if (cur.word == RETURN) {
+            if (cur.word == _RETURN) {
                 // The current effect when RETURN is reached is the word's cumulative effect.
                 // If there are multiple RETURNs, each must have the same effect.
                 if (finalEffect && *finalEffect != curEffect)
@@ -208,14 +208,14 @@ namespace tails {
                 finalEffect = curEffect;
                 return;
 
-            } else if (cur.word == BRANCH || cur.word == ZBRANCH) {
+            } else if (cur.word == _BRANCH || cur.word == _ZBRANCH) {
                 // Compute branch destination:
                 auto dst = i + 1 + cur.param.offset;
                 if (dst < 0 || dst >= _words.size() || _words[dst].word == NOP)
                     throw compile_error("Invalid BRANCH destination", cur.source);
 
                 // If this is a 0BRANCH, recurse to follow the non-branch case too:
-                if (cur.word == ZBRANCH)
+                if (cur.word == _ZBRANCH)
                     computeEffect(i + 1, curEffect, instrEffects, finalEffect);
 
                 // Follow the branch:
@@ -412,7 +412,7 @@ namespace tails {
 
     std::optional<Compiler::WordRef> DisassembleInstruction(const Instruction *instr) {
         const Word *word = Vocabulary::global.lookup(instr[0]);
-        if (word && *word == CALL)
+        if (word && *word == _INTERP)
             word = Vocabulary::global.lookup(instr[1]);
         if (!word)
             return nullopt;
@@ -441,9 +441,9 @@ namespace tails {
             if (!ref)
                 throw runtime_error("Unknown instruction");
             instrs.push_back(*ref);
-            if (ref->word == BRANCH || ref->word == ZBRANCH)
+            if (ref->word == _BRANCH || ref->word == _ZBRANCH)
                 maxJumpTo = max(maxJumpTo, i + 2 + instr[i+1].offset);
-            else if (ref->word == RETURN && i >= maxJumpTo)
+            else if (ref->word == _RETURN && i >= maxJumpTo)
                 return instrs;
             if (ref->word.hasAnyParam())
                 ++i;
