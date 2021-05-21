@@ -36,6 +36,11 @@ namespace tails::core_words {
         NEXT();
     }
 
+    // (? -> ??)  Jumps to the interpreted word pointed to by the following instruction.
+    NATIVE_WORD(_TAILINTERP, "_TAILINTERP", StackEffect(1,1), Word::Magic) {
+        MUSTTAIL return call(sp, pc->word);
+    }
+
     // ( -> )  Returns from the current word. Every interpreted word ends with this.
     NATIVE_WORD(_RETURN, "_RETURN", StackEffect(0,0), Word::Magic) {
         return sp;
@@ -214,7 +219,7 @@ namespace tails::core_words {
     // This is used to register these words in the Vocabulary at startup.
 
     const Word* const kWords[] = {
-        &_INTERP, &_LITERAL, &_RETURN, &_BRANCH, &_ZBRANCH,
+        &_INTERP, &_TAILINTERP, &_LITERAL, &_RETURN, &_BRANCH, &_ZBRANCH,
         &DROP, &DUP, &OVER, &ROT, &SWAP, &NOP, &CALL,
         &ZERO, &ONE, &NULL_,
         &EQ, &NE, &EQ_ZERO, &NE_ZERO,

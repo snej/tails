@@ -24,7 +24,7 @@ namespace tails::core_words {
 
     /// All the words defined herein.
     extern const Word
-        _INTERP, _RETURN, _LITERAL,
+        _INTERP, _TAILINTERP, _RETURN, _LITERAL,
         DROP, DUP, OVER, ROT, SWAP, NOP,
         EQ, NE, EQ_ZERO, NE_ZERO,
         GE, GT, GT_ZERO,

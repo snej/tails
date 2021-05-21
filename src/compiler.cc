@@ -115,14 +115,21 @@ namespace tails {
         if (!_controlStack.empty())
             throw compile_error("Unfinished IF-ELSE-THEN or BEGIN-WHILE-REPEAT)", nullptr);
 
-        // Add a RETURN, if there's not one already:
-        if (_words.empty() || _words.back().word != _RETURN) {
-            const char *source = _words.empty() ? nullptr : _words.back().source;
-            add(_RETURN, source);
-        }
+        // Add a RETURN:
+        assert(_words.empty() || _words.back().word != _RETURN);
+        add(_RETURN, (_words.empty() ? nullptr : _words.back().source));
 
         // Compute the stack effect:
         computeEffect();
+
+        // If the word ends in a call to an interpreted word, we can make it a tail-call:
+        WordRef *tailCallHere = nullptr;
+        if (_words.size() >= 3) {
+            // (The word would be before the RETURN and the NOP padding)
+            auto lastWord = &_words[_words.size()-3];
+            if (!lastWord->word.isNative())
+                tailCallHere = lastWord;
+        }
 
         // Assemble instructions:
         vector<Instruction> instrs;
@@ -130,7 +137,7 @@ namespace tails {
         for (WordRef &ref : _words) {
             if (ref.word != NOP) {
                 if (!ref.word.isNative())
-                    instrs.push_back(_INTERP);
+                    instrs.push_back((&ref == tailCallHere) ? _TAILINTERP : _INTERP);
                 instrs.push_back(ref.word);
                 if (ref.word.hasAnyParam())
                     instrs.push_back(ref.param);
@@ -412,7 +419,7 @@ namespace tails {
 
     std::optional<Compiler::WordRef> DisassembleInstruction(const Instruction *instr) {
         const Word *word = Vocabulary::global.lookup(instr[0]);
-        if (word && *word == _INTERP)
+        if (word && (*word == _INTERP || *word == _TAILINTERP))
             word = Vocabulary::global.lookup(instr[1]);
         if (!word)
             return nullopt;
