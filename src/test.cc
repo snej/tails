@@ -93,7 +93,7 @@ static void _test(std::initializer_list<Compiler::WordRef> words,
 static Value _runParser(const char *source) {
     cout << "* Parsing “" << source << "”\n";
     Compiler compiler;
-    compiler.parse(source, true);
+    compiler.parse(string(source), true);
     CompiledWord parsed = compiler.finish();
 
     cout << "\tDisassembly:";
@@ -170,6 +170,8 @@ int main(int argc, char *argv[]) {
     TEST_PARSER(Value({12,"hi there",Value({}),56}),
                                     R"( {12 "hi there" {} 56} )");
     TEST_PARSER(3,                  R"( {12 34 56} LENGTH )");
+
+    TEST_PARSER(3,                  R"( 3 [DUP 4] DROP)");
 #endif
     
     cout << "\nTESTS PASSED❣️❣️❣️\n\n";

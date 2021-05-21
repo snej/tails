@@ -91,7 +91,7 @@ namespace tails {
     static void eval(const string &source, Stack &stack) {
         Compiler comp;
         comp.setMaxInputs(stack.size());
-        comp.parse(source.c_str());
+        comp.parse(source);
         CompiledWord compiled = comp.finish();
         run(compiled, stack);
     }

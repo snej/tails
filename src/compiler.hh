@@ -26,6 +26,8 @@
 
 namespace tails {
 
+    class Compiler;
+
     namespace core_words {
         extern const Word _LITERAL;
     }
@@ -36,6 +38,9 @@ namespace tails {
     class CompiledWord : public Word {
     public:
         CompiledWord(std::string &&name, StackEffect effect, std::vector<Instruction> &&instrs);
+
+        /// Constructs a word from a compiler. Call this instead of Compiler::finish.
+        explicit CompiledWord(Compiler&);
     private:
         std::string const              _nameStr;   // Backing store for inherited _name
         std::vector<Instruction> const _instrs {}; // Backing store for inherited _instr
@@ -86,7 +91,7 @@ namespace tails {
         void setMaxInputs(size_t maxInputs)         {_maxInputs = maxInputs;}
 
         /// Breaks the input string into words and adds them.
-        void parse(const char *input, bool allowParams =false);
+        void parse(const std::string &input, bool allowMagic =false);
 
         //---- Adding individual words:
 
@@ -125,11 +130,16 @@ namespace tails {
         static CompiledWord compile(std::initializer_list<WordRef> words);
 
     private:
+        friend class CompiledWord;
+
         using EffectVec = std::vector<std::optional<StackEffect>>;
         using BranchTarget = std::pair<char, InstructionPos>;
 
+        std::vector<Instruction> generateInstructions();
+        const char* parse(const char *input, bool allowParams =false);
         Value parseString(std::string_view token);
         Value parseArray(const char* &input);
+        Value parseQuote(const char* &input);
         void pushBranch(char identifier, const Word *branch =nullptr);
         InstructionPos popBranch(const char *matching);
         void computeEffect();

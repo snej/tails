@@ -75,7 +75,7 @@ namespace tails {
         }
 
     private:
-        uint8_t  _in;       // Minimum stack depth on entry
+        uint8_t  _in;       // Minimum stack depth on entry (number of parameters)
         int8_t   _net;      // Change in stack depth on exit
         uint16_t _max;      // Maximum stack depth (relative to `_in`) while running
     };

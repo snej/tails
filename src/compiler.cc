@@ -43,6 +43,13 @@ namespace tails {
     }
 
 
+    CompiledWord::CompiledWord(Compiler &compiler)
+    :CompiledWord(move(compiler._name), {}, compiler.generateInstructions())
+    {
+        _effect = *compiler._effect;
+    }
+
+
     CompiledWord Compiler::compile(std::initializer_list<WordRef> words) {
         Compiler compiler;
         for (auto &ref : words)
@@ -111,7 +118,7 @@ namespace tails {
     }
 
 
-    CompiledWord Compiler::finish() {
+    vector<Instruction> Compiler::generateInstructions() {
         if (!_controlStack.empty())
             throw compile_error("Unfinished IF-ELSE-THEN or BEGIN-WHILE-REPEAT)", nullptr);
 
@@ -144,8 +151,12 @@ namespace tails {
             }
         }
         assert(instrs.size() == _words.size());
+        return instrs;
+    }
 
-        return CompiledWord(move(_name), *_effect, move(instrs));
+
+    CompiledWord Compiler::finish() {
+        return CompiledWord(*this);
     }
 
 
@@ -233,184 +244,6 @@ namespace tails {
                 ++i;
             }
         }
-    }
-
-
-    #pragma mark - PARSER:
-
-
-    /// Skips whitespace, then reads & returns the next token:
-    /// * an empty string at EOF;
-    /// * a string literal, starting and ending with double-quotes;
-    /// * a "{" or "}";
-    /// * a "[" or "]";
-    /// * else the largest number of consecutive non-whitespace non-closing-brace characters.
-    static string_view readToken(const char* &input) {
-        // Skip whitespace
-        while (*input != 0 && isspace(*input))
-            ++input;
-
-        // Read token
-        auto start = input;
-        switch (*input) {
-            case 0:
-                // EOF:
-                break;
-            case '"':
-                // String literal:
-                do {
-                    ++input;
-                    //TODO: Handle escape sequences
-                } while (*input != 0 && *input != '"');
-                if (*input)
-                    ++input; // include the trailing quote
-                break;
-            case '{':
-            case '[':
-                // Open array or quotation -- just return the single delimiter character
-                ++input;
-                break;
-            default:
-                // General token: read until next whitespace or closing brace/bracket:
-                do {
-                    ++input;
-                } while (*input != 0 && !isspace(*input) && *input != '}' && *input != ']');
-                break;
-        }
-        return {start, size_t(input - start)};
-    }
-
-
-    /// Tries to parse `token` as an integer (decimal or hex) or floating-point number.
-    /// Returns `nullopt` if it's not. Throws `compile_error` if it's an out-of-range number.
-    static optional<double> asNumber(string_view token) {
-        try {
-            size_t pos;
-            double d = stod(string(token), &pos);
-            if (pos == token.size() && !isnan(d) && !isinf(d))
-                return d;
-        } catch (const std::out_of_range&) {
-            throw compile_error("Number out of range", token.data());
-        } catch (const std::invalid_argument&) {
-            // if invalid number, just return nullopt
-        }
-        return nullopt;
-    }
-
-
-    void Compiler::parse(const char *input, bool allowMagic) {
-        while (true) {
-            string_view token = _curToken = readToken(input);
-            const char *sourcePos = token.data();
-            if (token.empty()) {
-                // End of input
-                break;
-
-            } else if (token[0] == '"') {
-                // String literal:
-                add({LITERAL, parseString(token)}, sourcePos);
-
-            } else if (token == "{") {
-                add({LITERAL, parseArray(input)}, token.data());
-
-            } else if (token == "IF") {
-                // IF compiles into 0BRANCH, with offset TBD:
-                pushBranch('i', &ZBRANCH);
-
-            } else if (token == "ELSE") {
-                // ELSE compiles into BRANCH, with offset TBD, and resolves the IF's branch:
-                auto ifPos = popBranch("i");
-                pushBranch('e', &BRANCH);
-                fixBranch(ifPos);
-
-            } else if (token == "THEN") {
-                // THEN generates no code but completes the remaining branch from IF or ELSE:
-                auto ifPos = popBranch("ie");
-                fixBranch(ifPos);
-
-            } else if (token == "BEGIN") {
-                // BEGIN generates no code but remembers the current address:
-                pushBranch('b');
-
-            } else if (token == "WHILE") {
-                // IF compiles into 0BRANCH, with offset TBD:
-                if (_controlStack.empty() || _controlStack.back().first != 'b')
-                    throw compile_error("no matching BEGIN for this WHILE", sourcePos);
-                pushBranch('w', &ZBRANCH);
-
-            } else if (token == "REPEAT") {
-                // REPEAT generates a BRANCH back to the BEGIN's position,
-                // and fixes up the WHILE to point to the next instruction:
-                auto whilePos = popBranch("w");
-                auto beginPos = popBranch("b");
-                addBranchBackTo(beginPos);
-                fixBranch(whilePos);
-
-            } else if (const Word *word = Vocabulary::global.lookup(token); word) {
-                // Known word is added as an instruction:
-                if (!allowMagic && word->isMagic())
-                        throw compile_error("Special word " + string(token)
-                                            + " cannot be added by parser", sourcePos);
-                if (word->hasAnyParam()) {
-                    auto numTok = readToken(input);
-                    auto param = asNumber(numTok);
-                    if (!param || (*param != intptr_t(*param)))
-                        throw compile_error("Invalid param after " + string(token), numTok.data());
-                    if (word->hasIntParam())
-                        add({*word, (intptr_t)*param}, sourcePos);
-                    else
-                        add({*word, Value(*param)}, sourcePos);
-                } else {
-                    add(*word, sourcePos);
-                }
-
-            } else if (auto np = asNumber(token); np) {
-                // A number is added as a LITERAL instruction:
-                add({LITERAL, Value(*np)}, sourcePos);
-
-            } else {
-                throw compile_error("Unknown word '" + string(token) + "'", sourcePos);
-            }
-        }
-        _curToken = {};
-    }
-
-
-    Value Compiler::parseString(string_view token) {
-#ifdef SIMPLE_VALUE
-        throw compile_error("Strings not supported", token.data());
-#else
-        if (token.size() == 1 || token[token.size()-1] != '"')
-            throw compile_error("Unfinished string literal", token.end());
-        token = token.substr(1, token.size() - 2);
-        return Value(token.data(), token.size());
-#endif
-    }
-
-
-    Value Compiler::parseArray(const char* &input) {
-#ifdef SIMPLE_VALUE
-        throw compile_error("Arrays not supported", input);
-#else
-        Value arrayVal({});
-        Value::Array *array = arrayVal.asArray();
-        while (true) {
-            string_view token = readToken(input);
-            if (token == "}")
-                break;
-            else if (token.empty())
-                throw compile_error("Unfinished array literal", input);
-            else if (token[0] == '"')
-                array->push_back(parseString(token));
-            else if (token == "{")
-                array->push_back(parseArray(input));
-            else if (auto np = asNumber(token); np)
-                array->push_back(Value(*np));
-            else
-                throw compile_error("Invalid literal '" + string(token) + "' in array", token.data());
-        }
-        return arrayVal;
-#endif
     }
 
 

@@ -61,6 +61,8 @@ namespace tails {
 
 #else
 
+    class Word;
+
     /// Type of values stored on the stack.
     ///
     /// This is a more complex implementation that can store numbers, strings and arrays.
@@ -81,25 +83,30 @@ namespace tails {
         Value(std::initializer_list<Value> arrayItems);
         Value(Array *array);
 
+        Value(const Word*);
+
         enum Type {
             ANull,
             ANumber,
             AString,
-            AnArray
+            AnArray,
+            AQuote,
         };
 
         Type type() const;
 
+        constexpr bool isNull() const       {return NanTagged::isNullPointer();}
         constexpr bool isDouble() const     {return NanTagged::isDouble();}
         constexpr bool isString() const     {return (asPointer() || isInline()) && tags() == kStringTag;}
         constexpr bool isArray() const      {return asPointer() && tags() == kArrayTag;}
-        constexpr bool isNull() const       {return NanTagged::isNullPointer();}
+        constexpr bool isQuote() const      {return asPointer() && tags() == kQuoteTag;}
 
         constexpr double asNumber() const   {return NanTagged::asDouble();}
         constexpr double asDouble() const   {return NanTagged::asDouble();}
         constexpr int    asInt() const      {return int(asDoubleOrZero());}
         std::string_view asString() const;
         Array*           asArray() const;
+        const Word*      asQuote() const;
 
         constexpr explicit operator bool() const {
             if (isDouble())
@@ -120,7 +127,7 @@ namespace tails {
         Value operator% (Value v) const;
 
     private:
-        static constexpr int kStringTag = 0, kArrayTag = 1;
+        enum { kStringTag = 0, kArrayTag = 1, kQuoteTag = 2, };
 
         char* allocString(size_t len);
     };

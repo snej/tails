@@ -73,15 +73,21 @@ namespace tails {
     }
 
 
+    Value::Value(const Word *word)
+    :NanTagged((char*)word)
+    {
+        assert(word);
+        setTags(kQuoteTag);
+    }
+
+
     Value::Type Value::type() const {
         if (isDouble())
             return ANumber;
         else if (isNullPointer())
             return ANull;
-        else if (tags() == kStringTag)
-            return AString;
         else
-            return AnArray;
+            return Type(int(AString) + tags());
     }
 
 
@@ -125,6 +131,13 @@ namespace tails {
     }
 
 
+    const Word* Value::asQuote() const {
+        if (tags() == kQuoteTag)
+            return (const Word*)asPointer();
+        return nullptr;
+    }
+
+
     bool Value::operator== (const Value &v) const {
         if (NanTagged::operator==(v))
             return true;
@@ -133,8 +146,10 @@ namespace tails {
             return false;
         else if (myType == AString)
             return asString() == v.asString();
-        else
+        else if (myType == AnArray)
             return *asArray() == *v.asArray();
+        else
+            return false;
     }
 
 
@@ -162,6 +177,8 @@ namespace tails {
                 }
                 return _cmp(a->size(), b->size());
             }
+            case AQuote:
+                return _cmp(asQuote(), v.asQuote());    // arbitrary ordering by address
         }
     }
 
@@ -248,10 +265,11 @@ namespace tails {
 
     std::ostream& operator<< (std::ostream &out, Value value) {
         switch (value.type()) {
-            case Value::ANull:   return out << "null"; break;
-            case Value::ANumber: return out << value.asDouble(); break;
-            case Value::AString: return out << std::quoted(value.asString()); break;
-            case Value::AnArray: return out << *value.asArray(); break;
+            case Value::ANull:   return out << "null";
+            case Value::ANumber: return out << value.asDouble();
+            case Value::AString: return out << std::quoted(value.asString());
+            case Value::AnArray: return out << *value.asArray();
+            case Value::AQuote:  return out << "[QUOTE]";
         }
         return out;
     }

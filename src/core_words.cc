@@ -23,12 +23,13 @@
 
 namespace tails::core_words {
 
-    //======================== NATIVE WORDS ========================//
+#pragma mark NATIVE WORDS:
+
 
     // NOTE: "Magic" words that don't appear in source code are prefixed with an underscore.
 
 
-    //---- The absolute core:
+#pragma mark The absolute core:
 
     // (? -> ??)  Calls the interpreted word pointed to by the following instruction.
     NATIVE_WORD(_INTERP, "_INTERP", StackEffect(1,1), Word::Magic) {
@@ -52,7 +53,7 @@ namespace tails::core_words {
         NEXT();
     }
 
-    //---- Stack gymnastics:
+#pragma mark Stack gymnastics:
 
     // (a -> a a)
     NATIVE_WORD(DUP, "DUP", StackEffect(1,2), 0) {
@@ -89,12 +90,12 @@ namespace tails::core_words {
         NEXT();
     }
 
-    // ( -> )
+    // ( -> )  A placeholder used by the compiler that doesn't actually appear in code
     NATIVE_WORD(NOP, "NOP", StackEffect(0,0), 0) {
         NEXT();
     }
 
-    //---- Control Flow:
+#pragma mark Control Flow:
 
     /* "It turns out that all you need in order to define looping constructs, IF-statements, etc.
         are two primitives.
@@ -115,7 +116,18 @@ namespace tails::core_words {
         NEXT();
     }
 
-    //---- Arithmetic & Relational:
+    // (? quote -> ?)  Pops a quotation (word) and calls it.
+    // The actual stack effect is that of the quotation it calls, which in the general case is
+    // only known at runtime. Until the compiler's stack checker can deal with this, I'm making
+    // this word Magic so it can't be used in source code.
+    NATIVE_WORD(CALL, "CALL", {}, Word::Magic) {
+        const Word *quote = (*sp--).asQuote();
+        assert(quote);                                  // FIXME: Handle somehow; exceptions?
+        sp = call(sp, quote->instruction().word);
+        NEXT();
+    }
+
+#pragma mark Arithmetic & Relational:
 
     // NOTE: This code requires that `Value` has methods `asNumber` and `asInt`,
     //       and that there are conversions from integer and double to Value.
@@ -158,7 +170,7 @@ namespace tails::core_words {
     NATIVE_WORD(LT_ZERO, "0<", StackEffect(1,1), 0)  { sp[0] = Value(sp[0] < Value(0)); NEXT(); }
 
 #ifndef SIMPLE_VALUE
-    //---- Strings & Arrays:
+#pragma mark Strings & Arrays:
 
     NATIVE_WORD(LENGTH, "LENGTH", StackEffect(1,1), 0) {
         *sp = sp->length();
@@ -168,10 +180,10 @@ namespace tails::core_words {
 
 #endif
 
-    //======================== INTERPRETED WORDS ========================//
+#pragma mark - INTERPRETED WORDS:
 
 
-    // Warning: A numeric literal has to be preceded by LITERAL, and an interpreted word by INTERP.
+    // Warning: A numeric literal has to be preceded by _LITERAL, an interpreted word by _INTERP.
 
 
     // (a -> a^2)
@@ -213,10 +225,10 @@ namespace tails::core_words {
     );
 
 
-    //======================== LIST OF CORE WORDS ========================//
+#pragma mark - LIST OF CORE WORDS:
 
 
-    // This is used to register these words in the Vocabulary at startup.
+    // This list is used to register these words in the Vocabulary at startup.
 
     const Word* const kWords[] = {
         &_INTERP, &_TAILINTERP, &_LITERAL, &_RETURN, &_BRANCH, &_ZBRANCH,
