@@ -45,17 +45,22 @@ namespace tails {
         constexpr StackEffect(uint8_t input, uint8_t output, uint16_t max)
         :_in(input), _net(output - input), _max(max) { }
 
+        constexpr static StackEffect weird() {return StackEffect(nullptr);}
+
         /// Number of items read from stack on entry (i.e. minimum stack depth on entry)
-        constexpr int input() const     {return _in;}
+        constexpr int input() const     {assert(!_weird); return _in;}
         /// Number of items left on stack on exit, "replacing" the input
-        constexpr int output() const    {return _in + _net;}
+        constexpr int output() const    {assert(!_weird); return _in + _net;}
         /// Net change in stack depth from entry to exit; equal to `output` - `input`.
-        constexpr int net() const       {return _net;}
+        constexpr int net() const       {assert(!_weird); return _net;}
         /// Max growth of stack while the word runs
-        constexpr int max() const       {return _max;}
+        constexpr int max() const       {assert(!_weird); return _max;}
+
+        constexpr bool isWeird() const  {return _weird;}
 
         constexpr bool operator== (const StackEffect &other) const {
-            return _in == other._in && _net == other._net && _max == other._max;
+            return _in == other._in && _net == other._net && _max == other._max
+                && !_weird && !other._weird;
         }
 
         constexpr bool operator!= (const StackEffect &other) const {return !(*this == other);}
@@ -74,10 +79,23 @@ namespace tails {
             return result;
         }
 
+        /// Returns the effect of doing _either_ of `this` or `other` (like branches of an 'IF'.)
+        /// They must have the same `net`.
+        /// The result will have the maximum of their `input`s, `output`s and `max`s.
+        StackEffect either(const StackEffect &other) {
+            assert(this->net() == other.net());
+            int in  = std::max(this->input(), other.input());
+            int max = std::max(this->max(), other.max());
+            return {uint8_t(in), uint8_t(in + this->net()), uint16_t(max)};
+        }
+
     private:
-        uint8_t  _in;       // Minimum stack depth on entry (number of parameters)
-        int8_t   _net;      // Change in stack depth on exit
-        uint16_t _max;      // Maximum stack depth (relative to `_in`) while running
+        constexpr StackEffect(void*)  :StackEffect() {_weird = true;}
+
+        uint8_t  _in;           // Minimum stack depth on entry (number of parameters)
+        int8_t   _net;          // Change in stack depth on exit
+        uint16_t _max;          // Maximum stack depth (relative to entry/`_in`) while running
+        bool     _weird =false; // Stack effect is not fixed!
     };
 
 }

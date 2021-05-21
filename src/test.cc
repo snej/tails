@@ -172,6 +172,15 @@ int main(int argc, char *argv[]) {
     TEST_PARSER(3,                  R"( {12 34 56} LENGTH )");
 
     TEST_PARSER(3,                  R"( 3 [DUP 4] DROP)");
+
+    TEST_PARSER("yes",              R"( 1 ["yes"] ["no"] IFELSE)");
+    TEST_PARSER("no",               R"( 0 ["yes"] ["no"] IFELSE)");
+    
+    TEST_PARSER(12,                 R"( 3 4  1 [*] [+] IFELSE)");
+    TEST_PARSER(7,                  R"( 3 4  0 [*] [+] IFELSE)");
+
+    TEST_PARSER(12,                 R"( 3 4  1 [*] [DROP] IFELSE)");
+    TEST_PARSER(3,                  R"( 3 4  0 [*] [DROP] IFELSE)");
 #endif
     
     cout << "\nTESTS PASSED❣️❣️❣️\n\n";

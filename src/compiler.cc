@@ -209,8 +209,29 @@ namespace tails {
                 instrEffect = curEffect;
             }
 
+            // determine the instruction's effect:
+            StackEffect nextEffect = cur.word.stackEffect();
+            if (nextEffect.isWeird()) {
+                if (cur.word == IFELSE) {
+                    // Special case for IFELSE, which has a non-constant stack effect.
+                    // The two prior words must be LITERALs that push quotations:
+                    const Word *lit1 = nullptr, *lit2 = nullptr;
+                    if (i >= 4 && _words[i - 2].word == _LITERAL && _words[i - 4].word == _LITERAL) {
+                        lit1 = _words[i - 4].param.literal.asQuote();
+                        lit2 = _words[i - 2].param.literal.asQuote();
+                    }
+                    if (!lit1 || !lit2)
+                        throw compile_error("IFELSE must be preceded by two quotations", cur.source);
+                    if (lit1->stackEffect().net() != lit2->stackEffect().net())
+                        throw compile_error("inconsistent stack effects for IFELSE", cur.source);
+                    nextEffect = lit1->stackEffect().either(lit2->stackEffect());
+                } else {
+                    throw compile_error("Oops, don't know word's stack effect", cur.source);
+                }
+            }
+
             // apply the instruction's effect:
-            curEffect = curEffect.then(cur.word.stackEffect());
+            curEffect = curEffect.then(nextEffect);
 
             if (curEffect.input() > _maxInputs)
                 throw compile_error("Stack would underflow", cur.source);

@@ -33,6 +33,10 @@ namespace tails::core_words {
         DIV, MOD, MINUS, MULT, PLUS,
         _BRANCH, _ZBRANCH,
         ONE, ZERO, NULL_;
+    
+#ifndef SIMPLE_VALUE
+    extern const Word LENGTH, IFELSE;
+#endif
 
     /// Array of pointers to the above core words, ending in nullptr
     extern const Word* const kWords[];

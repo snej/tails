@@ -127,6 +127,16 @@ namespace tails::core_words {
         NEXT();
     }
 
+#pragma mark Higher Order Functions (Combinators):
+
+    // (b quote1 quote2 -> ?)  Pops params, then evals quote1 if b is truthy, else quote2.
+    // Stack effect is dependent on quote1 and quote2
+    NATIVE_WORD(IFELSE, "IFELSE", StackEffect::weird(), 0) {
+        const Word *quote = (!!sp[-2] ? sp[-1] : sp[0]).asQuote();
+        sp = call(sp - 3, quote->instruction().word);
+        NEXT();
+    }
+
 #pragma mark Arithmetic & Relational:
 
     // NOTE: This code requires that `Value` has methods `asNumber` and `asInt`,
@@ -241,6 +251,7 @@ namespace tails::core_words {
         &DIV, &MOD, &MINUS, &MULT, &PLUS,
 #ifndef SIMPLE_VALUE
         &LENGTH,
+        &IFELSE,
 #endif
         nullptr
     };
