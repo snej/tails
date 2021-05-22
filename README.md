@@ -22,13 +22,13 @@ Tails's world is currently very simple: a stack of values, a call stack, and a p
 
 ### Core (AKA native, primitive) functions
 
-Tails's core primitives are C+\+ functions of the form `int* FN(Value *sp, const Instruction *pc)`.
+Tails's core primitives are C+\+ functions of the form `Value* FN(Value *sp, const Instruction *pc)`.
 
 * `sp` is the stack pointer. It grows upward, so `sp[0]` is the top value, `sp[-1]` is below it, etc.
 * `pc` is the program counter, which points to an array of `Instruction`s, specifically to the next instruction to execute.
 * The return value is the updated stack pointer.
 
-The function body can read and write values on the stack relative to `sp`, and push or pop by decrementing/incrementing `sp`.
+The function body can read and write values on the stack relative to `sp`, and push or pop by incrementing/decrementing `sp`.
 
 ### Calling the next function
 
@@ -63,8 +63,8 @@ The function finally returns to its caller when one of the subsequent functions 
 Excellent. Now you know how the interpreter works: 
 
 * You're given a C array of `Instruction` containing pointers to primitive functions, the last of which is `RETURN`.
-* Call the first one in the list. You pass it `sp` pointing to the end of a sufficiently large array of `Value`, and `pc` pointing to the next (second) function pointer. 
-* When it returns, you can find the results on the stack at the new `sp` value it returned.
+* Call the first one in the list. You pass it `sp` pointing to the start of a sufficiently large array of `Value`, and `pc` pointing to the next (second) function pointer. 
+* When it returns, you can find the result(s) on the stack at the new `sp` value it returned.
 
 ### Interpreted functions
 
@@ -79,7 +79,7 @@ Yeah, Tails wouldn't be much of a language if you couldn't define functions in i
 It reads it from the instruction stream, as `pc->word`, which is a pointer to an `Instruction` not a function pointer. (Remember that `pc` points to a `union` value.) Then it increments `pc` to skip over the extra value it just read:
 
 ```c
-    int* INTERP(Value *sp, const Instruction *pc) {
+    Value* INTERP(Value *sp, const Instruction *pc) {
         sp = call(sp, (pc++)->word);
         NEXT();
     }
@@ -108,9 +108,31 @@ There are several ways to add words to Tails:
    * A literal value has to be written as `LITERAL` followed by the number/string
    * A call to an interpreted word has to be written as `INTERP` followed by the word
    * Control flow has to be done using `BRANCH` or `ZBRANCH` followed by the offset
-3. **Compile a word at runtime**, using the `CompiledWord` subclass. It can be given a list of `Word` symbols, or it can parse a string. The string mode is by no means a full Forth REPL, just a C++ hack, but it supports `IF`, `ELSE` and `THEN` for control flow.
+3. **Compile a word at runtime**, using the `Compiler` class. The usual way to invoke it is to give it a string of source code to parse. This is not yet a full Forth parser, but it supports `IF`, `ELSE`, `THEN`, `BEGIN`, `WHILE`, `LOOP` for basic control flow.
 
-There are examples of 1 and 2 in `core_words.cc`, and of 3 in `test.cc`.
+There are examples of 1 and 2 in `core_words.cc`, and of 3 in `test.cc` and `repl.cc`
+
+### The Parser
+
+`Compiler::parse` is a basic parser implemented in C++. It reads tokens as:
+
+- A double-quoted string
+- A numeral, via `strtod`, so it understands decimal, hex, and scientific notation in C syntax.
+- An open or close square- or curly-bracket
+- The soecial control words `IF`, `ELSE`, `THEN`, `BEGIN`, `WHILE`, `LOOP`
+- Anything else is looked up as the name of an already-defined word
+
+Strings and numbers are added as literals. Braces delimit arrays of literals, and brackets delimit nested words ("quotations") that are also compiled as literals. An ordinary word adds a call to that word.
+
+The control-flow words invoke hardcoded functionality that ends up emitting magic `ZBRANCH` and `BRANCH` words.
+
+This is not as clean as a regular Forth compiler, which is written in Forth, and which has an ingenious system of "immediate" words that implement soecial compilation. In my defense, (a) this is for bringup, and (b) for my own purposes, making Tails self-hosting is not a high priority.
+
+### Interactive Interpreter (REPL)
+
+The source file `repl.cc` implements a simple interactive mode that lets you type in words and run them. After each line it shows the current stack.
+
+You cannot yet define words in this mode; there's no "`:`" word yet.
 
 ### Stack Effects
 
@@ -122,6 +144,16 @@ A top-level interpreter can use this to allocate a minimally-sized stack and ver
 
 >Warning: The  `NATIVE_WORD` and `INTERP_WORD` macros are **not** smart enough to check stack effects. When defining a word with these you have to give the word's stack effect, on the honor system; if you get it wrong, `CompiledWord` will get wrong results for words that call that one. G.I.G.O.!
 
+#### Stack Checking Vs. Quotations
+
+Unfortunately the recent (May 20 or so) addition of quotations (function values) has thrown a bit of a wrench into the stack checker. The `CALL` primitive which invokes a quote has a stack effect that's indeterminate, because it's the effect of the quote on top of the stack, which in general isn't known at compile time.
+
+Factor calls this situation "row polymorphism" and has a complex type of stack effect declaration to express it. I'm still trying to figure out how it works and how it could be implemented.
+
+For now I've put in a simple kludge. Words with variable stack effects have a special flag called "Weird". There are currently two such words, the primitives `CALL` and `IFELSE`. The stack checker rejects such a word unless it has a hardcoded handler for it. The handler for `IFELSE` requires that the preceding two words are quote literals, with equivalent stack effects, and uses that effect.
+
+I hooe to replace this with a more general and elegant mechanism soon. In the meantime, this means that the only use for quotes is with `IFELSE`. Sorry!
+
 ## Runtime
 
 ### Data Types
@@ -130,9 +162,9 @@ The `Value` class defines what Tails can operate on. The stack is just a C array
 
 **The simple Value** is just a trivial wrapper around a `double`, so all it supports are numbers.
 
-**The fancy Value** uses the so-called "[NaN tagging][NAN]" or "Nan boxing" trick that's used by several dynamic language runtimes, such as LuaJIT and the WebKit and Mozilla JavaScript VMs. It currently supports `double`s and strings, but is extensible.
+**The fancy Value** uses the so-called "[NaN tagging][NAN]" or "Nan boxing" trick that's used by several dynamic language runtimes, such as LuaJIT and the WebKit and Mozilla JavaScript VMs. It currently supports `double`s, strings, arrays and Words (quotations), and is extensible.
 
-There is unfortunately no garbage collector or ref-counting yet, so heap-allocated strings are simply leaked. Fortunately the fancy Value can store strings up to six bytes long inline, which reduces waste.
+There is unfortunately no garbage collector or ref-counting yet, so heap-allocated data is simply leaked. Fortunately the fancy Value can store strings up to six bytes long inline, which reduces waste.
 
 ### Performance
 
@@ -156,7 +188,7 @@ For example, here's the x86-64 assembly code of the PLUS function, compiled by C
 
 ## To-Do List
 
-* Add more data types, like arrays and dictionaries.
+* Add more data types, like dictionaries.
 * Define a bunch more core words.
 * Define the all-important `:` and `;` words, so words can be defined in Forth itself.
 * Type checking in stack effects? (E.g. declare that a word takes two strings and returns a boolean.)
