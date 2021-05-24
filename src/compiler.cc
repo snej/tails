@@ -30,6 +30,9 @@ namespace tails {
     using namespace tails::core_words;
 
 
+#pragma mark - COMPILEDWORD:
+
+
     CompiledWord::CompiledWord(string &&name, StackEffect effect, vector<Instruction> &&instrs)
     :_nameStr(move(name))
     ,_instrs(move(instrs))
@@ -46,6 +49,8 @@ namespace tails {
     CompiledWord::CompiledWord(Compiler &compiler)
     :CompiledWord(move(compiler._name), {}, compiler.generateInstructions())
     {
+        assert((compiler._flags & ~(Word::Inline | Word::Magic)) == 0);
+        _flags = compiler._flags;
         _effect = *compiler._effect;
     }
 
@@ -63,11 +68,29 @@ namespace tails {
     }
 
 
+#pragma mark - COMPILER:
+
+
     Compiler::InstructionPos Compiler::add(const WordRef &ref) {
         _words.back() = ref;
         auto i = prev(_words.end());
         _words.push_back({NOP});
         return i;
+    }
+
+
+    void Compiler::addInline(const Word &word, const char *source) {
+        if (word.isNative()) {
+            add({word});
+        } else {
+            const Instruction *ip = word.instruction().word;    // first Instruction
+            for (; *ip != _RETURN.instruction(); ++ip) {
+                WordRef ref = DisassembleInstruction(ip).value();
+                add(ref, source);
+                if (ref.word->hasAnyParam())
+                    ++ip;
+            }
+        }
     }
 
 
@@ -296,7 +319,7 @@ namespace tails {
                 maxJumpTo = max(maxJumpTo, i + 2 + instr[i+1].offset);
             else if (ref->word == &_RETURN && i >= maxJumpTo)
                 return instrs;
-            if (ref->word->hasAnyParam())
+            if (ref->hasParam())
                 ++i;
         }
     }

@@ -166,6 +166,8 @@ namespace tails {
                         add({*word, (intptr_t)*param}, sourcePos);
                     else
                         add({*word, Value(*param)}, sourcePos);
+                } else if (word->hasFlag(Word::Inline)) {
+                    addInline(*word, sourcePos);
                 } else {
                     add(*word, sourcePos);
                 }

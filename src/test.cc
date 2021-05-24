@@ -133,11 +133,20 @@ int main(int argc, char *argv[]) {
     TEST(-1,    3, 4, MINUS);
     TEST(0.75,  3, 4, DIV);
     TEST(1,     1, 2, 3, ROT);
-    TEST(16,    4, SQUARE);
     TEST(1234,  -1234, ABS);
     TEST(1234,  1234, ABS);
     TEST(4,     3, 4, MAX);
     TEST(4,     4, 3, MAX);
+
+    CompiledWord SQUARE = []() {
+        Compiler c("SQUARE");
+        c.setInline();
+        c.add({DUP});
+        c.add({MULT});
+        return CompiledWord(c);
+    }();
+
+    TEST(16,    4, SQUARE);
 
     TEST(9604,
          4,
@@ -150,6 +159,7 @@ int main(int argc, char *argv[]) {
          ABS);
 
     TEST_PARSER(7,    "3 -4 -");
+    TEST_PARSER(14, "4 3 + DUP + ABS");
     TEST_PARSER(9604, "4 3 + SQUARE DUP + SQUARE ABS");
     TEST_PARSER(123,  "1 IF 123 ELSE 666 THEN");
     TEST_PARSER(666,  "0 IF 123 ELSE 666 THEN");

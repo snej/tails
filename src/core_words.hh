@@ -29,7 +29,7 @@ namespace tails::core_words {
         EQ, NE, EQ_ZERO, NE_ZERO,
         GE, GT, GT_ZERO,
         LE, LT, LT_ZERO,
-        ABS, MAX, MIN, SQUARE,
+        ABS, MAX, MIN,
         DIV, MOD, MINUS, MULT, PLUS,
         _BRANCH, _ZBRANCH,
         ONE, ZERO;

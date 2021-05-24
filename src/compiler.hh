@@ -104,6 +104,8 @@ namespace tails {
         /// (This is useful in a REPL when you're parsing input and know the current stack depth.)
         void setMaxInputs(size_t maxInputs)         {_maxInputs = maxInputs;}
 
+        void setInline()                            {_flags = Word::Flags(_flags | Word::Inline);}
+
         /// Breaks the input string into words and adds them.
         void parse(const std::string &input);
 
@@ -119,6 +121,8 @@ namespace tails {
             return add(ref);
         }
 
+        /// Adds a word by inlining its definition, if it's interpreted. Native words added normally.
+        void addInline(const Word&, const char *source);
 
         void addBranchBackTo(InstructionPos);
 
@@ -155,6 +159,7 @@ namespace tails {
         StackEffect effectOfIFELSE(InstructionPos);
 
         std::string                 _name;
+        Word::Flags                 _flags {};
         std::list<WordRef>          _words;
         size_t                      _maxInputs = SIZE_MAX;
         std::optional<StackEffect>  _effect;

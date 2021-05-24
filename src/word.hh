@@ -32,11 +32,12 @@ namespace tails {
     class Word {
     public:
         enum Flags : uint8_t {
-            NoFlags     = 0,
-            Native      = 1, ///< Implemented in native code (at `_instr.op`)
-            HasIntParam = 2, ///< This word is followed by an integer param (BRANCH, 0BRANCH)
-            HasValParam = 4, ///< This word is followed by a Value param (LITERAL)
-            Magic       = 8, ///< Low-level, not allowed in parsed code (0BRANCH, INTERP, etc.)
+            NoFlags     = 0x00,
+            Native      = 0x01, ///< Implemented in native code (at `_instr.op`)
+            HasIntParam = 0x02, ///< This word is followed by an integer param (BRANCH, 0BRANCH)
+            HasValParam = 0x04, ///< This word is followed by a Value param (LITERAL)
+            Magic       = 0x08, ///< Low-level, not allowed in parsed code (0BRANCH, INTERP, etc.)
+            Inline      = 0x10, ///< Should be inlined at call site
         };
 
         constexpr Word(const char *name, Op native, StackEffect effect, Flags flags =NoFlags)
@@ -57,11 +58,12 @@ namespace tails {
         constexpr Instruction instruction() const       {return _instr;}
         constexpr StackEffect stackEffect() const       {return _effect;}
 
-        constexpr bool isNative() const                 {return (_flags & Native) != 0;}
-        constexpr bool hasIntParam() const              {return (_flags & HasIntParam) != 0;}
-        constexpr bool hasValParam() const              {return (_flags & HasValParam) != 0;}
+        constexpr bool hasFlag(Flags f) const           {return (_flags & f) != 0;}
+        constexpr bool isNative() const                 {return hasFlag(Native);}
+        constexpr bool hasIntParam() const              {return hasFlag(HasIntParam);}
+        constexpr bool hasValParam() const              {return hasFlag(HasValParam);}
         constexpr bool hasAnyParam() const              {return (_flags & (HasIntParam | HasValParam)) != 0;}
-        constexpr bool isMagic() const                  {return (_flags & Magic) != 0;}
+        constexpr bool isMagic() const                  {return hasFlag(Magic);}
 
         constexpr operator Instruction() const          {return _instr;}
 

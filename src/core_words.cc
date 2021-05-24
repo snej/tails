@@ -199,13 +199,6 @@ namespace tails::core_words {
     // Warning: A numeric literal has to be preceded by _LITERAL, an interpreted word by _INTERP.
 
 
-    // (a -> a^2)
-    INTERP_WORD(SQUARE, "SQUARE", StackEffect(1,1, 1),
-        DUP,
-        MULT
-    );
-
-
     // (a -> abs)
     INTERP_WORD(ABS, "ABS", StackEffect(1,1, 1),
         DUP,
@@ -250,7 +243,7 @@ namespace tails::core_words {
         &EQ, &NE, &EQ_ZERO, &NE_ZERO,
         &GE, &GT, &GT_ZERO,
         &LE, &LT, &LT_ZERO,
-        &ABS, &MAX, &MIN, &SQUARE,
+        &ABS, &MAX, &MIN,
         &DIV, &MOD, &MINUS, &MULT, &PLUS,
 #ifndef SIMPLE_VALUE
         &CALL,
