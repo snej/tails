@@ -89,14 +89,14 @@ namespace tails {
     }
 
 
-    void Compiler::parse(const string &input, bool allowMagic) {
-        const char *remainder = parse(input.c_str(), allowMagic);
+    void Compiler::parse(const string &input) {
+        const char *remainder = parse(input.c_str());
         if (*remainder != 0)
             throw compile_error("Unexpected delimiter; expected end of input", remainder);
     }
 
 
-    const char* Compiler::parse(const char *input, bool allowMagic) {
+    const char* Compiler::parse(const char *input) {
         while (true) {
             string_view token = _curToken = readToken(input);
             const char *sourcePos = token.data();
@@ -154,7 +154,7 @@ namespace tails {
 
             } else if (const Word *word = Vocabulary::global.lookup(token); word) {
                 // Known word is added as an instruction:
-                if (!allowMagic && word->isMagic())
+                if (word->isMagic())
                         throw compile_error("Special word " + string(token)
                                             + " cannot be added by parser", sourcePos);
                 if (word->hasAnyParam()) {
@@ -227,7 +227,7 @@ namespace tails {
 #else
         // Recursively create a Compiler to parse tokens to a new Word until the ']' delimiter:
         Compiler quoteCompiler;
-        input = quoteCompiler.parse(input, false);
+        input = quoteCompiler.parse(input);
         if (*input != ']')
             throw compile_error("Missing ']'; unfinished quotation", input);
         ++input;

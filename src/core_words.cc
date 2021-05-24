@@ -116,6 +116,7 @@ namespace tails::core_words {
         NEXT();
     }
 
+#ifndef SIMPLE_VALUE
     // (? quote -> ?)  Pops a quotation (word) and calls it.
     // The actual stack effect is that of the quotation it calls, which in the general case is
     // only known at runtime. Until the compiler's stack checker can deal with this, I'm making
@@ -136,6 +137,7 @@ namespace tails::core_words {
         sp = call(sp - 3, quote->instruction().word);
         NEXT();
     }
+#endif // SIMPLE_VALUE
 
 #pragma mark Arithmetic & Relational:
 
@@ -151,12 +153,6 @@ namespace tails::core_words {
     // ( -> 1)
     NATIVE_WORD(ONE, "1", StackEffect(0,1), 0) {
         *(++sp) = Value(1);
-        NEXT();
-    }
-
-    // ( -> null)   [Appended an "_" to the symbol to avoid conflict with C's `NULL`.]
-    NATIVE_WORD(NULL_, "NULL", StackEffect(0,1), 0) {
-        *(++sp) = NullValue;
         NEXT();
     }
 
@@ -180,6 +176,13 @@ namespace tails::core_words {
     NATIVE_WORD(LT_ZERO, "0<", StackEffect(1,1), 0)  { sp[0] = Value(sp[0] < Value(0)); NEXT(); }
 
 #ifndef SIMPLE_VALUE
+
+    // ( -> null)   [Appended an "_" to the symbol to avoid conflict with C's `NULL`.]
+    NATIVE_WORD(NULL_, "NULL", StackEffect(0,1), 0) {
+        *(++sp) = NullValue;
+        NEXT();
+    }
+
 #pragma mark Strings & Arrays:
 
     NATIVE_WORD(LENGTH, "LENGTH", StackEffect(1,1), 0) {
@@ -242,14 +245,16 @@ namespace tails::core_words {
 
     const Word* const kWords[] = {
         &_INTERP, &_TAILINTERP, &_LITERAL, &_RETURN, &_BRANCH, &_ZBRANCH,
-        &DROP, &DUP, &OVER, &ROT, &SWAP, &NOP, &CALL,
-        &ZERO, &ONE, &NULL_,
+        &DROP, &DUP, &OVER, &ROT, &SWAP, &NOP,
+        &ZERO, &ONE,
         &EQ, &NE, &EQ_ZERO, &NE_ZERO,
         &GE, &GT, &GT_ZERO,
         &LE, &LT, &LT_ZERO,
         &ABS, &MAX, &MIN, &SQUARE,
         &DIV, &MOD, &MINUS, &MULT, &PLUS,
 #ifndef SIMPLE_VALUE
+        &CALL,
+        &NULL_,
         &LENGTH,
         &IFELSE,
 #endif

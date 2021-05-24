@@ -50,6 +50,11 @@ namespace tails {
     }
 
 
+    Compiler::Compiler() {
+        _words.push_back({NOP});
+    }
+
+
     CompiledWord Compiler::compile(std::initializer_list<WordRef> words) {
         Compiler compiler;
         for (auto &ref : words)
@@ -59,33 +64,31 @@ namespace tails {
 
 
     Compiler::InstructionPos Compiler::add(const WordRef &ref) {
-        _words.push_back(ref);
-        if (ref.hasParam()) {
-            _words.push_back(NOP); // placeholder to keep indexes the same as in the compiled instrs
-            _words.back().source = ref.source;
-            return InstructionPos(_words.size() - 2);
-        } else {
-            return InstructionPos::None;
-        }
+        _words.back() = ref;
+        auto i = prev(_words.end());
+        _words.push_back({NOP});
+        return i;
     }
 
 
-    const Compiler::WordRef& Compiler::operator[] (InstructionPos pos) {
-        intptr_t i = intptr_t(pos);
-        assert(i >= 0 && i < _words.size());
-        return _words[i];
+    void Compiler::addBranchBackTo(InstructionPos pos) {
+        add({_BRANCH, intptr_t(-1)})->branchDestination = pos;
+    }
+
+    void Compiler::fixBranch(InstructionPos src) {
+        src->branchDestination = prev(_words.end());
     }
 
 
     /// Adds a branch instruction (unless `branch` is NULL)
     /// and pushes its location onto the control-flow stack.
     void Compiler::pushBranch(char identifier, const Word *branch) {
-        InstructionPos pos;
+        InstructionPos branchRef;
         if (branch)
-            pos = add({*branch, intptr_t(-1)}, _curToken.data());
+            branchRef = add({*branch, intptr_t(-1)}, _curToken.data());
         else
-            pos = nextInstructionPos();
-        _controlStack.push_back({identifier, pos});
+            branchRef = prev(_words.end()); // Will point to next word to be added
+        _controlStack.push_back({identifier, branchRef});
     }
 
     /// Pops the control flow stack, checks that the popped identifier matches,
@@ -102,69 +105,61 @@ namespace tails {
     }
 
 
-    void Compiler::fixBranch(InstructionPos src) {
-        intptr_t srcPos = intptr_t(src), paramPos = srcPos + 1, dstPos = intptr_t(_words.size());
-        assert(srcPos >= 0 && paramPos < dstPos);
-        WordRef &branch = _words[srcPos];
-        assert(branch.word == _ZBRANCH || branch.word == _BRANCH);
-        assert(_words[paramPos].word == NOP);
-        branch.param.offset = dstPos - paramPos - 1;
-    }
-
-
-    void Compiler::addBranchBackTo(InstructionPos pos) {
-        intptr_t offset = intptr_t(pos) - (intptr_t(nextInstructionPos()) + 2);
-        add({_BRANCH, offset}, _curToken.data());
-    }
-
-
     vector<Instruction> Compiler::generateInstructions() {
         if (!_controlStack.empty())
             throw compile_error("Unfinished IF-ELSE-THEN or BEGIN-WHILE-REPEAT)", nullptr);
 
-        // Add a RETURN:
-        assert(_words.empty() || _words.back().word != _RETURN);
-        add(_RETURN, (_words.empty() ? nullptr : _words.back().source));
+        // Add a RETURN, replacing the "next word" placeholder:
+        assert(_words.back().word == &NOP);
+        _words.back() = {_RETURN};
 
         // Compute the stack effect:
         computeEffect();
 
         // If the word ends in a call to an interpreted word, we can make it a tail-call:
         WordRef *tailCallHere = nullptr;
-        if (_words.size() >= 3) {
-            // (The word would be before the RETURN and the NOP padding)
-            auto lastWord = &_words[_words.size()-3];
-            if (!lastWord->word.isNative())
+        if (_words.size() >= 2) {
+            WordRef *lastWord = &*prev(prev(_words.end()));     // look before the RETURN
+            if (!lastWord->word->isNative())
                 tailCallHere = lastWord;
+        }
+
+        // Assign the relative pc of each word, leaving space for parameters:
+        int pc = 0;
+        for (WordRef &ref : _words) {
+            ref.pc = pc++;
+            if (ref.hasParam())
+                pc++;
         }
 
         // Assemble instructions:
         vector<Instruction> instrs;
-        instrs.reserve(_words.size());
+        instrs.reserve(pc);
         for (WordRef &ref : _words) {
-            if (ref.word != NOP) {
-                if (!ref.word.isNative())
-                    instrs.push_back((&ref == tailCallHere) ? _TAILINTERP : _INTERP);
-                instrs.push_back(ref.word);
-                if (ref.word.hasAnyParam())
-                    instrs.push_back(ref.param);
-            }
+            if (!ref.word->isNative())
+                instrs.push_back((&ref == tailCallHere) ? _TAILINTERP : _INTERP);
+            instrs.push_back(*ref.word);
+            if (ref.branchDestination)
+                ref.param.offset = (*ref.branchDestination)->pc - ref.pc - 2;
+            if (ref.word->hasAnyParam())
+                instrs.push_back(ref.param);
         }
-        assert(instrs.size() == _words.size());
         return instrs;
     }
 
 
     CompiledWord Compiler::finish() {
-        return CompiledWord(*this);
+        return CompiledWord(*this); // the CompiledWord constructor will call generateInstructions()
     }
+
+
+#pragma mark - STACK CHECKER:
 
 
     // Computes the stack effect of the word, throwing if it's inconsistent.
     void Compiler::computeEffect() {
         optional<StackEffect> effect;
-        EffectVec instrEffects(_words.size());
-        computeEffect(0, StackEffect(), instrEffects, effect);
+        computeEffect(_words.begin(), StackEffect(), effect);
         assert(effect);
 
         if (_effect && (effect->input() > _effect->input() ||
@@ -184,81 +179,54 @@ namespace tails {
     // @param instrEffects  Vector of known/memoized StackEffects at each instruction index
     // @param finalEffect  The cumulative stack effect will be stored here.
     // @throw compile_error if stack is inconsistent or there's an invalid branch offset.
-    void Compiler::computeEffect(intptr_t i,
+    void Compiler::computeEffect(InstructionPos i,
                                  StackEffect curEffect,
-                                 EffectVec &instrEffects,
                                  optional<StackEffect> &finalEffect)
     {
         while (true) {
-            // Look at the word at `i`:
-            WordRef &cur = _words[i];
-//            std::cout << "\t\tcomputeEffect at " << i << ", effect ("
-//                    << curEffect.input() << "->" << curEffect.output() << ", max " << curEffect.max()
-//                    << ") before " << cur.word._name << "\n";
-            assert(cur.word != NOP);
-
+            assert(i != _words.end());
             // Store (memoize) the current effect at i, or verify it matches a previously stored one:
-            if (optional<StackEffect> &instrEffect = instrEffects[i]; instrEffect) {
-                if (*instrEffect == curEffect)
+            if (i->knownEffect) {
+                if (*i->knownEffect == curEffect)
                     return;
-                else if (instrEffect->net() != curEffect.net())
-                    throw compile_error("Inconsistent stack depth", cur.source);
-                else
-                    instrEffect = curEffect;
-            } else {
-                instrEffect = curEffect;
+                else if (i->knownEffect->net() != curEffect.net())
+                    throw compile_error("Inconsistent stack depth", i->sourceCode);
             }
+            i->knownEffect = curEffect;
 
             // determine the instruction's effect:
-            StackEffect nextEffect = cur.word.stackEffect();
+            StackEffect nextEffect = i->word->stackEffect();
             if (nextEffect.isWeird()) {
-                if (cur.word == IFELSE) {
-                    // Special case for IFELSE, which has a non-constant stack effect.
-                    // The two prior words must be LITERALs that push quotations:
-                    const Word *lit1 = nullptr, *lit2 = nullptr;
-                    if (i >= 4 && _words[i - 2].word == _LITERAL && _words[i - 4].word == _LITERAL) {
-                        lit1 = _words[i - 4].param.literal.asQuote();
-                        lit2 = _words[i - 2].param.literal.asQuote();
-                    }
-                    if (!lit1 || !lit2)
-                        throw compile_error("IFELSE must be preceded by two quotations", cur.source);
-                    if (lit1->stackEffect().net() != lit2->stackEffect().net())
-                        throw compile_error("inconsistent stack effects for IFELSE", cur.source);
-                    nextEffect = lit1->stackEffect().either(lit2->stackEffect());
-                } else {
-                    throw compile_error("Oops, don't know word's stack effect", cur.source);
-                }
+#ifndef SIMPLE_VALUE
+                if (i->word == &IFELSE)
+                    nextEffect = effectOfIFELSE(i);
+                else
+#endif
+                    throw compile_error("Oops, don't know word's stack effect", i->sourceCode);
             }
 
             // apply the instruction's effect:
             curEffect = curEffect.then(nextEffect);
 
             if (curEffect.input() > _maxInputs)
-                throw compile_error("Stack would underflow", cur.source);
+                throw compile_error("Stack would underflow", i->sourceCode);
 
-            if (cur.hasParam())
-                ++i;
-
-            if (cur.word == _RETURN) {
+            if (i->word == &_RETURN) {
                 // The current effect when RETURN is reached is the word's cumulative effect.
                 // If there are multiple RETURNs, each must have the same effect.
                 if (finalEffect && *finalEffect != curEffect)
-                    throw compile_error("Inconsistent stack effects at RETURNs", cur.source);
+                    throw compile_error("Inconsistent stack effects at RETURNs", i->sourceCode);
                 finalEffect = curEffect;
                 return;
 
-            } else if (cur.word == _BRANCH || cur.word == _ZBRANCH) {
-                // Compute branch destination:
-                auto dst = i + 1 + cur.param.offset;
-                if (dst < 0 || dst >= _words.size() || _words[dst].word == NOP)
-                    throw compile_error("Invalid BRANCH destination", cur.source);
-
+            } else if (i->word == &_BRANCH || i->word == &_ZBRANCH) {
+                assert(i->branchDestination);
                 // If this is a 0BRANCH, recurse to follow the non-branch case too:
-                if (cur.word == _ZBRANCH)
-                    computeEffect(i + 1, curEffect, instrEffects, finalEffect);
+                if (i->word == &_ZBRANCH)
+                    computeEffect(next(i), curEffect, finalEffect);
 
                 // Follow the branch:
-                i = dst;
+                i = *i->branchDestination;
 
             } else {
                 // Continue to next instruction:
@@ -267,6 +235,28 @@ namespace tails {
         }
     }
 
+
+#ifndef SIMPLE_VALUE
+    static const Word* quoteAt(Compiler::InstructionPos i) {
+        return (i->word == &_LITERAL) ? i->param.literal.asQuote() : nullptr;
+    }
+
+    StackEffect Compiler::effectOfIFELSE(InstructionPos i) {
+        // Special case for IFELSE, which has a non-constant stack effect.
+        // The two prior words must be LITERALs that push quotations:
+        if (i != _words.begin()) {
+            if (auto ii = prev(i); ii != _words.begin()) {
+                const Word *lit1 = quoteAt(ii);
+                const Word *lit2 = quoteAt(prev(ii));
+                if (lit1->stackEffect().net() == lit2->stackEffect().net())
+                    return lit1->stackEffect().either(lit2->stackEffect());
+                throw compile_error("inconsistent stack effects for IFELSE", i->sourceCode);
+            }
+        }
+        throw compile_error("IFELSE must be preceded by two quotations", i->sourceCode);
+    }
+#endif
+    
 
     #pragma mark - DISASSEMBLER:
 
@@ -287,7 +277,7 @@ namespace tails {
     std::optional<Compiler::WordRef> DisassembleInstructionOrParam(const Instruction *instr) {
         if (auto word = DisassembleInstruction(instr); word)
             return word;
-        else if (auto prev = DisassembleInstruction(instr - 1); prev && prev->word.hasAnyParam())
+        else if (auto prev = DisassembleInstruction(instr - 1); prev && prev->word->hasAnyParam())
             return prev;
         else
             return nullopt;
@@ -302,11 +292,11 @@ namespace tails {
             if (!ref)
                 throw runtime_error("Unknown instruction");
             instrs.push_back(*ref);
-            if (ref->word == _BRANCH || ref->word == _ZBRANCH)
+            if (ref->word == &_BRANCH || ref->word == &_ZBRANCH)
                 maxJumpTo = max(maxJumpTo, i + 2 + instr[i+1].offset);
-            else if (ref->word == _RETURN && i >= maxJumpTo)
+            else if (ref->word == &_RETURN && i >= maxJumpTo)
                 return instrs;
-            if (ref->word.hasAnyParam())
+            if (ref->word->hasAnyParam())
                 ++i;
         }
     }

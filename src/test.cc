@@ -62,7 +62,7 @@ static_assert( StackEffect(1, 1).then(StackEffect(2,2)) == StackEffect(2, 2));
             --pc; // the pc we are passed is of the _next_ Instruction
             cout << "\tafter " << setw(14) << pc;
             if (auto dis = DisassembleInstructionOrParam(pc); dis)
-                cout << " " << setw(12) << std::left << dis->word.name();
+                cout << " " << setw(12) << std::left << dis->word->name();
             cout << ": ";
             for (auto i = StackBase; i <= sp; ++i)
                 cout << ' ' << *i;
@@ -93,16 +93,16 @@ static void _test(std::initializer_list<Compiler::WordRef> words,
 static Value _runParser(const char *source) {
     cout << "* Parsing “" << source << "”\n";
     Compiler compiler;
-    compiler.parse(string(source), true);
+    compiler.parse(string(source));
     CompiledWord parsed = compiler.finish();
 
     cout << "\tDisassembly:";
     auto dis = DisassembleWord(parsed.instruction().word);
     for (auto &wordRef : dis) {
-        cout << ' ' << (wordRef.word.name() ? wordRef.word.name() : "???");
-        if (wordRef.word.hasIntParam())
+        cout << ' ' << (wordRef.word->name() ? wordRef.word->name() : "???");
+        if (wordRef.word->hasIntParam())
             cout << "+<" << (int)wordRef.param.offset << '>';
-        else if (wordRef.word.hasValParam())
+        else if (wordRef.word->hasValParam())
             cout << ":<" << wordRef.param.literal << '>';
     }
     cout << "\n";
@@ -151,8 +151,6 @@ int main(int argc, char *argv[]) {
 
     TEST_PARSER(7,    "3 -4 -");
     TEST_PARSER(9604, "4 3 + SQUARE DUP + SQUARE ABS");
-    TEST_PARSER(10,   "10 20 OVER OVER > 0BRANCH 1 SWAP DROP");
-    TEST_PARSER(1,    "53 DUP 13 >= 0BRANCH 5 13 - BRANCH -11");
     TEST_PARSER(123,  "1 IF 123 ELSE 666 THEN");
     TEST_PARSER(666,  "0 IF 123 ELSE 666 THEN");
 

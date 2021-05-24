@@ -32,10 +32,10 @@ namespace tails::core_words {
         ABS, MAX, MIN, SQUARE,
         DIV, MOD, MINUS, MULT, PLUS,
         _BRANCH, _ZBRANCH,
-        ONE, ZERO, NULL_;
+        ONE, ZERO;
     
 #ifndef SIMPLE_VALUE
-    extern const Word LENGTH, IFELSE;
+    extern const Word NULL_, LENGTH, CALL, IFELSE;
 #endif
 
     /// Array of pointers to the above core words, ending in nullptr

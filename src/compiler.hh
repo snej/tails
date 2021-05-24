@@ -20,6 +20,7 @@
 #include "word.hh"
 #include <optional>
 #include <stdexcept>
+#include <list>
 #include <string>
 #include <vector>
 
@@ -60,25 +61,38 @@ namespace tails {
     /// It computes and validates the word's stack effect.
     class Compiler {
     public:
+        struct WordRef;
+
+        /// An reference to a WordRef added to the Compiler.
+        using InstructionPos = std::list<WordRef>::iterator;
+
+
         /// A reference to a word and its parameter (if any), used during compilation.
         struct WordRef {
-            WordRef(const Word &w)               :word(w), param((Op)0) {assert(!w.hasAnyParam());}
-            WordRef(const Word &w, Instruction p):word(w), param(p) {assert(w.hasAnyParam());}
-            WordRef(const Word &w, Value v)      :word(w), param(v) {assert(w.hasValParam());}
-            WordRef(const Word &w, intptr_t o)   :word(w), param(o) {assert(w.hasIntParam());}
+            WordRef(const Word &w)               :word(&w), param((Op)0) {assert(!w.hasAnyParam());}
+            WordRef(const Word &w, Instruction p):word(&w), param(p) {assert(w.hasAnyParam());}
+            WordRef(const Word &w, Value v)      :word(&w), param(v) {assert(w.hasValParam());}
+            WordRef(const Word &w, intptr_t o)   :word(&w), param(o) {assert(w.hasIntParam());}
 
             WordRef(Value v)                     :WordRef(core_words::_LITERAL, v) { }
             WordRef(double d)                    :WordRef(core_words::_LITERAL, Value(d)) { }
 
-            bool hasParam() const                {return word.hasAnyParam() || !word.isNative();}
+            bool hasParam() const                {return word->hasAnyParam() || !word->isNative();}
 
-            const Word&  word;
-            Instruction  param;
-            const char*  source = nullptr;
+            const Word*  word;                      // The word (interpreted or native)
+            Instruction  param;                     // Optional parameter, if it has one
+            const char*  sourceCode = nullptr;      // Points to source code where word appears
+            std::optional<StackEffect> knownEffect; // Stack effect at this point, once known
+            std::optional<InstructionPos> branchDestination;    // Points to where a branch goes
+            int pc;                                 // Relative addr of instruction during code-gen
+
+        private:
+            friend class Compiler;
+            WordRef() :param(intptr_t(0)) { }
         };
 
-        Compiler()                                  { }
-        explicit Compiler(std::string name)         :_name(std::move(name)) { }
+        Compiler();
+        explicit Compiler(std::string name)         :Compiler() {_name = std::move(name);}
 
         /// Declares what the word's stack effect must be.
         /// If the actual stack effect (computed during \ref finish) is different, a
@@ -91,27 +105,20 @@ namespace tails {
         void setMaxInputs(size_t maxInputs)         {_maxInputs = maxInputs;}
 
         /// Breaks the input string into words and adds them.
-        void parse(const std::string &input, bool allowMagic =false);
+        void parse(const std::string &input);
 
         //---- Adding individual words:
 
-        /// An opaque reference to an instruction written to a CompiledWord in progress.
-        enum class InstructionPos : intptr_t { None = -1 };
 
         /// Adds an instruction to a word being compiled.
         /// @return  An opaque reference to this instruction, that can be used later to fix branches.
         InstructionPos add(const WordRef&);
 
         InstructionPos add(WordRef ref, const char *source) {
-            ref.source = source;
+            ref.sourceCode = source;
             return add(ref);
         }
 
-        /// Returns the word at the given position.
-        const WordRef& operator[] (InstructionPos);
-
-        /// Returns an opaque reference to the _next_ instruction to be added,
-        InstructionPos nextInstructionPos() const       {return InstructionPos(_words.size());}
 
         void addBranchBackTo(InstructionPos);
 
@@ -132,24 +139,23 @@ namespace tails {
     private:
         friend class CompiledWord;
 
-        using EffectVec = std::vector<std::optional<StackEffect>>;
         using BranchTarget = std::pair<char, InstructionPos>;
 
         std::vector<Instruction> generateInstructions();
-        const char* parse(const char *input, bool allowParams =false);
+        const char* parse(const char *input);
         Value parseString(std::string_view token);
         Value parseArray(const char* &input);
         Value parseQuote(const char* &input);
         void pushBranch(char identifier, const Word *branch =nullptr);
         InstructionPos popBranch(const char *matching);
         void computeEffect();
-        void computeEffect(intptr_t i,
+        void computeEffect(InstructionPos i,
                            StackEffect effect,
-                           EffectVec &instrEffects,
                            std::optional<StackEffect> &finalEffect);
+        StackEffect effectOfIFELSE(InstructionPos);
 
         std::string                 _name;
-        std::vector<WordRef>        _words;
+        std::list<WordRef>          _words;
         size_t                      _maxInputs = SIZE_MAX;
         std::optional<StackEffect>  _effect;
         std::string_view            _curToken;
