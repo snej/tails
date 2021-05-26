@@ -32,23 +32,23 @@ namespace tails::core_words {
 #pragma mark The absolute core:
 
     // (? -> ??)  Calls the interpreted word pointed to by the following instruction.
-    NATIVE_WORD(_INTERP, "_INTERP", StackEffect(1,1), Word::Magic) {
+    NATIVE_WORD(_INTERP, "_INTERP", StackEffect::weird(), Word::Magic) {
         sp = call(sp, (pc++)->word);
         NEXT();
     }
 
     // (? -> ??)  Jumps to the interpreted word pointed to by the following instruction.
-    NATIVE_WORD(_TAILINTERP, "_TAILINTERP", StackEffect(1,1), Word::Magic) {
+    NATIVE_WORD(_TAILINTERP, "_TAILINTERP", StackEffect::weird(), Word::Magic) {
         MUSTTAIL return call(sp, pc->word);
     }
 
     // ( -> )  Returns from the current word. Every interpreted word ends with this.
-    NATIVE_WORD(_RETURN, "_RETURN", StackEffect(0,0), Word::Magic) {
+    NATIVE_WORD(_RETURN, "_RETURN", StackEffect(), Word::Magic) {
         return sp;
     }
 
     // ( -> i)  Pushes the following instruction as an integer
-    NATIVE_WORD(_LITERAL, "_LITERAL", StackEffect(0,1), Word::Magic | Word::HasValParam) {
+    NATIVE_WORD(_LITERAL, "_LITERAL", "-- #", Word::Magic | Word::HasValParam) {
         *(++sp) = (pc++)->literal;
         NEXT();
     }
@@ -56,33 +56,33 @@ namespace tails::core_words {
 #pragma mark Stack gymnastics:
 
     // (a -> a a)
-    NATIVE_WORD(DUP, "DUP", StackEffect(1,2), 0) {
+    NATIVE_WORD(DUP, "DUP", "a -- a a", 0) {
         ++sp;
         sp[0] = sp[-1];
         NEXT();
     }
 
     // (a -> )
-    NATIVE_WORD(DROP, "DROP", StackEffect(1,0), 0) {
+    NATIVE_WORD(DROP, "DROP", "a --", 0) {
         --sp;
         NEXT();
     }
 
     // (a b -> b a)
-    NATIVE_WORD(SWAP, "SWAP", StackEffect(2,2), 0) {
+    NATIVE_WORD(SWAP, "SWAP", "a b -- b a", 0) {
         std::swap(sp[0], sp[-1]);
         NEXT();
     }
 
     // (a b -> a b a)
-    NATIVE_WORD(OVER, "OVER", StackEffect(2,3), 0) {
+    NATIVE_WORD(OVER, "OVER", "a b -- a b a", 0) {
         ++sp;
         sp[0] = sp[-2];
         NEXT();
     }
 
     // (a b c -> b c a)
-    NATIVE_WORD(ROT, "ROT", StackEffect(3,3), 0) {
+    NATIVE_WORD(ROT, "ROT", "a b c -- b c a", 0) {
         auto sp2 = sp[-2];
         sp[-2] = sp[-1];
         sp[-1] = sp[0];
@@ -91,7 +91,7 @@ namespace tails::core_words {
     }
 
     // ( -> )  A placeholder used by the compiler that doesn't actually appear in code
-    NATIVE_WORD(NOP, "NOP", StackEffect(0,0), 0) {
+    NATIVE_WORD(NOP, "NOP", "--", 0) {
         NEXT();
     }
 
@@ -103,13 +103,13 @@ namespace tails::core_words {
         0BRANCH is a conditional branch (it only branches if the top of stack is zero)." --JonesForth */
 
     // ( -> )  and reads offset from *pc
-    NATIVE_WORD(_BRANCH, "BRANCH", StackEffect(0,0), Word::Magic | Word::HasIntParam) {
+    NATIVE_WORD(_BRANCH, "BRANCH", "--", Word::Magic | Word::HasIntParam) {
         pc += pc->offset + 1;
         NEXT();
     }
 
     // (b -> )  and reads offset from *pc ... Assumes Value supports operator `!`
-    NATIVE_WORD(_ZBRANCH, "0BRANCH", StackEffect(1,0), Word::Magic | Word::HasIntParam) {
+    NATIVE_WORD(_ZBRANCH, "0BRANCH", "b --", Word::Magic | Word::HasIntParam) {
         if (!(*sp--))
             pc += pc->offset;
         ++pc;
@@ -121,7 +121,7 @@ namespace tails::core_words {
     // The actual stack effect is that of the quotation it calls, which in the general case is
     // only known at runtime. Until the compiler's stack checker can deal with this, I'm making
     // this word Magic so it can't be used in source code.
-    NATIVE_WORD(CALL, "CALL", {}, Word::Magic) {
+    NATIVE_WORD(CALL, "CALL", StackEffect::weird(), Word::Magic) {
         const Word *quote = (*sp--).asQuote();
         assert(quote);                                  // FIXME: Handle somehow; exceptions?
         sp = call(sp, quote->instruction().word);
@@ -145,13 +145,13 @@ namespace tails::core_words {
     //       and that there are conversions from integer and double to Value.
 
     // ( -> 0)
-    NATIVE_WORD(ZERO, "0", StackEffect(0,1), 0) {
+    NATIVE_WORD(ZERO, "0", "-- #", 0) {
         *(++sp) = Value(0);
         NEXT();
     }
 
     // ( -> 1)
-    NATIVE_WORD(ONE, "1", StackEffect(0,1), 0) {
+    NATIVE_WORD(ONE, "1", "-- #", 0) {
         *(++sp) = Value(1);
         NEXT();
     }
@@ -170,22 +170,22 @@ namespace tails::core_words {
     BINARY_OP_WORD(LE,    "<=", <=)
 
     // (a -> bool)
-    NATIVE_WORD(EQ_ZERO, "0=", StackEffect(1,1), 0)  { sp[0] = Value(sp[0] == Value(0)); NEXT(); }
-    NATIVE_WORD(NE_ZERO, "0<>", StackEffect(1,1), 0) { sp[0] = Value(sp[0] != Value(0)); NEXT(); }
-    NATIVE_WORD(GT_ZERO, "0>", StackEffect(1,1), 0)  { sp[0] = Value(sp[0] > Value(0)); NEXT(); }
-    NATIVE_WORD(LT_ZERO, "0<", StackEffect(1,1), 0)  { sp[0] = Value(sp[0] < Value(0)); NEXT(); }
+    NATIVE_WORD(EQ_ZERO, "0=",  "a -- #", 0)  { sp[0] = Value(sp[0] == Value(0)); NEXT(); }
+    NATIVE_WORD(NE_ZERO, "0<>", "a -- #", 0)  { sp[0] = Value(sp[0] != Value(0)); NEXT(); }
+    NATIVE_WORD(GT_ZERO, "0>",  "a -- #", 0)  { sp[0] = Value(sp[0] > Value(0)); NEXT(); }
+    NATIVE_WORD(LT_ZERO, "0<",  "a -- #", 0)  { sp[0] = Value(sp[0] < Value(0)); NEXT(); }
 
 #ifndef SIMPLE_VALUE
 
     // ( -> null)   [Appended an "_" to the symbol to avoid conflict with C's `NULL`.]
-    NATIVE_WORD(NULL_, "NULL", StackEffect(0,1), 0) {
+    NATIVE_WORD(NULL_, "NULL", "-- ?", 0) {
         *(++sp) = NullValue;
         NEXT();
     }
 
 #pragma mark Strings & Arrays:
 
-    NATIVE_WORD(LENGTH, "LENGTH", StackEffect(1,1), 0) {
+    NATIVE_WORD(LENGTH, "LENGTH", "${} -- #", 0) {
         *sp = sp->length();
         NEXT();
     }
@@ -199,8 +199,7 @@ namespace tails::core_words {
     // Warning: A numeric literal has to be preceded by _LITERAL, an interpreted word by _INTERP.
 
 
-    // (a -> abs)
-    INTERP_WORD(ABS, "ABS", StackEffect(1,1, 1),
+    INTERP_WORD(ABS, "ABS", StackEffect("a# -- abs#").withMax(1),
         DUP,
         LT_ZERO,
         _ZBRANCH, Instruction::withOffset(3),
@@ -209,8 +208,7 @@ namespace tails::core_words {
         MINUS
     );
 
-    // (a b -> max)
-    INTERP_WORD(MAX, "MAX", StackEffect(2,1, 2),
+    INTERP_WORD(MAX, "MAX", StackEffect("a# b# -- max#").withMax(2),
         OVER,
         OVER,
         LT,
@@ -220,8 +218,7 @@ namespace tails::core_words {
     );
 
 
-    // (a b -> min)
-    INTERP_WORD (MIN, "MIN", StackEffect(2,1, 2),
+    INTERP_WORD (MIN, "MIN", StackEffect("a# b# -- min#").withMax(2),
         OVER,
         OVER,
         GT,

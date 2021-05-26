@@ -97,7 +97,7 @@ namespace tails {
         /// Declares what the word's stack effect must be.
         /// If the actual stack effect (computed during \ref finish) is different, a
         /// compile error is thrown.
-        void setStackEffect(const StackEffect &f)   {_effect = f; _maxInputs = f.input();}
+        void setStackEffect(const StackEffect &f)   {_effect = f; _maxInputs = f.inputs();}
 
         /// Declares the maximum number of values that this word can read from the stack.
         /// The \ref finish method will detect if this is violated and throw an exception.

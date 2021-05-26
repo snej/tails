@@ -36,8 +36,8 @@ static Value * StackBase;
 /// @return  The top value left on the stack.
 static Value run(const Word &word) {
     assert(!word.isNative());           // must be interpreted
-    assert(word.stackEffect().input() == 0);  // must not require any inputs
-    assert(word.stackEffect().output() > 0);  // must produce results
+    assert(word.stackEffect().inputs() == 0);  // must not require any inputs
+    assert(word.stackEffect().outputs() > 0);  // must produce results
     size_t stackSize = word.stackEffect().max();
     std::vector<Value> stack;
     stack.resize(stackSize);
@@ -73,7 +73,7 @@ static_assert( StackEffect(1, 1).then(StackEffect(2,2)) == StackEffect(2, 2));
 
 
 static void printStackEffect(StackEffect f) {
-    printf("\t-> stack effect (%d->%d, max %d)\n", f.input(), f.output(), f.max());
+    printf("\t-> stack effect (%d->%d, max %d)\n", f.inputs(), f.outputs(), f.max());
 }
 
 
@@ -123,7 +123,49 @@ static Value _runParser(const char *source) {
 using namespace tails::core_words;
 
 
+__unused static constexpr StackEffect kSomeTS("x# -- y$");
+
+
+static void testStackEffect() {
+    StackEffect ts("--");
+    assert(ts.inputs() == 0);
+    assert(ts.outputs() == 0);
+
+    ts = StackEffect("a -- b");
+    assert(ts.inputs() == 1);
+    assert(ts.outputs() == 1);
+    assert(ts.input(0).flags() == 0x1F);
+    assert(ts.output(0).flags() == 0x1F);
+
+    ts = StackEffect("aaa# bbb#? -- ccc$ {d_d}?");
+    assert(ts.inputs() == 2);
+    assert(ts.outputs() == 2);
+    assert(ts.input(0).flags() == 0x03);
+    assert(ts.input(1).flags() == 0x02);
+    assert(ts.output(0).flags() == 0x09);
+    assert(ts.output(1).flags() == 0x04);
+    assert(!ts.output(0).isInputMatch());
+    assert(ts.output(0).inputMatch() == -1);
+
+    ts = StackEffect("apple ball# cat -- ball# cat apple");
+    assert(ts.inputs() == 3);
+    assert(ts.outputs() == 3);
+    assert(ts.input(0).flags() == 0x1F);
+    assert(ts.input(1).flags() == 0x02);
+    assert(ts.input(2).flags() == 0x1F);
+    assert(ts.output(0).isInputMatch());
+    assert(ts.output(0).inputMatch() == 2);
+    assert(ts.output(1).inputMatch() == 0);
+    assert(ts.output(2).inputMatch() == 1);
+    assert(ts.output(0).flags() == 0x7F);
+    assert(ts.output(1).flags() == 0x3F);
+    assert(ts.output(2).flags() == 0x42);
+}
+
+
 int main(int argc, char *argv[]) {
+    testStackEffect();
+
     cout << "Known words:";
     for (auto word : Vocabulary::global)
         cout << ' ' << word.second->name();

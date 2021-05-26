@@ -185,11 +185,11 @@ namespace tails {
         computeEffect(_words.begin(), StackEffect(), effect);
         assert(effect);
 
-        if (_effect && (effect->input() > _effect->input() ||
-                        effect->output() != _effect->output())) {
+        if (_effect && (effect->inputs() > _effect->inputs() ||
+                        effect->outputs() != _effect->outputs())) {
             stringstream msg;
-            msg << "Stack effect declared as (" << _effect->input() << " -- " << _effect->output()
-                << "), but actual effect is (" << effect->input() << " -- " << effect->output() << ")";
+            msg << "Stack effect declared as (" << _effect->inputs() << " -- " << _effect->outputs()
+                << "), but actual effect is (" << effect->inputs() << " -- " << effect->outputs() << ")";
             throw compile_error(msg.str(), nullptr);
         }
         *_effect = *effect;
@@ -231,7 +231,7 @@ namespace tails {
             // apply the instruction's effect:
             curEffect = curEffect.then(nextEffect);
 
-            if (curEffect.input() > _maxInputs)
+            if (curEffect.inputs() > _maxInputs)
                 throw compile_error("Stack would underflow", i->sourceCode);
 
             if (i->word == &_RETURN) {

@@ -68,7 +68,7 @@ namespace tails {
     /// @return  The top value left on the stack.
     static Stack run(const Word &word, Stack &stack) {
         assert(!word.isNative());           // must be interpreted
-        if (word.stackEffect().input() > stack.size())
+        if (word.stackEffect().inputs() > stack.size())
             throw compile_error("Stack would underflow", nullptr);
         auto depth = stack.size();
         stack.resize(depth + word.stackEffect().max());
