@@ -157,17 +157,17 @@ namespace tails::core_words {
     }
 
     // (a b -> a{op}b)
-    BINARY_OP_WORD(PLUS,  "+",  +)
-    BINARY_OP_WORD(MINUS, "-",  -)
-    BINARY_OP_WORD(MULT,  "*",  *)
-    BINARY_OP_WORD(DIV,   "/",  /)
-    BINARY_OP_WORD(MOD,   "MOD",%)
-    BINARY_OP_WORD(EQ,    "=",  ==)
-    BINARY_OP_WORD(NE,    "<>", !=)
-    BINARY_OP_WORD(GT,    ">",  >)
-    BINARY_OP_WORD(GE,    ">=", >=)
-    BINARY_OP_WORD(LT,    "<",  <)
-    BINARY_OP_WORD(LE,    "<=", <=)
+    BINARY_OP_WORD(PLUS,  "+",   "a#$ b#$ -- a#$", +)
+    BINARY_OP_WORD(MINUS, "-",   "# # -- #", -)
+    BINARY_OP_WORD(MULT,  "*",   "# # -- #", *)
+    BINARY_OP_WORD(DIV,   "/",   "# # -- #", /)
+    BINARY_OP_WORD(MOD,   "MOD", "# # -- #", %)
+    BINARY_OP_WORD(EQ,    "=",   "# # -- #", ==)
+    BINARY_OP_WORD(NE,    "<>",  "x y -- #", !=)
+    BINARY_OP_WORD(GT,    ">",   "x y -- #", >)
+    BINARY_OP_WORD(GE,    ">=",  "x y -- #", >=)
+    BINARY_OP_WORD(LT,    "<",   "x y -- #", <)
+    BINARY_OP_WORD(LE,    "<=",  "x y -- #", <=)
 
     // (a -> bool)
     NATIVE_WORD(EQ_ZERO, "0=",  "a -- #", 0)  { sp[0] = Value(sp[0] == Value(0)); NEXT(); }

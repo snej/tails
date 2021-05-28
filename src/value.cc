@@ -91,6 +91,15 @@ namespace tails {
     }
 
 
+    const char* Value::typeName(Type type) {
+        static constexpr const char* kNames[5] = {
+            "null", "number", "string", "array", "quotation"
+        };
+        return kNames[type];
+    }
+
+
+
     // Makes me a string with space for a string `len` bytes long.
     // Returns a pointer to the storage.
     char* Value::allocString(size_t len) {

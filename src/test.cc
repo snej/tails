@@ -39,6 +39,7 @@ static Value run(const Word &word) {
     assert(word.stackEffect().inputs() == 0);  // must not require any inputs
     assert(word.stackEffect().outputs() > 0);  // must produce results
     size_t stackSize = word.stackEffect().max();
+    assert(stackSize >= word.stackEffect().outputs());
     std::vector<Value> stack;
     stack.resize(stackSize);
     auto stackBase = &stack.front();
@@ -50,9 +51,6 @@ static Value run(const Word &word) {
 
 
 //======================== TEST CODE ========================//
-
-
-static_assert( StackEffect(1, 1).then(StackEffect(2,2)) == StackEffect(2, 2));
 
 
 #ifdef ENABLE_TRACING
@@ -182,6 +180,7 @@ int main(int argc, char *argv[]) {
 
     CompiledWord SQUARE = []() {
         Compiler c("SQUARE");
+        c.setStackEffect("# -- #");
         c.setInline();
         c.add({DUP});
         c.add({MULT});
@@ -212,7 +211,6 @@ int main(int argc, char *argv[]) {
     TEST_PARSER("hello",            R"( "hello" )");
     TEST_PARSER("truthy",           R"( 1 IF "truthy" ELSE "falsey" THEN )");
     TEST_PARSER("HiThere",          R"( "Hi" "There" + )");
-    TEST_PARSER(nullptr,            R"( "Hi" "There" / )");
     TEST_PARSER(5,                  R"( "hello" LENGTH )");
 
     TEST_PARSER(Value({12,34,56}),  R"( {12 34 56} )");

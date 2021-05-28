@@ -21,6 +21,7 @@
 #include <algorithm>
 #include <array>
 #include <ctype.h>
+#include <optional>
 #include <stdint.h>
 
 namespace tails {
@@ -30,6 +31,10 @@ namespace tails {
     class StackEffectEntry {
     public:
         constexpr StackEffectEntry() { }
+
+        constexpr explicit StackEffectEntry(Value::Type type) {
+            addType(type);
+        }
 
         /// Constructs a stack effect entry from a token.
         /// - Alphanumerics and `_` are ignored
@@ -64,8 +69,16 @@ namespace tails {
 
         constexpr bool exists() const                       {return _flags != 0;}
         constexpr bool canBeType(Value::Type type) const    {return (_flags & (1 << int(type))) != 0;}
+
+        std::optional<Value::Type> firstType() {
+            for (int i = 0; i < 5; ++i)
+                if (_flags & (1<<i))
+                    return Value::Type(i);
+            return std::nullopt;
+        }
+
         constexpr bool isInputMatch() const                 {return (_flags & 0xE0) != 0;}
-        constexpr int inputMatch() const                 {return (_flags >> 5) - 1;}
+        constexpr int inputMatch() const                    {return (_flags >> 5) - 1;}
 
         constexpr void addType(Value::Type type)    {_flags |= (1 << int(type));}
         constexpr void addAllTypes()                {_flags = 0x1F;}
@@ -74,17 +87,41 @@ namespace tails {
             _flags = ((entryNo+1) << 5) | (inputEntry._flags & 0x1F);
         }
 
-        /// I am greater than another entry if I support types it doesn't.
-        constexpr bool operator> (const StackEffectEntry &other) const {
-            return (typeFlags() & ~other.typeFlags()) != 0;
+        /// I am "greater than" another entry if I support types it doesn't.
+        constexpr int compare(const StackEffectEntry &other) const {
+            if (typeFlags() == other.typeFlags())
+                return 0;
+            else if ((typeFlags() & ~other.typeFlags()) != 0)
+                return 1;
+            else
+                return -1;
+        }
+
+        constexpr bool operator== (const StackEffectEntry &other) const {return compare(other) == 0;}
+        constexpr bool operator!= (const StackEffectEntry &other) const {return compare(other) != 0;}
+        constexpr bool operator> (const StackEffectEntry &other) const {return compare(other) > 0;}
+        constexpr bool operator< (const StackEffectEntry &other) const {return compare(other) < 0;}
+
+        constexpr StackEffectEntry operator| (const StackEffectEntry &other) const {
+            return StackEffectEntry((_flags | other._flags) & 0x1F);
+        }
+
+        constexpr StackEffectEntry operator- (const StackEffectEntry &other) const {
+            return StackEffectEntry((_flags & ~other._flags) & 0x1F);
         }
 
         constexpr uint8_t typeFlags() const                     {return _flags & 0x1F;}
         constexpr uint8_t flags() const                         {return _flags;} // tests only
 
     private:
+        constexpr explicit StackEffectEntry(uint8_t flags) :_flags(flags) { }
+
         uint8_t _flags = 0;
     };
+
+
+    // 0 is top, 1 is below it, ...
+    using StackEffectEntries = std::vector<StackEffectEntry>;
 
 
     class StackEffect {
@@ -102,6 +139,7 @@ namespace tails {
             auto entry = _entries.begin();
             bool inputs = true;
             const char *token = nullptr;
+            bool tokenIsNamed = false;
 
             for (const char *c = str; c <= end; ++c) {
                 if (c == end || *c == 0 || *c == ' ' || *c == '\t') {
@@ -110,8 +148,10 @@ namespace tails {
                         if (!entry->exists() || entry->flags() == 0x1)
                             entry->addAllTypes();
                         if (inputs) {
-                            tokenStart[_ins] = token;
-                            tokenLen[_ins] = c - token;
+                            if (tokenIsNamed) {
+                                tokenStart[_ins] = token;
+                                tokenLen[_ins] = c - token;
+                            }
                             ++_ins;
                         } else {
                             // look for 'before' token match:
@@ -125,6 +165,7 @@ namespace tails {
                         }
                         ++entry;
                         token = nullptr;
+                        tokenIsNamed = false;
                     }
                 } else if (*c == '-') {
                     // Separator:
@@ -141,6 +182,8 @@ namespace tails {
                     }
                     // Symbol in token:
                     entry->addTypeSymbol(*c);
+                    if ((*c >= 'A' && *c <= 'Z') || (*c >= 'a' && *c <= 'z'))
+                        tokenIsNamed = true;
                 }
             }
             if (inputs)
@@ -171,6 +214,12 @@ namespace tails {
             return result;
         }
 
+        void addOutput(StackEffectEntry entry) {
+            if (_ins + _outs >= kNumEntries)
+                throw std::runtime_error("Too many stack entries");
+            _entries[_ins + _outs++] = entry;
+        }
+
         /// Number of items read from stack on entry (i.e. minimum stack depth on entry)
         constexpr int inputs() const    {assert(!_weird); return _ins;}
         /// Number of items left on stack on exit, "replacing" the input
@@ -181,6 +230,14 @@ namespace tails {
         constexpr int max() const       {assert(!_weird); return _max;}
         /// True if the stack effect is unknown at compile time or depends on instruction params
         constexpr bool isWeird() const  {return _weird;}
+
+        StackEffectEntries getInputs() const {
+            return StackEffectEntries(_entries.rbegin()+_outs, _entries.rend());
+        }
+
+        StackEffectEntries getOutputs() const {
+            return StackEffectEntries(_entries.rbegin(), _entries.rbegin() + _outs);
+        }
 
         constexpr StackEffectEntry input(unsigned i) const  {assert(i < _ins);  return _entries[_ins - 1 - i];}
         constexpr StackEffectEntry output(unsigned i) const {assert(i < _outs); return _entries[_ins + _outs - 1 - i];}
@@ -198,6 +255,7 @@ namespace tails {
 
         constexpr bool operator!= (const StackEffect &other) const {return !(*this == other);}
 
+#if 0
         //---- COMBINING:
 
         /// Returns the cumulative effect of two StackEffects, first `this` and then `next`.
@@ -225,6 +283,7 @@ namespace tails {
             int max = std::max(this->max(), other.max());
             return {uint8_t(in), uint8_t(in + this->net()), uint16_t(max)};
         }
+#endif
 
     private:
         constexpr StackEffect(uint8_t inputs, uint8_t outputs, uint16_t max)
@@ -256,50 +315,5 @@ namespace tails {
         uint8_t      _ins = 0, _outs = 0, _max = 0;
         bool         _weird = false;
     };
-
-
-#if 0
-    class EffectStack {
-    public:
-        EffectStack() { }
-
-        EffectStack(const TypedStackEffect &initial) {
-            for (int i = 0; i < initial.inputs(); ++i)
-                _stack.push_back({initial.input(i), nullptr});
-        }
-
-        struct Item {
-            StackEffectEntry entry;
-            std::optional<Value> value;
-        };
-
-        size_t depth() const {return _stack.size();}
-
-        const Item& at(unsigned i) const {return _stack[_stack.size() - 1 - i];}
-
-        bool add(const TypedStackEffect &effect) {
-            if (effect.inputs() > depth())
-                return false;
-            for (int i = 0; i < effect.inputs(); ++i) {
-                auto ef = effect.input(i);
-                auto &item = at(i);
-                if (item.value) {
-                    if (!ef.canBeType(item.value->type()))
-                        return false;
-                } else {
-                    if (item.entry > ef)
-                        return false;
-                }
-            }
-            for (int i = 0; i < effect.outputs(); ++i) {
-                auto ef = effect.output(i);
-                •••
-            }
-        }
-
-    private:
-        std::vector<Item> _stack;
-    };
-#endif
 
 }

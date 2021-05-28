@@ -100,8 +100,8 @@ namespace tails {
     // @param NAME  The C++ name of the Word object to define.
     // @param FORTHNAME  The word's Forth name (a string literal.)
     // @param INFIXOP  The raw C++ infix operator to implement, e.g. `+` or `==`.
-    #define BINARY_OP_WORD(NAME, FORTHNAME, INFIXOP) \
-        NATIVE_WORD(NAME, FORTHNAME, "# # -- #", Word::NoFlags) { \
+    #define BINARY_OP_WORD(NAME, FORTHNAME, EFFECT, INFIXOP) \
+        NATIVE_WORD(NAME, FORTHNAME, EFFECT, Word::NoFlags) { \
             sp[-1] = Value(sp[-1] INFIXOP sp[0]);\
             --sp;\
             NEXT(); \

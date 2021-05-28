@@ -23,6 +23,7 @@
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <variant>
 
 
 namespace tails {
@@ -55,9 +56,172 @@ namespace tails {
     }
 
 
+#pragma mark - EFFECTSTACK:
+
+
+    static string format(const char *fmt, ...) {
+        char *str = nullptr;
+        va_list args;
+        va_start(args, fmt);
+        vasprintf(&str, fmt, args);
+        va_end(args);
+        string result(str);
+        free(str);
+        return result;
+    }
+
+
+    /// Simulates the runtime stack at compile time, while verifying stack effects.
+    class Compiler::EffectStack {
+    public:
+        using Item = variant<StackEffectEntry,Value>;
+
+        EffectStack() { }
+
+        void initialize(const StackEffect &initial) {
+            for (int i = 0; i < initial.inputs(); ++i)
+                _stack.emplace_back(initial.input(i));
+            _maxDepth = _initialDepth = depth();
+        }
+
+        void initialize(const StackEffectEntries &entries) {
+            for (auto entry : entries)
+                _stack.emplace_back(entry);
+            _maxDepth = _initialDepth = depth();
+        }
+
+        size_t depth() const {return _stack.size();}
+
+        const Item& at(size_t i) const {return _stack[_stack.size() - 1 - i];}
+
+        bool operator==(const EffectStack &other) const {
+            return _stack == other._stack;
+        }
+
+        /// Adds the stack effect of a word. Throws an exception on failure.
+        void add(const StackEffect &effect, const Word *word, const char *sourceCode) {
+            // Check that the inputs match what's on the stack:
+            const auto nInputs = effect.inputs();
+            if (nInputs > depth())
+                throw compile_error(format("Stack underflow calling `%s`: %zu needed, %zu available",
+                                           word->name(), nInputs, depth()),
+                                    sourceCode);
+            Item inputs[max(nInputs, 1)];
+            for (int i = 0; i < nInputs; ++i) {
+                auto input = effect.input(i);
+                auto &item = at(i);
+                inputs[i] = item;
+                optional<Value::Type> badType;
+                if (auto valP = std::get_if<Value>(&item); valP) {
+                    if (!input.canBeType(valP->type())) {
+                        badType = valP->type();
+                    }
+                } else {
+                    badType = (std::get<StackEffectEntry>(item) - input).firstType();
+                }
+                if (badType)
+                    throw compile_error(format("Type mismatch passing %s to `%s` at depth %zu",
+                                               Value::typeName(*badType), word->name(), i),
+                                        sourceCode);
+
+            }
+
+            _maxDepth = max(_maxDepth, depth() + effect.max());
+
+            // Pop the inputs off the stack:
+            _stack.resize(depth() - nInputs);
+
+            // Push the outputs to the stack:
+            for (int i = effect.outputs() - 1; i >= 0; --i) {
+                StackEffectEntry ef = effect.output(i);
+                if (auto in = ef.inputMatch(); in >= 0)
+                    _stack.emplace_back(inputs[in]);
+                else
+                    _stack.emplace_back(ef);
+            }
+        }
+
+        void add(Value value) {
+            _stack.emplace_back(value);
+            _maxDepth = max(_maxDepth, depth());
+        }
+
+        void mergeWith(const EffectStack &other, const char *sourceCode) {
+            size_t d = depth();
+            if (d != other.depth())
+                throw compile_error("Inconsistent stack depth", sourceCode);
+            for(size_t i = 0; i < d; ++i) {
+                Item &mine = _stack[_stack.size() - 1 - i];
+                const Item others = other.at(i);
+                if (others != mine)
+                    mine = itemEntry(mine) | itemEntry(others);
+            }
+        }
+
+        void checkOutputs(const StackEffect &effect) const {
+            const auto nOutputs = effect.outputs();
+            if (nOutputs != depth())
+                throw compile_error("Wrong number of outputs", nullptr);
+            for (int i = 0; i < nOutputs; ++i) {
+                auto ef = effect.output(i);
+                auto &item = at(i);
+                if (auto valP = std::get_if<Value>(&item); valP) {
+                    if (!ef.canBeType(valP->type()))
+                        throw compile_error("Output type mismatch", nullptr);
+                } else {
+                    if (std::get<StackEffectEntry>(item) > ef)
+                        throw compile_error("Output type mismatch", nullptr);
+                }
+            }
+        }
+
+        StackEffect outputEffect() const {
+            StackEffect effect;
+            for (auto i = _stack.rbegin(); i != _stack.rend(); ++i)
+                effect.addOutput(itemEntry(*i));
+            return effect.withMax(int(_maxDepth - _initialDepth));
+        }
+
+    private:
+        static StackEffectEntry itemEntry(const Item &item) {
+            if (auto valP = std::get_if<Value>(&item); valP)
+                return StackEffectEntry(valP->type());
+            else
+                return std::get<StackEffectEntry>(item);
+        }
+
+        std::vector<Item> _stack;
+        size_t            _initialDepth = 0;
+        size_t            _maxDepth = 0;
+    };
+
+
+#pragma mark - SOURCEWORD:
+
+
+    /// Extension of WordRef that adds private fields used by the compiler.
+    struct Compiler::SourceWord : public Compiler::WordRef {
+        SourceWord(const WordRef &ref, const char *source =nullptr)
+        :WordRef(ref)
+        ,sourceCode(source)
+        { }
+
+        const char*  sourceCode;                        // Points to source code where word appears
+        std::optional<EffectStack> knownStack;          // Stack effect at this point, once known
+        std::optional<InstructionPos> branchDestination;// Points to where a branch goes
+        int pc;                                         // Relative address during code-gen
+    };
+
+
+#pragma mark - COMPILER:
+
+
     Compiler::Compiler() {
         _words.push_back({NOP});
     }
+
+
+    Compiler::~Compiler() = default;
 
 
     CompiledWord Compiler::compile(std::initializer_list<WordRef> words) {
@@ -68,11 +232,8 @@ namespace tails {
     }
 
 
-#pragma mark - COMPILER:
-
-
-    Compiler::InstructionPos Compiler::add(const WordRef &ref) {
-        _words.back() = ref;
+    Compiler::InstructionPos Compiler::add(const WordRef &ref, const char *source) {
+        _words.back() = SourceWord(ref, source);
         auto i = prev(_words.end());
         _words.push_back({NOP});
         return i;
@@ -140,16 +301,16 @@ namespace tails {
         computeEffect();
 
         // If the word ends in a call to an interpreted word, we can make it a tail-call:
-        WordRef *tailCallHere = nullptr;
+        SourceWord *tailCallHere = nullptr;
         if (_words.size() >= 2) {
-            WordRef *lastWord = &*prev(prev(_words.end()));     // look before the RETURN
+            SourceWord *lastWord = &*prev(prev(_words.end()));     // look before the RETURN
             if (!lastWord->word->isNative())
                 tailCallHere = lastWord;
         }
 
         // Assign the relative pc of each word, leaving space for parameters:
         int pc = 0;
-        for (WordRef &ref : _words) {
+        for (SourceWord &ref : _words) {
             ref.pc = pc++;
             if (ref.hasParam())
                 pc++;
@@ -158,7 +319,7 @@ namespace tails {
         // Assemble instructions:
         vector<Instruction> instrs;
         instrs.reserve(pc);
-        for (WordRef &ref : _words) {
+        for (SourceWord &ref : _words) {
             if (!ref.word->isNative())
                 instrs.push_back((&ref == tailCallHere) ? _TAILINTERP : _INTERP);
             instrs.push_back(*ref.word);
@@ -181,8 +342,14 @@ namespace tails {
 
     // Computes the stack effect of the word, throwing if it's inconsistent.
     void Compiler::computeEffect() {
+        EffectStack stack;
+        if (_effect)
+            stack.initialize(*_effect);
+        else if (_inputs)
+            stack.initialize(*_inputs);
+
         optional<StackEffect> effect;
-        computeEffect(_words.begin(), StackEffect(), effect);
+        computeEffect(_words.begin(), stack, effect);
         assert(effect);
 
         if (_effect && (effect->inputs() > _effect->inputs() ||
@@ -197,56 +364,57 @@ namespace tails {
 
 
     // Subroutine that traces control flow, memoizing stack effects at each instruction.
-    // @param i  The index in `_words` to start at
-    // @param curEffect  The known stack effect before the word at `i`
-    // @param instrEffects  Vector of known/memoized StackEffects at each instruction index
+    // @param i  The item in `_words` to start at
+    // @param curStack  The known stack before the word at `i`
     // @param finalEffect  The cumulative stack effect will be stored here.
     // @throw compile_error if stack is inconsistent or there's an invalid branch offset.
     void Compiler::computeEffect(InstructionPos i,
-                                 StackEffect curEffect,
+                                 EffectStack curStack,
                                  optional<StackEffect> &finalEffect)
     {
         while (true) {
             assert(i != _words.end());
-            // Store (memoize) the current effect at i, or verify it matches a previously stored one:
-            if (i->knownEffect) {
-                if (*i->knownEffect == curEffect)
+            // Store (memoize) the current stack at i, or verify it matches a previously stored one:
+            if (i->knownStack) {
+                if (*i->knownStack == curStack)
                     return;
-                else if (i->knownEffect->net() != curEffect.net())
-                    throw compile_error("Inconsistent stack depth", i->sourceCode);
+                else
+                    curStack.mergeWith(*i->knownStack, i->sourceCode);
             }
-            i->knownEffect = curEffect;
+            i->knownStack = curStack;
 
             // determine the instruction's effect:
-            StackEffect nextEffect = i->word->stackEffect();
-            if (nextEffect.isWeird()) {
-#ifndef SIMPLE_VALUE
-                if (i->word == &IFELSE)
-                    nextEffect = effectOfIFELSE(i);
-                else
-#endif
-                    throw compile_error("Oops, don't know word's stack effect", i->sourceCode);
+            if (i->word == &_LITERAL) {
+                curStack.add(i->param.literal);
+            } else {
+                StackEffect nextEffect = i->word->stackEffect();
+                if (nextEffect.isWeird()) {
+    #ifndef SIMPLE_VALUE
+                    if (i->word == &IFELSE)
+                        nextEffect = effectOfIFELSE(i);
+                    else
+    #endif
+                        throw compile_error("Oops, don't know word's stack effect", i->sourceCode);
+                }
+
+                // apply the instruction's effect:
+                curStack.add(nextEffect, i->word, i->sourceCode);
             }
-
-            // apply the instruction's effect:
-            curEffect = curEffect.then(nextEffect);
-
-            if (curEffect.inputs() > _maxInputs)
-                throw compile_error("Stack would underflow", i->sourceCode);
 
             if (i->word == &_RETURN) {
                 // The current effect when RETURN is reached is the word's cumulative effect.
                 // If there are multiple RETURNs, each must have the same effect.
-                if (finalEffect && *finalEffect != curEffect)
-                    throw compile_error("Inconsistent stack effects at RETURNs", i->sourceCode);
-                finalEffect = curEffect;
+                if (finalEffect)
+                    curStack.checkOutputs(*finalEffect);
+                else
+                    finalEffect = curStack.outputEffect();
                 return;
 
             } else if (i->word == &_BRANCH || i->word == &_ZBRANCH) {
                 assert(i->branchDestination);
                 // If this is a 0BRANCH, recurse to follow the non-branch case too:
                 if (i->word == &_ZBRANCH)
-                    computeEffect(next(i), curEffect, finalEffect);
+                    computeEffect(next(i), curStack, finalEffect);
 
                 // Follow the branch:
                 i = *i->branchDestination;
@@ -260,11 +428,12 @@ namespace tails {
 
 
 #ifndef SIMPLE_VALUE
-    static const Word* quoteAt(Compiler::InstructionPos i) {
+    __unused static const Word* quoteAt(Compiler::InstructionPos i) {
         return (i->word == &_LITERAL) ? i->param.literal.asQuote() : nullptr;
     }
 
     StackEffect Compiler::effectOfIFELSE(InstructionPos i) {
+#if 0 //TEMP
         // Special case for IFELSE, which has a non-constant stack effect.
         // The two prior words must be LITERALs that push quotations:
         if (i != _words.begin()) {
@@ -276,6 +445,7 @@ namespace tails {
                 throw compile_error("inconsistent stack effects for IFELSE", i->sourceCode);
             }
         }
+#endif
         throw compile_error("IFELSE must be preceded by two quotations", i->sourceCode);
     }
 #endif

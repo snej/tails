@@ -61,11 +61,7 @@ namespace tails {
     /// It computes and validates the word's stack effect.
     class Compiler {
     public:
-        struct WordRef;
-
-        /// An reference to a WordRef added to the Compiler.
-        using InstructionPos = std::list<WordRef>::iterator;
-
+        class EffectStack;
 
         /// A reference to a word and its parameter (if any), used during compilation.
         struct WordRef {
@@ -81,28 +77,31 @@ namespace tails {
 
             const Word*  word;                      // The word (interpreted or native)
             Instruction  param;                     // Optional parameter, if it has one
-            const char*  sourceCode = nullptr;      // Points to source code where word appears
-            std::optional<StackEffect> knownEffect; // Stack effect at this point, once known
-            std::optional<InstructionPos> branchDestination;    // Points to where a branch goes
-            int pc;                                 // Relative addr of instruction during code-gen
 
         private:
             friend class Compiler;
             WordRef() :param(intptr_t(0)) { }
         };
 
+
+        struct SourceWord;
+        /// An reference to a WordRef added to the Compiler.
+        using InstructionPos = std::list<SourceWord>::iterator;
+
+
         Compiler();
         explicit Compiler(std::string name)         :Compiler() {_name = std::move(name);}
+        ~Compiler();
 
         /// Declares what the word's stack effect must be.
         /// If the actual stack effect (computed during \ref finish) is different, a
         /// compile error is thrown.
-        void setStackEffect(const StackEffect &f)   {_effect = f; _maxInputs = f.inputs();}
+        void setStackEffect(const StackEffect &f)   {assert(!_inputs); _effect = f;}
 
         /// Declares the maximum number of values that this word can read from the stack.
         /// The \ref finish method will detect if this is violated and throw an exception.
         /// (This is useful in a REPL when you're parsing input and know the current stack depth.)
-        void setMaxInputs(size_t maxInputs)         {_maxInputs = maxInputs;}
+        void setInputs(const StackEffectEntries &in) {assert(!_effect); _inputs = in;}
 
         void setInline()                            {_flags = Word::Flags(_flags | Word::Inline);}
 
@@ -114,12 +113,7 @@ namespace tails {
 
         /// Adds an instruction to a word being compiled.
         /// @return  An opaque reference to this instruction, that can be used later to fix branches.
-        InstructionPos add(const WordRef&);
-
-        InstructionPos add(WordRef ref, const char *source) {
-            ref.sourceCode = source;
-            return add(ref);
-        }
+        InstructionPos add(const WordRef&, const char *source =nullptr);
 
         /// Adds a word by inlining its definition, if it's interpreted. Native words added normally.
         void addInline(const Word&, const char *source);
@@ -154,14 +148,14 @@ namespace tails {
         InstructionPos popBranch(const char *matching);
         void computeEffect();
         void computeEffect(InstructionPos i,
-                           StackEffect effect,
+                           EffectStack stack,
                            std::optional<StackEffect> &finalEffect);
         StackEffect effectOfIFELSE(InstructionPos);
 
         std::string                 _name;
         Word::Flags                 _flags {};
-        std::list<WordRef>          _words;
-        size_t                      _maxInputs = SIZE_MAX;
+        std::list<SourceWord>       _words;
+        std::optional<StackEffectEntries> _inputs;
         std::optional<StackEffect>  _effect;
         std::string_view            _curToken;
         std::vector<BranchTarget>   _controlStack;

@@ -95,6 +95,8 @@ namespace tails {
 
         Type type() const;
 
+        static const char* typeName(Type);
+
         constexpr bool isNull() const       {return NanTagged::isNullPointer();}
         constexpr bool isDouble() const     {return NanTagged::isDouble();}
         constexpr bool isString() const     {return (asPointer() || isInline()) && tags() == kStringTag;}
