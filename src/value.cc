@@ -17,6 +17,8 @@
 //
 
 #include "value.hh"
+#include "word.hh"
+#include "test.hh"
 #include <iomanip>
 #include <iostream>
 #include <string.h>
@@ -162,10 +164,6 @@ namespace tails {
     }
 
 
-    template <typename T>
-    static inline int _cmp(T a, T b)    {return (a==b) ? 0 : ((a<b) ? -1 : 1);}
-
-
     int Value::cmp(Value v) const {
         Type myType = type(), vType = v.type();
         if (myType != vType)
@@ -278,7 +276,7 @@ namespace tails {
             case Value::ANumber: return out << value.asDouble();
             case Value::AString: return out << std::quoted(value.asString());
             case Value::AnArray: return out << *value.asArray();
-            case Value::AQuote:  return out << "[QUOTE]";
+            case Value::AQuote:  return out << "QUOTE(" << value.asQuote()->stackEffect() << ")";
         }
         return out;
     }

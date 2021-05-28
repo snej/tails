@@ -18,6 +18,7 @@
 
 #pragma once
 #include "value.hh"
+#include "utils.hh"
 #include <algorithm>
 #include <array>
 #include <ctype.h>
@@ -26,17 +27,20 @@
 
 namespace tails {
 
-    /// Describes one item, an input or output, in a word's stack effect.
-    /// Specifies possible Value types, and if it's an output, whether it matches an input.
-    class StackEffectEntry {
+    /// A set of Value types. Describes one item, an input or output, in a word's stack effect.
+    /// If it's a StackEffect output, it can optionally declare that it matches the type of an input.
+    class TypeSet {
     public:
-        constexpr StackEffectEntry() { }
+        constexpr TypeSet() { }
 
-        constexpr explicit StackEffectEntry(Value::Type type) {
+        constexpr explicit TypeSet(Value::Type type) {
             addType(type);
         }
 
-        /// Constructs a stack effect entry from a token.
+        constexpr static TypeSet anyType() {return TypeSet(kTypeFlags);}
+        constexpr static TypeSet noType() {return TypeSet();}
+
+        /// Constructs a TypeSet from a token:
         /// - Alphanumerics and `_` are ignored
         /// - `?` means a null
         /// - `#` means a number
@@ -44,12 +48,12 @@ namespace tails {
         /// - `{` or `}` means an array
         /// - `[` or `]` means a quotation
         /// - If more than one type is given, either is allowed.
-        /// - If no types are given or only null, then any type is allowed.
-        explicit constexpr StackEffectEntry(const char *token, const char *tokenEnd = nullptr) {
+        /// - If no types are given, or only null, then any type is allowed.
+        explicit constexpr TypeSet(const char *token, const char *tokenEnd = nullptr) {
             while (token != tokenEnd && *token)
                 addTypeSymbol(*token++);
             if (_flags == 0 || _flags == 1)
-                _flags = 0x1F;
+                _flags = kTypeFlags;
         }
 
         constexpr void addTypeSymbol(char symbol) {
@@ -68,27 +72,28 @@ namespace tails {
         }
 
         constexpr bool exists() const                       {return _flags != 0;}
+        constexpr bool canBeAnyType() const                 {return typeFlags() == kTypeFlags;}
         constexpr bool canBeType(Value::Type type) const    {return (_flags & (1 << int(type))) != 0;}
 
-        std::optional<Value::Type> firstType() {
-            for (int i = 0; i < 5; ++i)
+        std::optional<Value::Type> firstType() const {
+            for (int i = 0; i < kNumTypes; ++i)
                 if (_flags & (1<<i))
                     return Value::Type(i);
             return std::nullopt;
         }
 
+        constexpr void addType(Value::Type type)            {_flags |= (1 << int(type));}
+        constexpr void addAllTypes()                        {_flags = kTypeFlags;}
+
         constexpr bool isInputMatch() const                 {return (_flags & 0xE0) != 0;}
-        constexpr int inputMatch() const                    {return (_flags >> 5) - 1;}
+        constexpr int inputMatch() const                    {return (_flags >> kNumTypes) - 1;}
 
-        constexpr void addType(Value::Type type)    {_flags |= (1 << int(type));}
-        constexpr void addAllTypes()                {_flags = 0x1F;}
-
-        constexpr void setInputMatch(StackEffectEntry inputEntry, unsigned entryNo) {
-            _flags = ((entryNo+1) << 5) | (inputEntry._flags & 0x1F);
+        constexpr void setInputMatch(TypeSet inputEntry, unsigned entryNo) {
+            _flags = ((entryNo+1) << kNumTypes) | (inputEntry._flags & kTypeFlags);
         }
 
         /// I am "greater than" another entry if I support types it doesn't.
-        constexpr int compare(const StackEffectEntry &other) const {
+        constexpr int compare(const TypeSet &other) const {
             if (typeFlags() == other.typeFlags())
                 return 0;
             else if ((typeFlags() & ~other.typeFlags()) != 0)
@@ -97,31 +102,36 @@ namespace tails {
                 return -1;
         }
 
-        constexpr bool operator== (const StackEffectEntry &other) const {return compare(other) == 0;}
-        constexpr bool operator!= (const StackEffectEntry &other) const {return compare(other) != 0;}
-        constexpr bool operator> (const StackEffectEntry &other) const {return compare(other) > 0;}
-        constexpr bool operator< (const StackEffectEntry &other) const {return compare(other) < 0;}
+        constexpr bool operator== (const TypeSet &other) const {return compare(other) == 0;}
+        constexpr bool operator!= (const TypeSet &other) const {return compare(other) != 0;}
+        constexpr bool operator> (const TypeSet &other) const {return compare(other) > 0;}
+        constexpr bool operator< (const TypeSet &other) const {return compare(other) < 0;}
 
-        constexpr StackEffectEntry operator| (const StackEffectEntry &other) const {
-            return StackEffectEntry((_flags | other._flags) & 0x1F);
+        constexpr explicit operator bool() const                {return exists();}
+
+        constexpr TypeSet operator| (const TypeSet &other) const {
+            return TypeSet((_flags | other._flags) & kTypeFlags);
         }
 
-        constexpr StackEffectEntry operator- (const StackEffectEntry &other) const {
-            return StackEffectEntry((_flags & ~other._flags) & 0x1F);
+        constexpr TypeSet operator& (const TypeSet &other) const {
+            return TypeSet((_flags & other._flags) & kTypeFlags);
         }
 
-        constexpr uint8_t typeFlags() const                     {return _flags & 0x1F;}
+        constexpr TypeSet operator- (const TypeSet &other) const {
+            return TypeSet((_flags & ~other._flags) & kTypeFlags);
+        }
+
+        constexpr uint8_t typeFlags() const                     {return _flags & kTypeFlags;}
         constexpr uint8_t flags() const                         {return _flags;} // tests only
 
     private:
-        constexpr explicit StackEffectEntry(uint8_t flags) :_flags(flags) { }
+        constexpr explicit TypeSet(uint8_t flags) :_flags(flags) { }
+
+        static constexpr int kNumTypes = 5;
+        static constexpr uint8_t kTypeFlags = (1 << kNumTypes) - 1;
 
         uint8_t _flags = 0;
     };
-
-
-    // 0 is top, 1 is below it, ...
-    using StackEffectEntries = std::vector<StackEffectEntry>;
 
 
     class StackEffect {
@@ -131,11 +141,11 @@ namespace tails {
 
         /// Constructs an instance from a human-readable stack effect declaration.
         /// - Each token before the `--` is an input, each one after is an output.
-        /// - Tokens denote types, as described in the \ref StackEffectEntry constructor.
+        /// - Tokens denote types, as described in the \ref TypeSet constructor.
         /// - Outputs whose names exactly match inputs denote the same exact value at runtime.
         constexpr StackEffect(const char *str, const char *end) {
-            const char *tokenStart[kNumEntries] = {};
-            size_t tokenLen[kNumEntries] = {};
+            const char *tokenStart[kMaxEntries] = {};
+            size_t tokenLen[kMaxEntries] = {};
             auto entry = _entries.begin();
             bool inputs = true;
             const char *token = nullptr;
@@ -176,8 +186,7 @@ namespace tails {
                 } else {
                     if (!token) {
                         // Start of token:
-                        if (_ins + _outs >= kNumEntries)
-                            throw std::runtime_error("Too many stack entries");
+                        checkNotFull();
                         token = c;
                     }
                     // Symbol in token:
@@ -214,10 +223,24 @@ namespace tails {
             return result;
         }
 
-        void addOutput(StackEffectEntry entry) {
-            if (_ins + _outs >= kNumEntries)
-                throw std::runtime_error("Too many stack entries");
-            _entries[_ins + _outs++] = entry;
+        void addInput(TypeSet entry) {
+            insert(entry, _ins);
+            ++_ins;
+        }
+
+        void addOutput(TypeSet entry) {
+            insert(entry, _ins + _outs);
+            ++_outs;
+        }
+
+        void addInputAtBottom(TypeSet entry) {
+            insert(entry, 0);
+            ++_ins;
+        }
+
+        void addOutputAtBottom(TypeSet entry) {
+            insert(entry, _ins);
+            ++_outs;
         }
 
         /// Number of items read from stack on entry (i.e. minimum stack depth on entry)
@@ -231,16 +254,11 @@ namespace tails {
         /// True if the stack effect is unknown at compile time or depends on instruction params
         constexpr bool isWeird() const  {return _weird;}
 
-        StackEffectEntries getInputs() const {
-            return StackEffectEntries(_entries.rbegin()+_outs, _entries.rend());
-        }
+        constexpr TypeSet& input(unsigned i)  {assert(i < _ins);  return _entries[_ins - 1 - i];}
+        constexpr TypeSet& output(unsigned i) {assert(i < _outs); return _entries[_ins + _outs - 1 - i];}
 
-        StackEffectEntries getOutputs() const {
-            return StackEffectEntries(_entries.rbegin(), _entries.rbegin() + _outs);
-        }
-
-        constexpr StackEffectEntry input(unsigned i) const  {assert(i < _ins);  return _entries[_ins - 1 - i];}
-        constexpr StackEffectEntry output(unsigned i) const {assert(i < _outs); return _entries[_ins + _outs - 1 - i];}
+        constexpr TypeSet input(unsigned i) const  {assert(i < _ins);  return _entries[_ins - 1 - i];}
+        constexpr TypeSet output(unsigned i) const {assert(i < _outs); return _entries[_ins + _outs - 1 - i];}
 
         constexpr bool operator== (const StackEffect &other) const {
             if (_ins == other._ins && _outs == other._outs && _max == other._max
@@ -255,65 +273,33 @@ namespace tails {
 
         constexpr bool operator!= (const StackEffect &other) const {return !(*this == other);}
 
-#if 0
-        //---- COMBINING:
-
-        /// Returns the cumulative effect of two StackEffects, first `this` and then `next`.
-        /// (The logic is complicated & confusing, since `next` gets offset by my `net`.)
-        constexpr StackEffect then(const StackEffect &next) const {
-            // FIXME: TODO: This does not check types, nor propagate them to the result
-            int in = std::max(this->inputs(),
-                              next.inputs() - this->net());
-            int net = this->net() + next.net();
-            int max = std::max(this->max(),
-                               next.max() + this->net());
-            StackEffect result {uint8_t(in), uint8_t(in + net), uint16_t(max)};
-            if (result._ins != in || result.net() != net || result._max != max)
-                throw std::runtime_error("StackEffect overflow");
-            return result;
-        }
-
-        /// Returns the effect of doing _either_ of `this` or `other` (like branches of an 'IF'.)
-        /// They must have the same `net`.
-        /// The result will have the maximum of their `input`s, `output`s and `max`s.
-        StackEffect either(const StackEffect &other) {
-            // FIXME: TODO: This does not check types, nor propagate them to the result
-            assert(this->net() == other.net());
-            int in  = std::max(this->inputs(), other.inputs());
-            int max = std::max(this->max(), other.max());
-            return {uint8_t(in), uint8_t(in + this->net()), uint16_t(max)};
-        }
-#endif
-
     private:
         constexpr StackEffect(uint8_t inputs, uint8_t outputs, uint16_t max)
         :_ins(inputs), _outs(outputs), _max(max)
         {
             for (uint8_t i = 0; i < inputs + outputs; ++i)
-                _entries[i] = StackEffectEntry("a");
+                _entries[i] = TypeSet("a");
         }
 
-        static constexpr size_t _strlen(const char *str) noexcept {
-            if (!str)
-                return 0;
-            auto c = str;
-            while (*c) ++c;
-            return c - str;
+        constexpr void checkNotFull() const {
+            if (_ins + _outs >= kMaxEntries)
+                throw std::runtime_error("Too many stack entries");
         }
 
-        static constexpr bool _compare(const char *a, const char *b, size_t len) {
-            while (len-- > 0)
-                if (*a++ != *b++)
-                    return false;
-            return true;
+        void insert(TypeSet entry, int index) {
+            assert(entry);
+            checkNotFull();
+            std::copy_backward(&_entries[index], &_entries[_ins + _outs], &_entries[_ins + _outs + 1]);
+            _entries[index] = entry;
         }
 
-        static constexpr size_t kNumEntries = 8;
-        using StackEntries = std::array<StackEffectEntry, kNumEntries>;
+        static constexpr size_t kMaxEntries = 8;
+        using Entries = std::array<TypeSet, kMaxEntries>;
 
-        StackEntries _entries;
-        uint8_t      _ins = 0, _outs = 0, _max = 0;
-        bool         _weird = false;
+        Entries _entries;              // Inputs (bottom to top), then outputs (same)
+        uint8_t _ins = 0, _outs = 0;   // Number of inputs and outputs
+        uint8_t _max = 0;              // Max stack growth during run
+        bool    _weird = false;        // If true, behavior not fixed at compile time
     };
 
 }

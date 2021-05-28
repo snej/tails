@@ -24,6 +24,7 @@
 		273B20AB2645ACED00A14EC4 /* libCoreWords.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 273B20A62645AC8F00A14EC4 /* libCoreWords.a */; };
 		273B20AE2645ACFA00A14EC4 /* core_words.cc in Sources */ = {isa = PBXBuildFile; fileRef = 273B2093264348A400A14EC4 /* core_words.cc */; };
 		273B20B12645D67000A14EC4 /* compiler.cc in Sources */ = {isa = PBXBuildFile; fileRef = 273B20B02645D67000A14EC4 /* compiler.cc */; };
+		27783695266164930025D97F /* compiler+stackcheck.hh in Sources */ = {isa = PBXBuildFile; fileRef = 27783694266164930025D97F /* compiler+stackcheck.hh */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -105,6 +106,9 @@
 		273B20A62645AC8F00A14EC4 /* libCoreWords.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libCoreWords.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		273B20AF2645D67000A14EC4 /* compiler.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = compiler.hh; sourceTree = "<group>"; };
 		273B20B02645D67000A14EC4 /* compiler.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = compiler.cc; sourceTree = "<group>"; };
+		27783694266164930025D97F /* compiler+stackcheck.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = "compiler+stackcheck.hh"; sourceTree = "<group>"; };
+		27BE518E266188870010DC42 /* test.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = test.hh; sourceTree = "<group>"; };
+		27BE518F266190850010DC42 /* utils.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = utils.hh; sourceTree = "<group>"; };
 		27CBF69E264C88FA00EF08C4 /* nan_tagged.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = nan_tagged.hh; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -198,9 +202,10 @@
 			isa = PBXGroup;
 			children = (
 				273B209B26434B6B00A14EC4 /* platform.hh */,
+				27BE518F266190850010DC42 /* utils.hh */,
+				27CBF69E264C88FA00EF08C4 /* nan_tagged.hh */,
 				2732F9BE264EF1440013063A /* value.hh */,
 				2732F9C2264F0FE10013063A /* value.cc */,
-				27CBF69E264C88FA00EF08C4 /* nan_tagged.hh */,
 				273B20922643479600A14EC4 /* instruction.hh */,
 				2732FA0D26543FBF0013063A /* stack_effect.hh */,
 				273B209C264351E400A14EC4 /* word.hh */,
@@ -210,7 +215,9 @@
 				273B209826434A1000A14EC4 /* vocabulary.hh */,
 				273B20AF2645D67000A14EC4 /* compiler.hh */,
 				273B20B02645D67000A14EC4 /* compiler.cc */,
+				27783694266164930025D97F /* compiler+stackcheck.hh */,
 				2732FA2A2655E89D0013063A /* parser.cc */,
+				27BE518E266188870010DC42 /* test.hh */,
 				273B20952643493E00A14EC4 /* test.cc */,
 				2732F9C62652DB940013063A /* repl.cc */,
 			);
@@ -375,6 +382,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				27783695266164930025D97F /* compiler+stackcheck.hh in Sources */,
 				273B209A26434A1100A14EC4 /* vocabulary.cc in Sources */,
 				2732F9C3264F0FE10013063A /* value.cc in Sources */,
 				273B20B12645D67000A14EC4 /* compiler.cc in Sources */,

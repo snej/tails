@@ -19,6 +19,7 @@
 #include "core_words.hh"
 #include "compiler.hh"
 #include "vocabulary.hh"
+#include "test.hh"
 #include <array>
 #include <iomanip>
 #include <iostream>
@@ -71,7 +72,7 @@ static Value run(const Word &word) {
 
 
 static void printStackEffect(StackEffect f) {
-    printf("\t-> stack effect (%d->%d, max %d)\n", f.inputs(), f.outputs(), f.max());
+    cout << "Stack effect: (" << f << "), max stack " << f.max() << "\n";
 }
 
 
@@ -92,7 +93,7 @@ static Value _runParser(const char *source) {
     cout << "* Parsing “" << source << "”\n";
     Compiler compiler;
     compiler.parse(string(source));
-    CompiledWord parsed = compiler.finish();
+    CompiledWord parsed(move(compiler));
 
     cout << "\tDisassembly:";
     auto dis = DisassembleWord(parsed.instruction().word);
@@ -178,14 +179,14 @@ int main(int argc, char *argv[]) {
     TEST(4,     3, 4, MAX);
     TEST(4,     4, 3, MAX);
 
-    CompiledWord SQUARE = []() {
+    CompiledWord SQUARE( []() {
         Compiler c("SQUARE");
         c.setStackEffect("# -- #");
         c.setInline();
         c.add({DUP});
         c.add({MULT});
-        return CompiledWord(c);
-    }();
+        return c;
+    }());
 
     TEST(16,    4, SQUARE);
 

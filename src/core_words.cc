@@ -55,33 +55,28 @@ namespace tails::core_words {
 
 #pragma mark Stack gymnastics:
 
-    // (a -> a a)
     NATIVE_WORD(DUP, "DUP", "a -- a a", 0) {
         ++sp;
         sp[0] = sp[-1];
         NEXT();
     }
 
-    // (a -> )
     NATIVE_WORD(DROP, "DROP", "a --", 0) {
         --sp;
         NEXT();
     }
 
-    // (a b -> b a)
     NATIVE_WORD(SWAP, "SWAP", "a b -- b a", 0) {
         std::swap(sp[0], sp[-1]);
         NEXT();
     }
 
-    // (a b -> a b a)
     NATIVE_WORD(OVER, "OVER", "a b -- a b a", 0) {
         ++sp;
         sp[0] = sp[-2];
         NEXT();
     }
 
-    // (a b c -> b c a)
     NATIVE_WORD(ROT, "ROT", "a b c -- b c a", 0) {
         auto sp2 = sp[-2];
         sp[-2] = sp[-1];
@@ -90,7 +85,7 @@ namespace tails::core_words {
         NEXT();
     }
 
-    // ( -> )  A placeholder used by the compiler that doesn't actually appear in code
+    // A placeholder used by the compiler that doesn't actually appear in code
     NATIVE_WORD(NOP, "NOP", "--", 0) {
         NEXT();
     }
@@ -102,13 +97,13 @@ namespace tails::core_words {
         BRANCH is an unconditional branch.
         0BRANCH is a conditional branch (it only branches if the top of stack is zero)." --JonesForth */
 
-    // ( -> )  and reads offset from *pc
+    // reads offset from *pc
     NATIVE_WORD(_BRANCH, "BRANCH", "--", Word::Magic | Word::HasIntParam) {
         pc += pc->offset + 1;
         NEXT();
     }
 
-    // (b -> )  and reads offset from *pc ... Assumes Value supports operator `!`
+    // reads offset from *pc ... Assumes Value supports operator `!`
     NATIVE_WORD(_ZBRANCH, "0BRANCH", "b --", Word::Magic | Word::HasIntParam) {
         if (!(*sp--))
             pc += pc->offset;
@@ -141,22 +136,16 @@ namespace tails::core_words {
 
 #pragma mark Arithmetic & Relational:
 
-    // NOTE: This code requires that `Value` has methods `asNumber` and `asInt`,
-    //       and that there are conversions from integer and double to Value.
-
-    // ( -> 0)
     NATIVE_WORD(ZERO, "0", "-- #", 0) {
         *(++sp) = Value(0);
         NEXT();
     }
 
-    // ( -> 1)
     NATIVE_WORD(ONE, "1", "-- #", 0) {
         *(++sp) = Value(1);
         NEXT();
     }
 
-    // (a b -> a{op}b)
     BINARY_OP_WORD(PLUS,  "+",   "a#$ b#$ -- a#$", +)
     BINARY_OP_WORD(MINUS, "-",   "# # -- #", -)
     BINARY_OP_WORD(MULT,  "*",   "# # -- #", *)
@@ -169,7 +158,6 @@ namespace tails::core_words {
     BINARY_OP_WORD(LT,    "<",   "x y -- #", <)
     BINARY_OP_WORD(LE,    "<=",  "x y -- #", <=)
 
-    // (a -> bool)
     NATIVE_WORD(EQ_ZERO, "0=",  "a -- #", 0)  { sp[0] = Value(sp[0] == Value(0)); NEXT(); }
     NATIVE_WORD(NE_ZERO, "0<>", "a -- #", 0)  { sp[0] = Value(sp[0] != Value(0)); NEXT(); }
     NATIVE_WORD(GT_ZERO, "0>",  "a -- #", 0)  { sp[0] = Value(sp[0] > Value(0)); NEXT(); }
@@ -177,7 +165,7 @@ namespace tails::core_words {
 
 #ifndef SIMPLE_VALUE
 
-    // ( -> null)   [Appended an "_" to the symbol to avoid conflict with C's `NULL`.]
+    // [Appended an "_" to the symbol name to avoid conflict with C's `NULL`.]
     NATIVE_WORD(NULL_, "NULL", "-- ?", 0) {
         *(++sp) = NullValue;
         NEXT();
@@ -231,7 +219,7 @@ namespace tails::core_words {
 #pragma mark - LIST OF CORE WORDS:
 
 
-    // This list is used to register these words in the Vocabulary at startup.
+    // This null-terminated list is used to register these words in the Vocabulary at startup.
 
     const Word* const kWords[] = {
         &_INTERP, &_TAILINTERP, &_LITERAL, &_RETURN, &_BRANCH, &_ZBRANCH,

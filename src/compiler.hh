@@ -41,7 +41,7 @@ namespace tails {
         CompiledWord(std::string &&name, StackEffect effect, std::vector<Instruction> &&instrs);
 
         /// Constructs a word from a compiler. Call this instead of Compiler::finish.
-        explicit CompiledWord(Compiler&);
+        explicit CompiledWord(Compiler&&);
     private:
         std::string const              _nameStr;   // Backing store for inherited _name
         std::vector<Instruction> const _instrs {}; // Backing store for inherited _instr
@@ -93,15 +93,27 @@ namespace tails {
         explicit Compiler(std::string name)         :Compiler() {_name = std::move(name);}
         ~Compiler();
 
+        Compiler(const Compiler&) = delete;
+        Compiler(Compiler&&);
+
         /// Declares what the word's stack effect must be.
         /// If the actual stack effect (computed during \ref finish) is different, a
         /// compile error is thrown.
-        void setStackEffect(const StackEffect &f)   {assert(!_inputs); _effect = f;}
+        /// @param effect  The stack effect.
+        /// @param canAddInputs  If true, additional inputs are allowed (the words can reach
+        ///         deeper into the stack) and the effect will be updated accordingly.
+        /// @param canAddOutputs  If true, additional outputs are allowed (more values may be left
+        ///         on the stack) and the effect will be updated accordingly.
 
-        /// Declares the maximum number of values that this word can read from the stack.
-        /// The \ref finish method will detect if this is violated and throw an exception.
-        /// (This is useful in a REPL when you're parsing input and know the current stack depth.)
-        void setInputs(const StackEffectEntries &in) {assert(!_effect); _inputs = in;}
+        void setStackEffect(const StackEffect &effect,
+                            bool canAddInputs = false,
+                            bool canAddOutputs = false)
+        {
+            _effect = effect;
+            _effectCanAddInputs = canAddInputs;
+            _effectCanAddOutputs = canAddOutputs;
+        }
+
 
         void setInline()                            {_flags = Word::Flags(_flags | Word::Inline);}
 
@@ -109,7 +121,6 @@ namespace tails {
         void parse(const std::string &input);
 
         //---- Adding individual words:
-
 
         /// Adds an instruction to a word being compiled.
         /// @return  An opaque reference to this instruction, that can be used later to fix branches.
@@ -125,10 +136,12 @@ namespace tails {
         /// @param src  The branch instruction to update.
         void fixBranch(InstructionPos src);
 
+        //---- Creating the CompiledWord:
+
         /// Finishes a word being compiled. Adds a RETURN instruction, and registers it with the
         /// global Vocabulary (unless it's unnamed.)
         /// The Compiler object should not be used any more after this is called.
-        CompiledWord finish();
+        CompiledWord finish() &&;
 
         /// Creates a finished, anonymous CompiledWord from a list of word references.
         /// (Mostly just for tests.)
@@ -148,15 +161,15 @@ namespace tails {
         InstructionPos popBranch(const char *matching);
         void computeEffect();
         void computeEffect(InstructionPos i,
-                           EffectStack stack,
-                           std::optional<StackEffect> &finalEffect);
-        StackEffect effectOfIFELSE(InstructionPos);
+                           EffectStack stack);
+        StackEffect effectOfIFELSE(InstructionPos, EffectStack&);
 
         std::string                 _name;
         Word::Flags                 _flags {};
         std::list<SourceWord>       _words;
-        std::optional<StackEffectEntries> _inputs;
-        std::optional<StackEffect>  _effect;
+        StackEffect                 _effect;
+        bool                        _effectCanAddInputs = true;
+        bool                        _effectCanAddOutputs = true;
         std::string_view            _curToken;
         std::vector<BranchTarget>   _controlStack;
     };
