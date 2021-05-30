@@ -68,6 +68,17 @@ namespace tails {
     Compiler::~Compiler() = default;
 
 
+    void Compiler::setInputStack(const Value *bottom, const Value *top) {
+        _effect = StackEffect();
+        if (bottom && top) {
+            for (auto vp = bottom; vp <= top; ++vp)
+                _effect.addInput(TypeSet(vp->type()));
+        }
+        _effectCanAddInputs = false;
+        _effectCanAddOutputs = true;
+    }
+
+
     CompiledWord Compiler::compile(std::initializer_list<WordRef> words) {
         Compiler compiler;
         for (auto &ref : words)
@@ -183,11 +194,10 @@ namespace tails {
                         for (auto j = next(i); j != _words.end(); ++j) {
                             if (j->word->isNative() || &*j == tailCallHere)
                                 break;
-                            if (++interps >= 4)
+                            if (++interps >= kMaxInterp)
                                 break;
                         }
-                        static constexpr const Word* kInterps[4] = {&_INTERP, &_INTERP2, &_INTERP3, &_INTERP4};
-                        interpWord = kInterps[interps];
+                        interpWord = kInterpWords[interps];
                     }
                     instrs.push_back(*interpWord);
                 }

@@ -90,9 +90,9 @@ namespace tails {
 
     static void eval(const string &source, Stack &stack) {
         Compiler comp;
-        comp.setMaxInputs(stack.size());
+        comp.setInputStack(&stack.front(), &stack.back());
         comp.parse(source);
-        CompiledWord compiled = comp.finish();
+        CompiledWord compiled(move(comp));
         run(compiled, stack);
     }
 

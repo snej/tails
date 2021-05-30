@@ -42,4 +42,8 @@ namespace tails::core_words {
     /// Array of pointers to the above core words, ending in nullptr
     extern const Word* const kWords[];
 
+    /// The `_INTERP` family of words that take 1...4 parameters
+    static constexpr size_t kMaxInterp = 4;
+    static constexpr const Word* kInterpWords[kMaxInterp] = {
+        &_INTERP, &_INTERP2, &_INTERP3, &_INTERP4};
 }

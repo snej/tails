@@ -97,13 +97,15 @@ static Value _runParser(const char *source) {
     CompiledWord parsed(move(compiler));
 
     cout << "\tDisassembly:";
-    auto dis = Disassembler::disassembleWord(parsed.instruction().word);
+    auto dis = Disassembler::disassembleWord(parsed.instruction().word, true);
     for (auto &wordRef : dis) {
         cout << ' ' << (wordRef.word->name() ? wordRef.word->name() : "???");
         if (wordRef.word->hasIntParams())
             cout << "+<" << (int)wordRef.param.offset << '>';
         else if (wordRef.word->hasValParams())
             cout << ":<" << wordRef.param.literal << '>';
+        else if (wordRef.word->hasWordParams())
+            cout << ":<" << Vocabulary::global.lookup(wordRef.param.word)->name() << '>';
     }
     cout << "\n";
 
@@ -202,9 +204,9 @@ int main(int argc, char *argv[]) {
          ABS);
 
     TEST_PARSER(7,    "3 -4 -");
-    TEST_PARSER(14, "4 3 + DUP + ABS");
+    TEST_PARSER(14,   "4 3 + DUP + ABS");
     TEST_PARSER(9604, "4 3 + SQUARE DUP + SQUARE ABS");
-    TEST_PARSER(256,  "2 ABS ABS ABS");
+    TEST_PARSER(2  ,  "2 ABS ABS ABS");                 // testing INTERP2/3/4
     TEST_PARSER(123,  "1 IF 123 ELSE 666 THEN");
     TEST_PARSER(666,  "0 IF 123 ELSE 666 THEN");
 

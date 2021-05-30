@@ -32,24 +32,32 @@ namespace tails::core_words {
 #pragma mark The absolute core:
 
     // Calls the interpreted word pointed to by the following instruction.
-    NATIVE_WORD_PARAMS(_INTERP, "_INTERP", StackEffect::weird(), Word::Magic | Word::HasWordParam, 1) {
+    NATIVE_WORD_PARAMS(_INTERP, "_INTERP", StackEffect::weird(),
+                       Word::Magic | Word::HasWordParam, 1)
+    {
         sp = call(sp, (pc++)->word);
         NEXT();
     }
 
-    NATIVE_WORD_PARAMS(_INTERP2, "_INTERP2", StackEffect::weird(), Word::Magic | Word::HasWordParam, 2) {
+    NATIVE_WORD_PARAMS(_INTERP2, "_INTERP2", StackEffect::weird(),
+                       Word::Magic | Word::HasWordParam, 2)
+    {
         sp = call(sp, (pc++)->word);
         sp = call(sp, (pc++)->word);
         NEXT();
     }
 
-    NATIVE_WORD_PARAMS(_INTERP3, "_INTERP3", StackEffect::weird(), Word::Magic | Word::HasWordParam, 3) {
+    NATIVE_WORD_PARAMS(_INTERP3, "_INTERP3", StackEffect::weird(),
+                       Word::Magic | Word::HasWordParam, 3)
+    {
         sp = call(sp, (pc++)->word);
         sp = call(sp, (pc++)->word);
         NEXT();
     }
 
-    NATIVE_WORD_PARAMS(_INTERP4, "_INTERP4", StackEffect::weird(), Word::Magic | Word::HasWordParam, 4) {
+    NATIVE_WORD_PARAMS(_INTERP4, "_INTERP4", StackEffect::weird(),
+                       Word::Magic | Word::HasWordParam, 4)
+    {
         sp = call(sp, (pc++)->word);
         sp = call(sp, (pc++)->word);
         sp = call(sp, (pc++)->word);
@@ -58,7 +66,8 @@ namespace tails::core_words {
     }
 
     // Jumps to the interpreted word pointed to by the following instruction.
-    NATIVE_WORD(_TAILINTERP, "_TAILINTERP", StackEffect::weird(), Word::Magic) {
+    NATIVE_WORD_PARAMS(_TAILINTERP, "_TAILINTERP", StackEffect::weird(),
+                       Word::Magic | Word::HasWordParam, 1) {
         MUSTTAIL return call(sp, pc->word);
     }
 
@@ -68,7 +77,7 @@ namespace tails::core_words {
     }
 
     //  Pushes the following instruction as a Value
-    NATIVE_WORD(_LITERAL, "_LITERAL", "-- v", Word::Magic | Word::HasValParam) {
+    NATIVE_WORD_PARAMS(_LITERAL, "_LITERAL", "-- v", Word::Magic | Word::HasValParam, 1) {
         *(++sp) = (pc++)->literal;
         NEXT();
     }
@@ -118,13 +127,13 @@ namespace tails::core_words {
         0BRANCH is a conditional branch (it only branches if the top of stack is zero)." --JonesForth */
 
     // reads offset from *pc
-    NATIVE_WORD(_BRANCH, "BRANCH", "--", Word::Magic | Word::HasIntParam) {
+    NATIVE_WORD_PARAMS(_BRANCH, "BRANCH", "--", Word::Magic | Word::HasIntParam, 1) {
         pc += pc->offset + 1;
         NEXT();
     }
 
     // reads offset from *pc ... Assumes Value supports operator `!`
-    NATIVE_WORD(_ZBRANCH, "0BRANCH", "b --", Word::Magic | Word::HasIntParam) {
+    NATIVE_WORD_PARAMS(_ZBRANCH, "0BRANCH", "b --", Word::Magic | Word::HasIntParam, 1) {
         if (!(*sp--))
             pc += pc->offset;
         ++pc;

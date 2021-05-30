@@ -66,17 +66,17 @@ namespace tails {
         /// A reference to a word and its parameter (if any), used during compilation.
         struct WordRef {
             WordRef(const Word &w)               :word(&w), param((Op)0) {assert(!w.parameters());}
-            WordRef(const Word &w, Instruction p):word(&w), param(p) {assert(w.parameters() == 1);}
-            WordRef(const Word &w, Value v)      :word(&w), param(v) {assert(w.parameters() == 1);}
-            WordRef(const Word &w, intptr_t o)   :word(&w), param(o) {assert(w.parameters() == 1);}
+            WordRef(const Word &w, Instruction p):word(&w), param(p) {assert(w.parameters() > 0);}
+            WordRef(const Word &w, Value v)      :word(&w), param(v) {assert(w.parameters() > 0);}
+            WordRef(const Word &w, intptr_t o)   :word(&w), param(o) {assert(w.parameters() > 0);}
 
             WordRef(Value v)                     :WordRef(core_words::_LITERAL, v) { }
             WordRef(double d)                    :WordRef(core_words::_LITERAL, Value(d)) { }
 
             bool hasParam() const                {return word->parameters() || !word->isNative();}
 
-            const Word*  word;                      // The word (interpreted or native)
-            Instruction  param;                     // Optional parameter, if it has one
+            const Word*  word;                   // The word (interpreted or native)
+            Instruction  param;                  // Optional parameter, if it has one
 
         private:
             friend class Compiler;
@@ -114,6 +114,8 @@ namespace tails {
             _effectCanAddOutputs = canAddOutputs;
         }
 
+        /// Sets the word's input stack effect from the given actual stack. The output effect is TBD.
+        void setInputStack(const Value *bottom, const Value *top);
 
         void setInline()                            {_flags = Word::Flags(_flags | Word::Inline);}
 

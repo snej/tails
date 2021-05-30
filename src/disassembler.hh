@@ -28,12 +28,14 @@ namespace tails {
     public:
         Disassembler(const Instruction *pc) :_pc(pc) { }
 
+        void setLiteral(bool literal)   {_literal = literal;}
+
         explicit operator bool() const  {return _pc != nullptr;}
 
         std::optional<Compiler::WordRef> _next() {
             assert(_pc);
             const Word *word = Vocabulary::global.lookup(*_pc++);
-            if (word && word->hasWordParams())
+            if (!_literal && word && word->hasWordParams())
                 word = Vocabulary::global.lookup(*_pc++);
             if (!word)
                 return nullopt;
@@ -65,9 +67,12 @@ namespace tails {
         }
 
 
-        static vector<Compiler::WordRef> disassembleWord(const Instruction *instr) {
-            vector<Compiler::WordRef> instrs;
+        static vector<Compiler::WordRef> disassembleWord(const Instruction *instr,
+                                                         bool literal = false)
+        {
             Disassembler dis(instr);
+            dis.setLiteral(literal);
+            vector<Compiler::WordRef> instrs;
             while (dis)
                 instrs.push_back(dis.next());
             return instrs;
@@ -76,6 +81,7 @@ namespace tails {
 
     private:
         const Instruction* _pc;
+        bool               _literal = false;
     };
 
 }
