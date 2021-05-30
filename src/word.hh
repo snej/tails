@@ -36,15 +36,21 @@ namespace tails {
             Native      = 0x01, ///< Implemented in native code (at `_instr.op`)
             HasIntParam = 0x02, ///< This word is followed by an integer param (BRANCH, 0BRANCH)
             HasValParam = 0x04, ///< This word is followed by a Value param (LITERAL)
-            Magic       = 0x08, ///< Low-level, not allowed in parsed code (0BRANCH, INTERP, etc.)
-            Inline      = 0x10, ///< Should be inlined at call site
+            HasWordParam= 0x08, ///< This word is followed by a Word param (INTERP, TAILINTERP, etc)
+            Magic       = 0x10, ///< Low-level, not allowed in parsed code (0BRANCH, INTERP, etc.)
+            Inline      = 0x20, ///< Should be inlined at call site
         };
 
-        constexpr Word(const char *name, Op native, StackEffect effect, Flags flags =NoFlags)
+        constexpr Word(const char *name,
+                       Op native,
+                       StackEffect effect,
+                       Flags flags =NoFlags,
+                       uint8_t nParams =0)
         :_instr(native)
         ,_name(name)
         ,_effect(effect)
         ,_flags(Flags(flags | Native))
+        ,_nParams(nParams)
         { }
 
         constexpr Word(const char *name, StackEffect effect, const Instruction words[])
@@ -60,9 +66,10 @@ namespace tails {
 
         constexpr bool hasFlag(Flags f) const           {return (_flags & f) != 0;}
         constexpr bool isNative() const                 {return hasFlag(Native);}
-        constexpr bool hasIntParam() const              {return hasFlag(HasIntParam);}
-        constexpr bool hasValParam() const              {return hasFlag(HasValParam);}
-        constexpr bool hasAnyParam() const              {return (_flags & (HasIntParam | HasValParam)) != 0;}
+        constexpr uint8_t parameters() const            {return _nParams;}
+        constexpr bool hasIntParams() const             {return hasFlag(HasIntParam);}
+        constexpr bool hasValParams() const             {return hasFlag(HasValParam);}
+        constexpr bool hasWordParams() const            {return hasFlag(HasWordParam);}
         constexpr bool isMagic() const                  {return hasFlag(Magic);}
 
         constexpr operator Instruction() const          {return _instr;}
@@ -74,6 +81,7 @@ namespace tails {
         const char* _name;  // Forth name, or NULL if anonymous
         StackEffect _effect;
         Flags       _flags; // Flags (see above)
+        uint8_t     _nParams = 0;
     };
 
 
@@ -90,10 +98,13 @@ namespace tails {
     // @param FORTHNAME  The word's Forth name (a string literal.)
     // @param EFFECT  The \ref StackEffect. Must be accurate!
     // @param FLAGS  Flags; use \ref HasIntParam if this word takes a following parameter.
-    #define NATIVE_WORD(NAME, FORTHNAME, EFFECT, FLAGS) \
+    #define NATIVE_WORD_PARAMS(NAME, FORTHNAME, EFFECT, FLAGS, PARAMS) \
         Value* f_##NAME(Value *sp, const Instruction *pc) noexcept; \
-        constexpr Word NAME(FORTHNAME, f_##NAME, EFFECT, Word::Flags(FLAGS)); \
+        constexpr Word NAME(FORTHNAME, f_##NAME, EFFECT, Word::Flags(FLAGS), PARAMS); \
         Value* f_##NAME(Value *sp, const Instruction *pc) noexcept
+
+    #define NATIVE_WORD(NAME, FORTHNAME, EFFECT, FLAGS) \
+        NATIVE_WORD_PARAMS(NAME, FORTHNAME, EFFECT, FLAGS, 0)
 
 
     // Shortcut for defining a native word implementing a binary operator like `+` or `==`.

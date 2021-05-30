@@ -18,6 +18,7 @@
 
 #include "compiler.hh"
 #include "compiler+stackcheck.hh"
+#include "disassembler.hh"
 #include "core_words.hh"
 #include "vocabulary.hh"
 #include <optional>
@@ -87,12 +88,12 @@ namespace tails {
         if (word.isNative()) {
             add({word});
         } else {
-            const Instruction *ip = word.instruction().word;    // first Instruction
-            for (; *ip != _RETURN.instruction(); ++ip) {
-                WordRef ref = DisassembleInstruction(ip).value();
+            Disassembler dis(word.instruction().word);
+            while (true) {
+                WordRef ref = dis.next();
+                if (ref.word == &_RETURN)
+                    break;
                 add(ref, source);
-                if (ref.word->hasAnyParam())
-                    ++ip;
             }
         }
     }
@@ -162,14 +163,36 @@ namespace tails {
         // Assemble instructions:
         vector<Instruction> instrs;
         instrs.reserve(pc);
-        for (SourceWord &ref : _words) {
-            if (!ref.word->isNative())
-                instrs.push_back((&ref == tailCallHere) ? _TAILINTERP : _INTERP);
-            instrs.push_back(*ref.word);
-            if (ref.branchDestination)
-                ref.param.offset = (*ref.branchDestination)->pc - ref.pc - 2;
-            if (ref.word->hasAnyParam())
-                instrs.push_back(ref.param);
+        int interps = 0;
+        for (auto i = _words.begin(); i != _words.end(); ++i) {
+            auto &ref = *i;
+            if (ref.word->isNative()) {
+                assert(interps == 0);
+                instrs.push_back(*ref.word);
+                if (ref.branchDestination)
+                    ref.param.offset = (*ref.branchDestination)->pc - ref.pc - 2;
+                if (ref.word->parameters())
+                    instrs.push_back(ref.param);
+            } else {
+                if (interps-- == 0) {
+                    interps = 0;
+                    const Word *interpWord;
+                    if (&ref == tailCallHere) {
+                        interpWord = &_TAILINTERP;
+                    } else {
+                        for (auto j = next(i); j != _words.end(); ++j) {
+                            if (j->word->isNative() || &*j == tailCallHere)
+                                break;
+                            if (++interps >= 4)
+                                break;
+                        }
+                        static constexpr const Word* kInterps[4] = {&_INTERP, &_INTERP2, &_INTERP3, &_INTERP4};
+                        interpWord = kInterps[interps];
+                    }
+                    instrs.push_back(*interpWord);
+                }
+                instrs.push_back(*ref.word);
+            }
         }
         return instrs;
     }
@@ -177,50 +200,6 @@ namespace tails {
 
     CompiledWord Compiler::finish() && {
         return CompiledWord(move(*this)); // the CompiledWord constructor will call generateInstructions()
-    }
-    
-
-    #pragma mark - DISASSEMBLER:
-
-
-    std::optional<Compiler::WordRef> DisassembleInstruction(const Instruction *instr) {
-        const Word *word = Vocabulary::global.lookup(instr[0]);
-        if (word && (*word == _INTERP || *word == _TAILINTERP))
-            word = Vocabulary::global.lookup(instr[1]);
-        if (!word)
-            return nullopt;
-        else if (word->hasAnyParam())
-            return Compiler::WordRef(*word, instr[1]);
-        else
-            return Compiler::WordRef(*word);
-    }
-
-
-    std::optional<Compiler::WordRef> DisassembleInstructionOrParam(const Instruction *instr) {
-        if (auto word = DisassembleInstruction(instr); word)
-            return word;
-        else if (auto prev = DisassembleInstruction(instr - 1); prev && prev->word->hasAnyParam())
-            return prev;
-        else
-            return nullopt;
-    }
-
-
-    vector<Compiler::WordRef> DisassembleWord(const Instruction *instr) {
-        vector<Compiler::WordRef> instrs;
-        intptr_t maxJumpTo = 0;
-        for (int i = 0; ; i++) {
-            auto ref = DisassembleInstruction(&instr[i]);
-            if (!ref)
-                throw runtime_error("Unknown instruction");
-            instrs.push_back(*ref);
-            if (ref->word == &_BRANCH || ref->word == &_ZBRANCH)
-                maxJumpTo = max(maxJumpTo, i + 2 + instr[i+1].offset);
-            else if (ref->word == &_RETURN && i >= maxJumpTo)
-                return instrs;
-            if (ref->hasParam())
-                ++i;
-        }
     }
 
 }

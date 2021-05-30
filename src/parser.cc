@@ -157,12 +157,13 @@ namespace tails {
                 if (word->isMagic())
                         throw compile_error("Special word " + string(token)
                                             + " cannot be added by parser", sourcePos);
-                if (word->hasAnyParam()) {
+                if (word->parameters()) {
+                    assert(word->parameters() == 1);
                     auto numTok = readToken(input);
                     auto param = asNumber(numTok);
                     if (!param || (*param != intptr_t(*param)))
                         throw compile_error("Invalid param after " + string(token), numTok.data());
-                    if (word->hasIntParam())
+                    if (word->hasIntParams())
                         add({*word, (intptr_t)*param}, sourcePos);
                     else
                         add({*word, Value(*param)}, sourcePos);

@@ -31,24 +31,44 @@ namespace tails::core_words {
 
 #pragma mark The absolute core:
 
-    // (? -> ??)  Calls the interpreted word pointed to by the following instruction.
-    NATIVE_WORD(_INTERP, "_INTERP", StackEffect::weird(), Word::Magic) {
+    // Calls the interpreted word pointed to by the following instruction.
+    NATIVE_WORD_PARAMS(_INTERP, "_INTERP", StackEffect::weird(), Word::Magic | Word::HasWordParam, 1) {
         sp = call(sp, (pc++)->word);
         NEXT();
     }
 
-    // (? -> ??)  Jumps to the interpreted word pointed to by the following instruction.
+    NATIVE_WORD_PARAMS(_INTERP2, "_INTERP2", StackEffect::weird(), Word::Magic | Word::HasWordParam, 2) {
+        sp = call(sp, (pc++)->word);
+        sp = call(sp, (pc++)->word);
+        NEXT();
+    }
+
+    NATIVE_WORD_PARAMS(_INTERP3, "_INTERP3", StackEffect::weird(), Word::Magic | Word::HasWordParam, 3) {
+        sp = call(sp, (pc++)->word);
+        sp = call(sp, (pc++)->word);
+        NEXT();
+    }
+
+    NATIVE_WORD_PARAMS(_INTERP4, "_INTERP4", StackEffect::weird(), Word::Magic | Word::HasWordParam, 4) {
+        sp = call(sp, (pc++)->word);
+        sp = call(sp, (pc++)->word);
+        sp = call(sp, (pc++)->word);
+        sp = call(sp, (pc++)->word);
+        NEXT();
+    }
+
+    // Jumps to the interpreted word pointed to by the following instruction.
     NATIVE_WORD(_TAILINTERP, "_TAILINTERP", StackEffect::weird(), Word::Magic) {
         MUSTTAIL return call(sp, pc->word);
     }
 
-    // ( -> )  Returns from the current word. Every interpreted word ends with this.
+    // Returns from the current word. Every interpreted word ends with this.
     NATIVE_WORD(_RETURN, "_RETURN", StackEffect(), Word::Magic) {
         return sp;
     }
 
-    // ( -> i)  Pushes the following instruction as an integer
-    NATIVE_WORD(_LITERAL, "_LITERAL", "-- #", Word::Magic | Word::HasValParam) {
+    //  Pushes the following instruction as a Value
+    NATIVE_WORD(_LITERAL, "_LITERAL", "-- v", Word::Magic | Word::HasValParam) {
         *(++sp) = (pc++)->literal;
         NEXT();
     }
@@ -222,7 +242,8 @@ namespace tails::core_words {
     // This null-terminated list is used to register these words in the Vocabulary at startup.
 
     const Word* const kWords[] = {
-        &_INTERP, &_TAILINTERP, &_LITERAL, &_RETURN, &_BRANCH, &_ZBRANCH,
+        &_INTERP, &_INTERP2, &_INTERP3, &_INTERP4,
+        &_TAILINTERP, &_LITERAL, &_RETURN, &_BRANCH, &_ZBRANCH,
         &DROP, &DUP, &OVER, &ROT, &SWAP, &NOP,
         &ZERO, &ONE,
         &EQ, &NE, &EQ_ZERO, &NE_ZERO,

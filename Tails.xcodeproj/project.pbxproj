@@ -109,6 +109,7 @@
 		27783694266164930025D97F /* compiler+stackcheck.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = "compiler+stackcheck.hh"; sourceTree = "<group>"; };
 		27BE518E266188870010DC42 /* test.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = test.hh; sourceTree = "<group>"; };
 		27BE518F266190850010DC42 /* utils.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = utils.hh; sourceTree = "<group>"; };
+		27BE51902661C2050010DC42 /* disassembler.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = disassembler.hh; sourceTree = "<group>"; };
 		27CBF69E264C88FA00EF08C4 /* nan_tagged.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = nan_tagged.hh; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -216,6 +217,7 @@
 				273B20AF2645D67000A14EC4 /* compiler.hh */,
 				273B20B02645D67000A14EC4 /* compiler.cc */,
 				27783694266164930025D97F /* compiler+stackcheck.hh */,
+				27BE51902661C2050010DC42 /* disassembler.hh */,
 				2732FA2A2655E89D0013063A /* parser.cc */,
 				27BE518E266188870010DC42 /* test.hh */,
 				273B20952643493E00A14EC4 /* test.cc */,

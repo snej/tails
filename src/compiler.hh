@@ -65,15 +65,15 @@ namespace tails {
 
         /// A reference to a word and its parameter (if any), used during compilation.
         struct WordRef {
-            WordRef(const Word &w)               :word(&w), param((Op)0) {assert(!w.hasAnyParam());}
-            WordRef(const Word &w, Instruction p):word(&w), param(p) {assert(w.hasAnyParam());}
-            WordRef(const Word &w, Value v)      :word(&w), param(v) {assert(w.hasValParam());}
-            WordRef(const Word &w, intptr_t o)   :word(&w), param(o) {assert(w.hasIntParam());}
+            WordRef(const Word &w)               :word(&w), param((Op)0) {assert(!w.parameters());}
+            WordRef(const Word &w, Instruction p):word(&w), param(p) {assert(w.parameters() == 1);}
+            WordRef(const Word &w, Value v)      :word(&w), param(v) {assert(w.parameters() == 1);}
+            WordRef(const Word &w, intptr_t o)   :word(&w), param(o) {assert(w.parameters() == 1);}
 
             WordRef(Value v)                     :WordRef(core_words::_LITERAL, v) { }
             WordRef(double d)                    :WordRef(core_words::_LITERAL, Value(d)) { }
 
-            bool hasParam() const                {return word->hasAnyParam() || !word->isNative();}
+            bool hasParam() const                {return word->parameters() || !word->isNative();}
 
             const Word*  word;                      // The word (interpreted or native)
             Instruction  param;                     // Optional parameter, if it has one
@@ -173,18 +173,5 @@ namespace tails {
         std::string_view            _curToken;
         std::vector<BranchTarget>   _controlStack;
     };
-
-
-    /// Looks up the word for an instruction and returns it as a WordRef.
-    /// If the word is _INTERP, the next word (at `instr[1]`) is returned instead.
-    /// If the word has a parameter (like LITERAL or BRANCH), it's read from `instr[1]`.
-    std::optional<Compiler::WordRef> DisassembleInstruction(const Instruction*);
-
-    /// Same as \ref DisassembleInstruction, but also checks if this might be the parameter to a
-    /// previous Instruction's word; in that case it returns the previous.
-    std::optional<Compiler::WordRef> DisassembleInstructionOrParam(const Instruction*);
-
-    /// Disassembles an entire interpreted word given its first instruction.
-    std::vector<Compiler::WordRef> DisassembleWord(const Instruction *firstInstr);
 
 }
