@@ -99,9 +99,9 @@ namespace tails {
     // @param EFFECT  The \ref StackEffect. Must be accurate!
     // @param FLAGS  Flags; use \ref HasIntParam if this word takes a following parameter.
     #define NATIVE_WORD_PARAMS(NAME, FORTHNAME, EFFECT, FLAGS, PARAMS) \
-        Value* f_##NAME(Value *sp, const Instruction *pc) noexcept; \
+        extern "C" Value* f_##NAME(Value *sp, const Instruction *pc); \
         constexpr Word NAME(FORTHNAME, f_##NAME, EFFECT, Word::Flags(FLAGS), PARAMS); \
-        Value* f_##NAME(Value *sp, const Instruction *pc) noexcept
+        Value* f_##NAME(Value *sp, const Instruction *pc)
 
     #define NATIVE_WORD(NAME, FORTHNAME, EFFECT, FLAGS) \
         NATIVE_WORD_PARAMS(NAME, FORTHNAME, EFFECT, FLAGS, 0)
