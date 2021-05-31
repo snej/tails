@@ -152,7 +152,7 @@ static void testStackEffect() {
     assert(ts.output(0).flags() == 0x1F);
 
 #ifndef SIMPLE_VALUE
-    ts = "aaa# bbb#? -- ccc$ {d_d}?"_sfx;
+    ts = "aaa# bbb#? -- ccc$ [d_d]?"_sfx;
     assert(ts.inputs() == 2);
     assert(ts.outputs() == 2);
     assert(ts.input(0).flags() == 0x03);
@@ -244,24 +244,24 @@ int main(int argc, char *argv[]) {
     TEST_PARSER("HiThere",          R"( "Hi" "There" + )");
     TEST_PARSER(5,                  R"( "hello" LENGTH )");
 
-    TEST_PARSER(Value({12,34,56}),  R"( {12 34 56} )");
-    TEST_PARSER(Value({Value(12)}), R"( {12} )");
+    TEST_PARSER(Value({12,34,56}),  R"( [12 34 56] )");
+    TEST_PARSER(Value({Value(12)}), R"( [12] )");
     TEST_PARSER(Value({12,"hi there",Value({}),56}),
-                                    R"( {12 "hi there" {} 56} )");
-    TEST_PARSER(3,                  R"( {12 34 56} LENGTH )");
+                                    R"( [12 "hi there" [] 56] )");
+    TEST_PARSER(3,                  R"( [12 34 56] LENGTH )");
 
     garbageCollect();
 
-    TEST_PARSER(3,                  R"( 3 [DUP 4] DROP)");
+    TEST_PARSER(3,                  R"( 3 {DUP 4} DROP)");
 
-    TEST_PARSER("yes",              R"( 1 ["yes"] ["no"] IFELSE)");
-    TEST_PARSER("no",               R"( 0 ["yes"] ["no"] IFELSE)");
+    TEST_PARSER("yes",              R"( 1 {"yes"} {"no"} IFELSE)");
+    TEST_PARSER("no",               R"( 0 {"yes"} {"no"} IFELSE)");
     
-    TEST_PARSER(12,                 R"( 3 4  1 [*] [+] IFELSE)");
-    TEST_PARSER(7,                  R"( 3 4  0 [*] [+] IFELSE)");
+    TEST_PARSER(12,                 R"( 3 4  1 {*} {+} IFELSE)");
+    TEST_PARSER(7,                  R"( 3 4  0 {*} {+} IFELSE)");
 
-    TEST_PARSER(12,                 R"( 3 4  1 [*] [DROP] IFELSE)");
-    TEST_PARSER(3,                  R"( 3 4  0 [*] [DROP] IFELSE)");
+    TEST_PARSER(12,                 R"( 3 4  1 {*} {DROP} IFELSE)");
+    TEST_PARSER(3,                  R"( 3 4  0 {*} {DROP} IFELSE)");
 
     TEST_PARSER(0,                  R"( "Hello" . SP. 17 . NL. 0 )");
 

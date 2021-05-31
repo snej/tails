@@ -33,8 +33,8 @@ namespace tails {
 #ifndef SIMPLE_VALUE
             case '?':           ts.addType(Value::ANull); break;
             case '$':           ts.addType(Value::AString); break;
-            case '{': case '}': ts.addType(Value::AnArray); break;
-            case '[': case ']': ts.addType(Value::AQuote); break;
+            case '[': case ']': ts.addType(Value::AnArray); break;
+            case '{': case '}': ts.addType(Value::AQuote); break;
 #endif
             case '#':           ts.addType(Value::ANumber); break;
             case 'a'...'z':

@@ -292,14 +292,14 @@ namespace tails {
 
 
     static std::ostream& operator<< (std::ostream &out, const vector<Value> &array) {
-        out << '{';
+        out << '[';
         int n = 0;
         for (auto value : array) {
             if (n++ > 0)
                 out << ", ";
             out << value;
         }
-        out << '}';
+        out << ']';
         return out;
     }
 
@@ -310,7 +310,7 @@ namespace tails {
             case Value::ANumber: return out << value.asDouble();
             case Value::AString: return out << std::quoted(value.asString());
             case Value::AnArray: return out << *value.asArray();
-            case Value::AQuote:  return out << "QUOTE(" << value.asQuote()->stackEffect() << ")";
+            case Value::AQuote:  return out << "{(" << value.asQuote()->stackEffect() << ")}";
         }
         return out;
     }

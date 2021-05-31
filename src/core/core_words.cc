@@ -258,7 +258,7 @@ namespace tails::core_words {
 
 #pragma mark Strings & Arrays:
 
-    NATIVE_WORD(LENGTH, "LENGTH", "${} -- #"_sfx, 0) {
+    NATIVE_WORD(LENGTH, "LENGTH", "$[] -- #"_sfx, 0) {
         *sp = sp->length();
         NEXT();
     }

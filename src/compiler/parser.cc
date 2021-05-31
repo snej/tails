@@ -105,8 +105,8 @@ namespace tails {
                 // End of input
                 break;
 
-            } else if (token == "]") {
-                // end of a nested word (quotation). Exit, but don't consume the ']'.
+            } else if (token == "}") {
+                // end of a nested word (quotation). Exit, but don't consume the '}'.
                 --input;
                 break;
 
@@ -114,10 +114,10 @@ namespace tails {
                 // String literal:
                 add({_LITERAL, parseString(token)}, sourcePos);
 
-            } else if (token == "{") {
+            } else if (token == "[") {
                 add({_LITERAL, parseArray(input)}, token.data());
 
-            } else if (token == "[") {
+            } else if (token == "{") {
                 add({_LITERAL, parseQuote(input)}, token.data());
 
             } else if (token == "IF") {
@@ -207,13 +207,13 @@ namespace tails {
         std::vector<Value> *array = arrayVal.asArray();
         while (true) {
             string_view token = readToken(input);
-            if (token == "}")
+            if (token == "]")
                 break;
             else if (token.empty())
                 throw compile_error("Unfinished array literal", input);
             else if (token[0] == '"')
                 array->push_back(parseString(token));
-            else if (token == "{")
+            else if (token == "[")
                 array->push_back(parseArray(input));
             else if (auto np = asNumber(token); np)
                 array->push_back(Value(*np));
@@ -229,11 +229,11 @@ namespace tails {
 #ifdef SIMPLE_VALUE
         throw compile_error("Quotes not supported", input);
 #else
-        // Recursively create a Compiler to parse tokens to a new Word until the ']' delimiter:
+        // Recursively create a Compiler to parse tokens to a new Word until the '}' delimiter:
         Compiler quoteCompiler;
         input = quoteCompiler.parse(input);
-        if (*input != ']')
-            throw compile_error("Missing ']'; unfinished quotation", input);
+        if (*input != '}')
+            throw compile_error("Missing '}'; unfinished quotation", input);
         ++input;
 
         return Value(new CompiledWord(move(quoteCompiler)));
