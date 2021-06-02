@@ -17,6 +17,8 @@
 //
 
 #include "compiler.hh"
+#include "more_words.hh"
+#include "vocabulary.hh"
 #include "linenoise.h"
 #include "utf8.h"
 #include <algorithm>
@@ -120,6 +122,10 @@ static void print(const tails::Stack &stack) {
 
 
 int main(int argc, const char **argv) {
+    tails::Vocabulary defaultVocab(tails::word::kWords);
+    tails::Compiler::activeVocabularies.push(defaultVocab);
+    tails::Compiler::activeVocabularies.setCurrent(defaultVocab);
+
     cout << "Tails interpreter!!  Empty line clears stack.  Ctrl-D to exit.\n";
     tails::Stack stack;
     while (true) {
@@ -137,6 +143,7 @@ int main(int argc, const char **argv) {
         } else {
             try {
                 tails::eval(*line, stack);
+                tails::word::endLine();
             } catch (const tails::compile_error &x) {
                 if (x.location) {
                     auto pos = x.location - line->data();

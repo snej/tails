@@ -43,7 +43,7 @@ namespace tails {
         _instr = &_instrs.front();
         if (!_nameStr.empty()) {
             _name = _nameStr.c_str();
-            Vocabulary::global.add(*this);
+            Compiler::activeVocabularies.current()->add(*this);
         }
     }
 
@@ -60,7 +60,11 @@ namespace tails {
 #pragma mark - COMPILER:
 
 
+    VocabularyStack Compiler::activeVocabularies;
+
+
     Compiler::Compiler() {
+        assert(activeVocabularies.current() != nullptr);
         _words.push_back({NOP});
     }
 

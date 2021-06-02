@@ -153,7 +153,7 @@ namespace tails {
                 addBranchBackTo(beginPos);
                 fixBranch(whilePos);
 
-            } else if (const Word *word = Vocabulary::global.lookup(token); word) {
+            } else if (const Word *word = Compiler::activeVocabularies.lookup(token); word) {
                 // Known word is added as an instruction:
                 if (word->isMagic())
                         throw compile_error("Special word " + string(token)

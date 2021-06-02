@@ -67,15 +67,18 @@ namespace tails {
     /// Initializes a StackEffect instance from a human-readable stack effect declaration.
     /// Generally you call \ref parseStackEffect instead, which returns a new instance.
     /// - Each token before the `--` is an input, each one after is an output.
-    /// - Tokens denote types, as described in the \ref TypeSet constructor.
-    /// - Outputs whose names exactly match inputs denote the same exact value at runtime.
+    /// - Punctuation marks in tokens denote types, as described in the \ref TypeSet constructor;
+    ///   alphanumeric characters don't imply a type. If no type is given, any type is allowed.
+    /// - If an output token exactly matches an input, and contains alphanumerics, that means it
+    ///   has the same type as that input. So output "x" matches input "x". Output "n#?" matches
+    ///   input "n#?" but not "n#". Output "#" can't match anything.
     constexpr void _parseStackEffect(StackEffect &effect, const char *str, const char *end) {
-        const char* tokenStart[StackEffect::kMaxEntries] = {};
-        size_t tokenLen[ StackEffect::kMaxEntries] = {};
-        auto entry = effect._entries.begin();
-        bool inputs = true;
-        const char *token = nullptr;
-        bool tokenIsNamed = false;
+        const char* tokenStart[StackEffect::kMaxEntries] = {};  // Start of each token in `str`
+        size_t tokenLen[ StackEffect::kMaxEntries] = {};        // Length of each token in `str`
+        auto entry = effect._entries.begin();                   // Current TypeSet being populated
+        bool inputs = true;                                     // Are we still parsing inputs?
+        const char *token = nullptr;                            // Current token, or NULL
+        bool tokenIsNamed = false;                              // Does token have alphanumerics?
 
         for (const char *c = str; c <= end; ++c) {
             if (c == end || *c == 0 || *c == ' ' || *c == '\t') {
@@ -90,11 +93,14 @@ namespace tails {
                         }
                         ++effect._ins;
                     } else {
-                        // look for 'before' token match:
-                        for (unsigned b = 0; b < effect._ins; b++) {
-                            if (tokenLen[b] == (c - token) && _compare(tokenStart[b], token, tokenLen[b])) {
-                                entry->setInputMatch(effect._entries[b], effect._ins - 1 - b);
-                                break;
+                        // look for input token match:
+                        if (tokenIsNamed) {
+                            for (unsigned b = 0; b < effect._ins; b++) {
+                                if (tokenLen[b] == (c - token)
+                                        && _compare(tokenStart[b], token, tokenLen[b])) {
+                                    entry->setInputMatch(effect._entries[b], effect._ins - 1 - b);
+                                    break;
+                                }
                             }
                         }
                         ++effect._outs;
@@ -115,9 +121,9 @@ namespace tails {
                     effect.checkNotFull();
                     token = c;
                 }
-                // Symbol in token:
+                // Add character to token:
                 addTypeSymbol(*entry, *c);
-                if ((*c >= 'A' && *c <= 'Z') || (*c >= 'a' && *c <= 'z'))
+                if (_isalpha(*c))
                     tokenIsNamed = true;
             }
         }

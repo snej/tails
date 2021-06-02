@@ -19,6 +19,7 @@
 #include "core_words.hh"
 #include "compiler.hh"
 #include "disassembler.hh"
+#include "more_words.hh"
 #include "stack_effect_parser.hh"
 #include "vocabulary.hh"
 #include "test.hh"
@@ -106,7 +107,7 @@ static Value _runParser(const char *source) {
         else if (wordRef.word->hasValParams())
             cout << ":<" << wordRef.param.literal << '>';
         else if (wordRef.word->hasWordParams())
-            cout << ":<" << Vocabulary::global.lookup(wordRef.param.word)->name() << '>';
+            cout << ":<" << Compiler::activeVocabularies.lookup(wordRef.param.word)->name() << '>';
     }
     cout << "\n";
 
@@ -173,11 +174,15 @@ static void testStackEffect() {
 
 
 int main(int argc, char *argv[]) {
+    Vocabulary defaultVocab(word::kWords);
+    Compiler::activeVocabularies.push(defaultVocab);
+    Compiler::activeVocabularies.setCurrent(defaultVocab);
+
     testStackEffect();
 
     cout << "Known words:";
-    for (auto word : Vocabulary::global)
-        cout << ' ' << word.second->name();
+    for (auto word : Compiler::activeVocabularies)
+        cout << ' ' << word->name();
     cout << "\n";
 
     TEST(-1234, -1234);
@@ -241,6 +246,8 @@ int main(int argc, char *argv[]) {
 
     TEST_PARSER(12,                 R"( 3 4  1 [*] [DROP] IFELSE)");
     TEST_PARSER(3,                  R"( 3 4  0 [*] [DROP] IFELSE)");
+
+    TEST_PARSER(0,                  R"( "Hello" . SP. 17 . CRLF. 0 )");
 #endif
     
     cout << "\nTESTS PASSED❣️❣️❣️\n\n";

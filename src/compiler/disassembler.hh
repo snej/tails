@@ -17,6 +17,7 @@
 //
 
 #pragma once
+#include "compiler.hh"
 #include "core_words.hh"
 #include "word.hh"
 #include "vocabulary.hh"
@@ -34,9 +35,9 @@ namespace tails {
 
         std::optional<Compiler::WordRef> _next() {
             assert(_pc);
-            const Word *word = Vocabulary::global.lookup(*_pc++);
+            const Word *word = Compiler::activeVocabularies.lookup(*_pc++);
             if (!_literal && word && word->hasWordParams())
-                word = Vocabulary::global.lookup(*_pc++);
+                word = Compiler::activeVocabularies.lookup(*_pc++);
             if (!word)
                 return nullopt;
             else if (word->parameters())

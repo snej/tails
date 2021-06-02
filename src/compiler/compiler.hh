@@ -28,6 +28,7 @@
 namespace tails {
 
     class Compiler;
+    class VocabularyStack;
 
     namespace core_words {
         extern const Word _LITERAL;
@@ -83,12 +84,6 @@ namespace tails {
             WordRef() :param(intptr_t(0)) { }
         };
 
-
-        struct SourceWord;
-        /// An reference to a WordRef added to the Compiler.
-        using InstructionPos = std::list<SourceWord>::iterator;
-
-
         Compiler();
         explicit Compiler(std::string name)         :Compiler() {_name = std::move(name);}
         ~Compiler();
@@ -124,6 +119,10 @@ namespace tails {
 
         //---- Adding individual words:
 
+        struct SourceWord;
+        /// A reference to a WordRef added to the Compiler.
+        using InstructionPos = std::list<SourceWord>::iterator;
+
         /// Adds an instruction to a word being compiled.
         /// @return  An opaque reference to this instruction, that can be used later to fix branches.
         InstructionPos add(const WordRef&, const char *source =nullptr);
@@ -148,6 +147,11 @@ namespace tails {
         /// Creates a finished, anonymous CompiledWord from a list of word references.
         /// (Mostly just for tests.)
         static CompiledWord compile(std::initializer_list<WordRef> words);
+
+        //---- Vocabularies
+
+        /// The vocabularies the parser looks up words from
+        static VocabularyStack activeVocabularies;
 
     private:
         friend class CompiledWord;

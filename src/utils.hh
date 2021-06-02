@@ -33,6 +33,10 @@ namespace tails {
         return c - str;
     }
 
+    constexpr static inline bool _isalpha(char c) {
+        return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
+    }
+
     constexpr static inline bool _compare(const char *a, const char *b, size_t len) {
         while (len-- > 0)
             if (*a++ != *b++)

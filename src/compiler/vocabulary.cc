@@ -23,10 +23,15 @@
 
 namespace tails {
 
-    Vocabulary Vocabulary::global(core_words::kWords);
+    const Vocabulary Vocabulary::core(core_words::kWords);
 
 
     Vocabulary::Vocabulary(const Word* const *wordList) {
+        add(wordList);
+    }
+
+
+    void Vocabulary::add(const Word* const *wordList) {
         while (*wordList)
             add(**wordList++);
     }
@@ -37,7 +42,7 @@ namespace tails {
     }
 
 
-    const Word* Vocabulary::lookup(std::string_view name) {
+    const Word* Vocabulary::lookup(std::string_view name) const {
         if (auto i = _words.find(name); i != _words.end())
             return i->second;
         else
@@ -45,12 +50,50 @@ namespace tails {
     }
 
 
-    const Word* Vocabulary::lookup(Instruction instr) {
+    const Word* Vocabulary::lookup(Instruction instr) const {
         for (auto i = _words.begin(); i != _words.end(); ++i) {
             if (i->second->instruction() == instr)
                 return i->second;
         }
         return nullptr;
     }
+
+
+
+    void VocabularyStack::push(const Vocabulary &v)  {
+        _active.push_back(&v);
+    }
+
+    void VocabularyStack::pop() {
+        assert(_active.size() > 1);
+        _active.pop_back();
+    }
+
+
+    const Word* VocabularyStack::lookup(std::string_view name) const {
+        for (auto vocab : _active)
+            if (auto word = vocab->lookup(name); word)
+                return word;
+        return nullptr;
+    }
+
+    const Word* VocabularyStack::lookup(Instruction instr) const {
+        for (auto vocab : _active)
+            if (auto word = vocab->lookup(instr); word)
+                return word;
+        return nullptr;
+    }
+
+    VocabularyStack::iterator& VocabularyStack::iterator::operator++ () {
+        if (++_iWord == _endWords) {
+            if (++_iVoc != _endVoc) {
+                _iWord = (*_iVoc)->begin();
+                _endWords = (*_iVoc)->end();
+            }
+        }
+        return *this;
+    }
+
+
 
 }
