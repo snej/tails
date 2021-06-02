@@ -71,6 +71,8 @@ namespace tails {
         void setCurrent(Vocabulary* v)              {_current = v;}
         void setCurrent(Vocabulary &v)              {return setCurrent(&v);}
 
+        void gcScan();
+
         class iterator {
         public:
             const Word* operator* () const          {return _iWord->second;}

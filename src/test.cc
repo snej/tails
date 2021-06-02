@@ -19,6 +19,7 @@
 #include "core_words.hh"
 #include "compiler.hh"
 #include "disassembler.hh"
+#include "gc.hh"
 #include "more_words.hh"
 #include "stack_effect_parser.hh"
 #include "vocabulary.hh"
@@ -51,6 +52,13 @@ static Value run(const Word &word) {
     StackBase = stackBase;
 #endif
     return * call(stackBase - 1, word.instruction().word);
+}
+
+
+static void garbageCollect() {
+    Compiler::activeVocabularies.gcScan();
+    auto [preserved, freed] = gc::object::sweep();
+    cout << "GC: freed " << freed << " objects; " << preserved << " left.\n";
 }
 
 
@@ -185,6 +193,8 @@ int main(int argc, char *argv[]) {
         cout << ' ' << word->name();
     cout << "\n";
 
+    garbageCollect();
+
     TEST(-1234, -1234);
     TEST(-1,    3, 4, MINUS);
     TEST(0.75,  3, 4, DIV);
@@ -224,6 +234,8 @@ int main(int argc, char *argv[]) {
 
     TEST_PARSER(120,  "1 5 BEGIN  DUP  WHILE  SWAP OVER * SWAP 1 -  REPEAT  DROP");
 
+    garbageCollect();
+
 #ifndef SIMPLE_VALUE
     TEST_PARSER("hello",            R"( "hello" )");
     TEST_PARSER("truthy",           R"( 1 IF "truthy" ELSE "falsey" THEN )");
@@ -235,6 +247,8 @@ int main(int argc, char *argv[]) {
     TEST_PARSER(Value({12,"hi there",Value({}),56}),
                                     R"( {12 "hi there" {} 56} )");
     TEST_PARSER(3,                  R"( {12 34 56} LENGTH )");
+
+    garbageCollect();
 
     TEST_PARSER(3,                  R"( 3 [DUP 4] DROP)");
 
@@ -248,6 +262,9 @@ int main(int argc, char *argv[]) {
     TEST_PARSER(3,                  R"( 3 4  0 [*] [DROP] IFELSE)");
 
     TEST_PARSER(0,                  R"( "Hello" . SP. 17 . CRLF. 0 )");
+
+    garbageCollect();
+    assert(gc::object::instanceCount() == 0);
 #endif
     
     cout << "\nTESTS PASSED❣️❣️❣️\n\n";

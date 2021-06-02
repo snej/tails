@@ -39,7 +39,7 @@ namespace tails {
         using Item = variant<TypeSet,Value>;
 
         EffectStack(const StackEffect &initial) {
-            for (int i = 0; i < initial.inputs(); ++i)
+            for (int i = initial.inputs() - 1; i >= 0; --i)
                 _stack.emplace_back(initial.input(i));
             _maxDepth = _initialDepth = depth();
         }

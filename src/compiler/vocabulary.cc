@@ -19,6 +19,7 @@
 #include "vocabulary.hh"
 #include "word.hh"
 #include "core_words.hh"
+#include "gc.hh"
 
 
 namespace tails {
@@ -94,6 +95,11 @@ namespace tails {
         return *this;
     }
 
+
+    void VocabularyStack::gcScan() {
+        for (auto word : *this)
+            gc::object::scanWord(word);
+    }
 
 
 }

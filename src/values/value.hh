@@ -140,6 +140,8 @@ namespace tails {
         Value operator/ (Value v) const;
         Value operator% (Value v) const;
 
+        void mark() const;
+
     private:
         enum { kStringTag = 0, kArrayTag = 1, kQuoteTag = 2, };
 

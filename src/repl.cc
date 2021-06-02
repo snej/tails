@@ -17,6 +17,7 @@
 //
 
 #include "compiler.hh"
+#include "gc.hh"
 #include "more_words.hh"
 #include "vocabulary.hh"
 #include "linenoise.h"
@@ -31,7 +32,16 @@
 using namespace std;
 
 
+#ifdef ENABLE_TRACING
 namespace tails {
+    void TRACE(Value *sp, const Instruction *pc) { }
+}
+#endif
+
+
+namespace repl {
+    using namespace tails;
+
 
     static optional<string> readLine(const char *prompt) {
         static once_flag sOnce;
@@ -85,11 +95,6 @@ namespace tails {
     }
 
 
-    #ifdef ENABLE_TRACING
-        void TRACE(Value *sp, const Instruction *pc) { }
-    #endif
-
-
     static void eval(const string &source, Stack &stack) {
         Compiler comp;
         comp.setInputStack(&stack.front(), &stack.back());
@@ -98,27 +103,41 @@ namespace tails {
         run(compiled, stack);
     }
 
+
+    static void garbageCollect(Stack &stack) {
+        Compiler::activeVocabularies.gcScan();
+        gc::object::scanStack(&stack.front(), &stack.back());
+#if 1
+        gc::object::sweep();
+#else
+        auto [preserved, freed] = gc::object::sweep();
+        if (freed > 0)
+            cout << "GC: freed " << freed << " objects; " << preserved << " left.\n";
+#endif
+    }
+
+
+    static constexpr int kPromptIndent = 40;
+
+
+    // Right-justified output
+    static void print(const string &str) {
+        size_t len = min(str.size(), size_t(kPromptIndent));
+        size_t start = str.size() - len;
+        cout << string(kPromptIndent - len, ' ') << str.substr(start, len);
+    }
+
+
+    // Print stack, right-justified
+    static void print(const Stack &stack) {
+        stringstream out;
+        for (tails::Value v : stack)
+            out << v << ' ';
+        print(out.str());
+    }
 }
 
-
-static constexpr int kPromptIndent = 40;
-
-
-// Right-justified output
-static void print(const string &str) {
-    size_t len = min(str.size(), size_t(kPromptIndent));
-    size_t start = str.size() - len;
-    cout << string(kPromptIndent - len, ' ') << str.substr(start, len);
-}
-
-
-// Print stack, right-justified
-static void print(const tails::Stack &stack) {
-    stringstream out;
-    for (tails::Value v : stack)
-        out << v << ' ';
-    print(out.str());
-}
+using namespace repl;
 
 
 int main(int argc, const char **argv) {
@@ -127,11 +146,11 @@ int main(int argc, const char **argv) {
     tails::Compiler::activeVocabularies.setCurrent(defaultVocab);
 
     cout << "Tails interpreter!!  Empty line clears stack.  Ctrl-D to exit.\n";
-    tails::Stack stack;
+    Stack stack;
     while (true) {
         print(stack);
         cout.flush();
-        optional<string> line = tails::readLine(" ➤ ");
+        optional<string> line = readLine(" ➤ ");
         if (!line)
             break;
         else if (line->empty()) {
@@ -142,8 +161,9 @@ int main(int argc, const char **argv) {
             stack.clear();
         } else {
             try {
-                tails::eval(*line, stack);
+                eval(*line, stack);
                 tails::word::endLine();
+                garbageCollect(stack);
             } catch (const tails::compile_error &x) {
                 if (x.location) {
                     auto pos = x.location - line->data();

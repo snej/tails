@@ -17,6 +17,7 @@
 //
 
 #include "value.hh"
+#include "gc.hh"
 #include "word.hh"
 #include "test.hh"
 #include <iomanip>
@@ -97,19 +98,15 @@ namespace tails {
     }
 
 
-
     // Makes me a string with space for a string `len` bytes long.
     // Returns a pointer to the storage.
     char* Value::allocString(size_t len) {
         if (len <= NanTagged::kInlineCapacity) {
             return (char*)setInline();
         } else {
-            char *heapStr = (char*) malloc(len + 1);
-            if (!heapStr)
-                throw std::bad_alloc();
-            heapStr[len] = 0;
-            setPointer(heapStr);
-            return heapStr;
+            auto heapStr = gc::String::make(len);
+            setPointer((char*)heapStr);
+            return (char*)heapStr->c_str();
         }
     }
 
@@ -124,7 +121,7 @@ namespace tails {
                     ++len;
                 return string_view(str, len);
             } else if (!isNull()) {
-                return string_view(asPointer());
+                return ((gc::String*)asPointer())->string_view();
             }
         }
         return string_view();
@@ -142,6 +139,20 @@ namespace tails {
         if (tags() == kQuoteTag)
             return (const Word*)asPointer();
         return nullptr;
+    }
+
+
+    void Value::mark() const {
+        if (!isDouble()) {
+            switch (tags()) {
+                case kStringTag:
+                    if (!isInline())
+                        ((gc::String*)asPointer())->mark();
+                    break;
+                default:
+                    break;
+            }
+        }
     }
 
 
