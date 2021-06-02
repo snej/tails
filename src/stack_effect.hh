@@ -33,43 +33,10 @@ namespace tails {
     public:
         constexpr TypeSet() { }
 
-        constexpr explicit TypeSet(Value::Type type) {
-            addType(type);
-        }
+        constexpr explicit TypeSet(Value::Type type)        {addType(type);}
 
         constexpr static TypeSet anyType() {return TypeSet(kTypeFlags);}
-        constexpr static TypeSet noType() {return TypeSet();}
-
-        /// Constructs a TypeSet from a token:
-        /// - Alphanumerics and `_` are ignored
-        /// - `?` means a null
-        /// - `#` means a number
-        /// - `$` means a string
-        /// - `{` or `}` means an array
-        /// - `[` or `]` means a quotation
-        /// - If more than one type is given, either is allowed.
-        /// - If no types are given, or only null, then any type is allowed.
-        explicit constexpr TypeSet(const char *token, const char *tokenEnd = nullptr) {
-            while (token != tokenEnd && *token)
-                addTypeSymbol(*token++);
-            if (_flags == 0 || _flags == 1)
-                _flags = kTypeFlags;
-        }
-
-        constexpr void addTypeSymbol(char symbol) {
-            switch (symbol) {
-                case '?':           addType(Value::ANull); break;
-                case '#':           addType(Value::ANumber); break;
-                case '$':           addType(Value::AString); break;
-                case '{': case '}': addType(Value::AnArray); break;
-                case '[': case ']': addType(Value::AQuote); break;
-                case 'a'...'z':
-                case 'A'...'Z':
-                case '0'...'9':
-                case '_':           break;
-                default:            throw std::runtime_error("Unknown stack type symbol");
-            }
-        }
+        constexpr static TypeSet noType()  {return TypeSet();}
 
         constexpr bool exists() const                       {return _flags != 0;}
         constexpr bool canBeAnyType() const                 {return typeFlags() == kTypeFlags;}
@@ -102,30 +69,22 @@ namespace tails {
                 return -1;
         }
 
-        constexpr bool operator== (const TypeSet &other) const {return compare(other) == 0;}
-        constexpr bool operator!= (const TypeSet &other) const {return compare(other) != 0;}
-        constexpr bool operator> (const TypeSet &other) const {return compare(other) > 0;}
-        constexpr bool operator< (const TypeSet &other) const {return compare(other) < 0;}
+        constexpr bool operator== (const TypeSet &other) const   {return compare(other) == 0;}
+        constexpr bool operator!= (const TypeSet &other) const   {return compare(other) != 0;}
+        constexpr bool operator>  (const TypeSet &other) const   {return compare(other) > 0;}
+        constexpr bool operator<  (const TypeSet &other) const   {return compare(other) < 0;}
 
-        constexpr explicit operator bool() const                {return exists();}
+        constexpr explicit operator bool() const                 {return exists();}
 
-        constexpr TypeSet operator| (const TypeSet &other) const {
-            return TypeSet((_flags | other._flags) & kTypeFlags);
-        }
+        constexpr TypeSet operator| (const TypeSet &other) const {return _flags | other._flags;}
+        constexpr TypeSet operator& (const TypeSet &other) const {return _flags & other._flags;}
+        constexpr TypeSet operator- (const TypeSet &other) const {return _flags & ~other._flags;}
 
-        constexpr TypeSet operator& (const TypeSet &other) const {
-            return TypeSet((_flags & other._flags) & kTypeFlags);
-        }
-
-        constexpr TypeSet operator- (const TypeSet &other) const {
-            return TypeSet((_flags & ~other._flags) & kTypeFlags);
-        }
-
-        constexpr uint8_t typeFlags() const                     {return _flags & kTypeFlags;}
-        constexpr uint8_t flags() const                         {return _flags;} // tests only
+        constexpr uint8_t typeFlags() const                      {return _flags & kTypeFlags;}
+        constexpr uint8_t flags() const                          {return _flags;} // tests only
 
     private:
-        constexpr explicit TypeSet(uint8_t flags) :_flags(flags) { }
+        constexpr TypeSet(int flags) :_flags(uint8_t(flags)) { }
 
         static constexpr int kNumTypes = 5;
         static constexpr uint8_t kTypeFlags = (1 << kNumTypes) - 1;
@@ -139,80 +98,17 @@ namespace tails {
         /// Constructs an empty instance with zero inputs and outputs and max.
         constexpr StackEffect() { }
 
-        /// Constructs an instance from a human-readable stack effect declaration.
-        /// - Each token before the `--` is an input, each one after is an output.
-        /// - Tokens denote types, as described in the \ref TypeSet constructor.
-        /// - Outputs whose names exactly match inputs denote the same exact value at runtime.
-        constexpr StackEffect(const char *str, const char *end) {
-            const char *tokenStart[kMaxEntries] = {};
-            size_t tokenLen[kMaxEntries] = {};
-            auto entry = _entries.begin();
-            bool inputs = true;
-            const char *token = nullptr;
-            bool tokenIsNamed = false;
-
-            for (const char *c = str; c <= end; ++c) {
-                if (c == end || *c == 0 || *c == ' ' || *c == '\t') {
-                    if (token) {
-                        // End of token:
-                        if (!entry->exists() || entry->flags() == 0x1)
-                            entry->addAllTypes();
-                        if (inputs) {
-                            if (tokenIsNamed) {
-                                tokenStart[_ins] = token;
-                                tokenLen[_ins] = c - token;
-                            }
-                            ++_ins;
-                        } else {
-                            // look for 'before' token match:
-                            for (unsigned b = 0; b < _ins; b++) {
-                                if (tokenLen[b] == (c - token) && _compare(tokenStart[b], token, tokenLen[b])) {
-                                    entry->setInputMatch(_entries[b], _ins - 1 - b);
-                                    break;
-                                }
-                            }
-                            ++_outs;
-                        }
-                        ++entry;
-                        token = nullptr;
-                        tokenIsNamed = false;
-                    }
-                } else if (*c == '-') {
-                    // Separator:
-                    if (c+1 == end || c[1] != '-' || token || !inputs)
-                        throw std::runtime_error("Invalid stack separator");
-                    c += 2;
-                    inputs = false;
-                } else {
-                    if (!token) {
-                        // Start of token:
-                        checkNotFull();
-                        token = c;
-                    }
-                    // Symbol in token:
-                    entry->addTypeSymbol(*c);
-                    if ((*c >= 'A' && *c <= 'Z') || (*c >= 'a' && *c <= 'z'))
-                        tokenIsNamed = true;
-                }
-            }
-            if (inputs)
-                throw std::runtime_error("Missing stack separator");
-            _max = uint8_t(std::max(net(), 0));
-        }
-
-        constexpr StackEffect(const char *str) :StackEffect(str, str + _strlen(str)) { }
-
         /// Creates a stack effect from the number of inputs and outputs; any types are allowed.
         constexpr StackEffect(uint8_t inputs, uint8_t outputs)
         :StackEffect(inputs, outputs, 0)
         {
-            _max = uint8_t(std::max(net(), 0));
+            setMax();
         }
 
         /// Sets the max of an instance. Useful for compile-time definitions of interpreted words.
         constexpr StackEffect withMax(int max) {
             auto result = *this;
-            result._max = uint8_t(std::min(255, std::max(0, std::max(max, net()))));
+            result.setMax(max);
             return result;
         }
 
@@ -274,11 +170,13 @@ namespace tails {
         constexpr bool operator!= (const StackEffect &other) const {return !(*this == other);}
 
     private:
+        friend constexpr void _parseStackEffect(StackEffect&, const char *str, const char *end);
+
         constexpr StackEffect(uint8_t inputs, uint8_t outputs, uint16_t max)
         :_ins(inputs), _outs(outputs), _max(max)
         {
             for (uint8_t i = 0; i < inputs + outputs; ++i)
-                _entries[i] = TypeSet("a");
+                _entries[i] = TypeSet::anyType();
         }
 
         constexpr void checkNotFull() const {
@@ -293,13 +191,20 @@ namespace tails {
             _entries[index] = entry;
         }
 
+        constexpr void setMax(int m =0) {
+            if (m > UINT16_MAX)
+                throw std::runtime_error("Stack max too deep");
+            m = std::max(m, net());
+            _max = uint8_t(std::max(m, 0));
+        }
+
         static constexpr size_t kMaxEntries = 8;
         using Entries = std::array<TypeSet, kMaxEntries>;
 
-        Entries _entries;              // Inputs (bottom to top), then outputs (same)
-        uint8_t _ins = 0, _outs = 0;   // Number of inputs and outputs
-        uint8_t _max = 0;              // Max stack growth during run
-        bool    _weird = false;        // If true, behavior not fixed at compile time
+        Entries  _entries;              // Inputs (bottom to top), then outputs (same)
+        uint8_t  _ins = 0, _outs = 0;   // Number of inputs and outputs
+        uint16_t _max = 0;              // Max stack growth during run
+        bool     _weird = false;        // If true, behavior not fixed at compile time
     };
 
 }

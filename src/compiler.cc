@@ -187,18 +187,17 @@ namespace tails {
             } else {
                 if (interps-- == 0) {
                     interps = 0;
+                    bool tail = false;
                     const Word *interpWord;
-                    if (&ref == tailCallHere) {
-                        interpWord = &_TAILINTERP;
-                    } else {
-                        for (auto j = next(i); j != _words.end(); ++j) {
-                            if (j->word->isNative() || &*j == tailCallHere)
-                                break;
-                            if (++interps >= kMaxInterp)
-                                break;
-                        }
-                        interpWord = kInterpWords[interps];
+                    for (auto j = next(i); j != _words.end(); ++j) {
+                        if (j->word->isNative())
+                            break;
+                        if (&*j == tailCallHere)
+                            tail = true;
+                        if (++interps >= kMaxInterp)
+                            break;
                     }
+                    interpWord = kInterpWords[tail][interps];
                     instrs.push_back(*interpWord);
                 }
                 instrs.push_back(*ref.word);

@@ -18,6 +18,7 @@
 
 #include "compiler.hh"
 #include "core_words.hh"
+#include "stack_effect_parser.hh"
 #include "vocabulary.hh"
 #include <optional>
 #include <sstream>

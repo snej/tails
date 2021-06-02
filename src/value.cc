@@ -28,10 +28,6 @@ namespace tails {
 
 #ifdef SIMPLE_VALUE
 
-    Value::Value(const char*, size_t) {
-        throw std::runtime_error("Value doesn't support strings in SIMPLE_VALUE configuration");
-    }
-
     std::ostream& operator<< (std::ostream &out, Value value) {
         return out << value.asDouble();
     }

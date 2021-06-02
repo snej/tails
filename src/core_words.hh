@@ -25,7 +25,8 @@ namespace tails::core_words {
     /// All the words defined herein.
     extern const Word
         _INTERP, _INTERP2, _INTERP3, _INTERP4,
-        _TAILINTERP, _RETURN, _LITERAL,
+        _TAILINTERP, _TAILINTERP2, _TAILINTERP3, _TAILINTERP4,
+        _RETURN, _LITERAL,
         DROP, DUP, OVER, ROT, SWAP, NOP,
         EQ, NE, EQ_ZERO, NE_ZERO,
         GE, GT, GT_ZERO,
@@ -42,8 +43,12 @@ namespace tails::core_words {
     /// Array of pointers to the above core words, ending in nullptr
     extern const Word* const kWords[];
 
-    /// The `_INTERP` family of words that take 1...4 parameters
+    /// Array of the `_INTERP` family of words.
+    /// First array index is whether to tail-call the last word;
+    /// Second index is the number of words that follow (0..kMaxInterp-1)
     static constexpr size_t kMaxInterp = 4;
-    static constexpr const Word* kInterpWords[kMaxInterp] = {
-        &_INTERP, &_INTERP2, &_INTERP3, &_INTERP4};
+    static constexpr const Word* kInterpWords[2][kMaxInterp] = {
+        {&_INTERP, &_INTERP2, &_INTERP3, &_INTERP4},
+        {&_TAILINTERP, &_TAILINTERP2, &_TAILINTERP3, &_TAILINTERP4}
+    };
 }

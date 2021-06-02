@@ -2,11 +2,9 @@
 
 **Tails** is a minimal, fast [Forth][FORTH]-like interpreter core written entirely in C+\+. I created it as a one-day hack to celebrate May Forth 2021 … then kept going because it's fun.
 
-What can it do? Not much on its own. It knows how to add and multiply integers!! and call functions!!!! It can evaluate `4 3 + SQUARE DUP + SQUARE ABS` and return the expected answer `9604`. That expression can be written as a hardcoded list of word references, or parsed from a string.
+It started out as tiny but functional. The magic core code (`NEXT`, `INTERP`, `RETURN`, `LITERAL`, `DUP`, etc.) is about 200SLOC and compiles to a few hundred bytes, many of which are NOPs the compiler adds for padding. The parser and compiler add a few KB more.
 
-It's not much, but it's pretty tiny! The magic core code (`NEXT`, `INTERP`, `RETURN`, `LITERAL`, `DUP`, etc.) is about 200SLOC and compiles to a few hundred bytes, many of which are NOPs the compiler adds for padding. The parser and compiler add a few KB more.
- 
-And it's very easy to extend -- see the to-do list at the end.
+It's grown significantly since then: there's a parser, stack-checking type-checking compiler, multiple value types including strings and arrays, "quotations" (i.e. lambdas or blocks) ... but the simple core can still be extracted and used if something more minimal is needed.
 
 The reason I wrote this, besides to fulfil a decades-old dream of building a working Forth interpreter, is to apply the really elegant and efficient implementation technique used by [Wasm3][WASM3] (a [WebAssembly][WASM] interpreter), which is probably the fastest pure non-JIT interpreter there is. See below under "Performance".
  
@@ -99,6 +97,20 @@ The other main approach is called "indirect threading", where there's another la
 
 > Tip: A great resource for learning how a traditional Forth interpreter works is [JonesForth][JONES], a tiny interpreter in x86 assembly written in "literate" style, with almost as much commentary as code.
 
+### Optimizations
+
+There are some variants of the core word `INTERP` that aren't strictly necessary but allow faster and more compact code.
+
+`INTERP2` is followed by _two_ interpreted word pointers, and calls them sequentially. There are also `INTERP3` and `INTERP4`; there could be any number of these. The compiler uses these when there are two or more consecutive calls to interpreted words. They make the code smaller by omitting one or more `CALL` instructions, and they also save the time needed to go into and out of those instructions.
+
+`TAILINTERP` _jumps_ to the interpreted word, instead of making a regular call and then doing `NEXT`. It's the tail-call optimization, applied to interpreted code. The compiler emits this as a replacement for `INTERP` followed by `RETURN`. Not only is it faster, it also prevents the return stack from growing, saving memory and making recursive algorithms more practical.
+
+And yes, there exist `TAILINTERP2`, `TAILINTERP3`, `TAILINTERP4`.
+
+>Note: Of course there's nothing magic about 4; there could be any number of words in this family. In real usage it would probably be beneficial to go at least up to 8, maybe higher.
+
+Another optimization is inlining. The "inline" flag in an interpreted word's metadata is a hint to the compiler to insert its instructions inline instead of emitting a call. It turns out that inlining is pretty trivial to implement in a concatenative (stack-based) language: you literally just copy the contents of the word, stopping before the `RETURN`. 
+
 ## Compilation
 
 There are several ways to add words to Tails:
@@ -138,15 +150,17 @@ You cannot yet define words in this mode; there's no "`:`" word yet.
 
 There's a convention in Forth of annotating a word's definition with a "stack effect" comment that shows the input values it expects to find on the stack, and the output values it leaves on the stack. Some Forth-family languages like [Factor][FACTOR] make these part of the language, and statically check that the actual behavior of the word matches. This is very useful, since otherwise mistakes in stack depth are easy to make and hard to debug!
 
-Tails's `CompiledWord` class computes the stack effect of a word as it compiles it. If the code isn't self-consistent, like if one branch of an `IF` has a different effect than the other, it fails with an error. It also computes the maximum depth of the stack while it's doing this. The stack effect is available as part of the metadata of the word.
+Tails enforces stack effects. It even uses them for type checking. The stack effect can be given explicitly when a word is compiled, or it can be inferred from the code. Either way, the compiler runs a stack checker that simulates the stack as the word runs. If a stack effect has already been given, the stack checker will notice any deviation from it and flag a compile error.  Otherwise, the resulting effect at the end of the word becomes the word's stack effect. The stack effect is saved as part of the word's metadata, and used when compiling later words that call it.
 
-A top-level interpreter can use this to allocate a minimally-sized stack and verify that it won't overflow or underflow. Therefore no stack checks are needed at runtime! The `run` function in `test.cc` demonstrates this: It won't run a word whose stack effect's `input` is nonzero, because the stack would underflow, or whose `output` is zero, because there wouldn't be any result left on the stack. And it uses the stack effect's `max` as the size of stack to allocate.
+The checker also rejects mismatched parameter types (when a type on the stack doesn't match the input stack effect of the word being called), and inconsistent stack depths in the two branches of an `IF`...`ELSE`.
+
+During this, stack checker also also tracks the maximum depth of the stack, and saves that as part of the stack effect. A top-level interpreter can use this to allocate a minimally-sized stack and know that it won't overflow or underflow. Therefore **no stack checks are needed at runtime!** The `run` function in `test.cc` demonstrates this: It won't run a word whose stack effect's `input` is nonzero, because the stack would underflow, or whose `output` is zero, because there wouldn't be any result left on the stack. And it uses the stack effect's `max` as the size of stack to allocate.
 
 >Warning: The  `NATIVE_WORD` and `INTERP_WORD` macros are **not** smart enough to check stack effects. When defining a word with these you have to give the word's stack effect, on the honor system; if you get it wrong, `CompiledWord` will get wrong results for words that call that one. G.I.G.O.!
 
 #### Stack Checking Vs. Quotations
 
-Unfortunately the recent (May 20 or so) addition of quotations (function values) has thrown a bit of a wrench into the stack checker. The `CALL` primitive which invokes a quote has a stack effect that's indeterminate, because it's the effect of the quote on top of the stack, which in general isn't known at compile time.
+Unfortunately the recent (May 20 or so) addition of quotations (function values) has thrown a bit of a wrench into the stack checker. The `CALL` primitive which invokes a quotation has a stack effect that's indeterminate, because its effect is that of the quotation object on top of the stack, which in general isn't known at compile time.
 
 Factor calls this situation "row polymorphism" and has a complex type of stack effect declaration to express it. I'm still trying to figure out how it works and how it could be implemented.
 
@@ -186,12 +200,25 @@ For example, here's the x86-64 assembly code of the PLUS function, compiled by C
 3ce0    jmpq    *%rax               ; jump to the next word
 ```
 
+#### Register usage in function calls
+
+X86-64, Unix and Apple platforms:
+
+>"The first six integer or pointer arguments are passed in registers RDI, RSI, RDX, RCX, R8, R9 (R10 is used as a static chain pointer in case of nested functions), while XMM0, XMM1, XMM2, XMM3, XMM4, XMM5, XMM6 and XMM7 are used for the first floating point arguments. As in the Microsoft x64 calling convention, additional arguments are passed on the stack. Integer return values up to 64 bits in size are stored in RAX while values up to 128 bit are stored in RAX and RDX. Floating-point return values are similarly stored in XMM0 and XMM1. The wider YMM and ZMM registers are used for passing and returning wider values in place of XMM when they exist." --[Wikipedia](https://en.wikipedia.org/wiki/X86_calling_conventions#System_V_AMD64_ABI)
+
+X86-64, Windows:
+
+>"The first four arguments are placed onto the registers. That means RCX, RDX, R8, R9 for integer, struct or pointer arguments (in that order), and XMM0, XMM1, XMM2, XMM3 for floating point arguments. Additional arguments are pushed onto the stack (right to left). Integer return values (similar to x86) are returned in RAX if 64 bits or less. Floating point return values are returned in XMM0. Parameters less than 64 bits long are not zero extended; the high bits are not zeroed. If the callee wishes to use registers RBX, RSP, RBP, and R12–R15, it must restore their original values before returning control to the caller. All other registers must be saved by the caller if it wishes to preserve their values." --[Wikipedia](https://en.wikipedia.org/wiki/X86_calling_conventions#Microsoft_x64_calling_convention)
+
+ARM64:
+
+ARM64 calling conventions are more standardized, but the official specification is extremely convoluted. In a nutshell, the first eight int/struct/pointer arguments are passed in registers x0–x7. The return value goes in x0 (up to 64 bits), or in x0 and x1 (up to 128 bits); if larger, the caller sets x8 to the location to write the result. (See this handy [ARM64 cheat sheet](https://github.com/Siguza/ios-resources/blob/master/bits/arm64.md#calling-convention).)
+
+
 ## To-Do List
 
 * Add more data types, like dictionaries.
 * Define a bunch more core words.
-* Define the all-important `:` and `;` words, so words can be defined in Forth itself.
-* Type checking in stack effects? (E.g. declare that a word takes two strings and returns a boolean.)
 
 [FORTH]: https://en.wikipedia.org/wiki/Forth_(programming_language)
 [WASM]: https://webassembly.org

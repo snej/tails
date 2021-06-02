@@ -18,10 +18,14 @@
 
 #pragma once
 #include "platform.hh"
-#include "nan_tagged.hh"
 #include <iosfwd>
+#include <stdint.h>
+
+#ifndef SIMPLE_VALUE
+#include "nan_tagged.hh"
 #include <string_view>
 #include <vector>
+#endif
 
 
 namespace tails {
@@ -35,25 +39,33 @@ namespace tails {
     /// pointer, or it'll bloat your code since \ref Instruction contains a `Value`.
     class Value {
     public:
-        constexpr Value(double n = 0)       :_number(n) { }
-        constexpr Value(int n)              :_number(n) { }
-        explicit Value(const char*, size_t=0);
+        constexpr Value(double n = 0)                       :_number(n) { }
+        constexpr Value(int n)                              :_number(n) { }
 
-        constexpr double asNumber() const {return _number;}
-        constexpr double asDouble() const {return _number;}
-        constexpr int    asInt() const    {return int(_number);}
+        constexpr double asNumber() const                   {return _number;}
+        constexpr double asDouble() const                   {return _number;}
+        constexpr int    asInt() const                      {return int(_number);}
 
-        constexpr explicit operator bool() const {return _number != 0.0;}
+        constexpr explicit operator bool() const            {return _number != 0.0;}
 
-        constexpr bool operator== (const Value &v) const {return _number == v._number;}
+        constexpr bool operator== (const Value &v) const    {return _number == v._number;}
 
-        int cmp(Value v) const {return _number == v._number ? 0 : (_number < v._number ? -1 : 1);}
+        int cmp(Value v) const {
+            return _number == v._number ? 0 : (_number < v._number ? -1 : 1);
+        }
 
         Value operator+(Value v) const  {return Value(asNumber() + v.asNumber());}
         Value operator-(Value v) const  {return Value(asNumber() - v.asNumber());}
         Value operator*(Value v) const  {return Value(asNumber() * v.asNumber());}
         Value operator/(Value v) const  {return Value(asNumber() / v.asNumber());}
         Value operator%(Value v) const  {return Value(asInt() % v.asInt());}
+
+        // A minimal type system with only one type:
+        enum Type {
+            ANumber,
+        };
+        constexpr Type type() const       {return ANumber;}
+        static const char* typeName(Type) {return "number";}
 
     private:
         double _number;

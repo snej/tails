@@ -19,6 +19,7 @@
 #include "core_words.hh"
 #include "compiler.hh"
 #include "disassembler.hh"
+#include "stack_effect_parser.hh"
 #include "vocabulary.hh"
 #include "test.hh"
 #include <array>
@@ -125,21 +126,22 @@ static Value _runParser(const char *source) {
 using namespace tails::core_words;
 
 
-__unused static constexpr StackEffect kSomeTS("x# -- y$");
+__unused static constexpr StackEffect kSomeTS = "x# -- y#"_sfx;
 
 
 static void testStackEffect() {
-    StackEffect ts("--");
+    StackEffect ts = "--"_sfx;
     assert(ts.inputs() == 0);
     assert(ts.outputs() == 0);
 
-    ts = StackEffect("a -- b");
+    ts = "a -- b"_sfx;
     assert(ts.inputs() == 1);
     assert(ts.outputs() == 1);
     assert(ts.input(0).flags() == 0x1F);
     assert(ts.output(0).flags() == 0x1F);
 
-    ts = StackEffect("aaa# bbb#? -- ccc$ {d_d}?");
+#ifndef SIMPLE_VALUE
+    ts = "aaa# bbb#? -- ccc$ {d_d}?"_sfx;
     assert(ts.inputs() == 2);
     assert(ts.outputs() == 2);
     assert(ts.input(0).flags() == 0x03);
@@ -148,12 +150,15 @@ static void testStackEffect() {
     assert(ts.output(1).flags() == 0x04);
     assert(!ts.output(0).isInputMatch());
     assert(ts.output(0).inputMatch() == -1);
+#endif
 
-    ts = StackEffect("apple ball# cat -- ball# cat apple");
+    ts = "apple ball# cat -- ball# cat apple"_sfx;
     assert(ts.inputs() == 3);
     assert(ts.outputs() == 3);
     assert(ts.input(0).flags() == 0x1F);
+#ifndef SIMPLE_VALUE
     assert(ts.input(1).flags() == 0x02);
+#endif
     assert(ts.input(2).flags() == 0x1F);
     assert(ts.output(0).isInputMatch());
     assert(ts.output(0).inputMatch() == 2);
@@ -161,7 +166,9 @@ static void testStackEffect() {
     assert(ts.output(2).inputMatch() == 1);
     assert(ts.output(0).flags() == 0x7F);
     assert(ts.output(1).flags() == 0x3F);
+#ifndef SIMPLE_VALUE
     assert(ts.output(2).flags() == 0x42);
+#endif
 }
 
 
@@ -184,7 +191,7 @@ int main(int argc, char *argv[]) {
 
     CompiledWord SQUARE( []() {
         Compiler c("SQUARE");
-        c.setStackEffect("# -- #");
+        c.setStackEffect("# -- #"_sfx);
         c.setInline();
         c.add({DUP});
         c.add({MULT});
