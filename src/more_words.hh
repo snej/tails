@@ -11,7 +11,11 @@ namespace tails::word {
 
     void endLine();
 
-    extern const Word PRINT, SP, CRLF, CRLFQ;
+    extern const Word
+        PRINT,  // `.` -- print top of stack to stdout
+        SP,     // `SP.` -- print a space character
+        NL,     // `NL.` -- print a newline
+        NLQ;    // `NL?` -- print a newline only if there are characters on the current line
 
     extern const Word* const kWords[];
 }

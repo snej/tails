@@ -18,6 +18,7 @@
 
 #include "compiler.hh"
 #include "gc.hh"
+#include "io.hh"
 #include "more_words.hh"
 #include "vocabulary.hh"
 #include "linenoise.h"
@@ -105,6 +106,7 @@ namespace repl {
 
 
     static void garbageCollect(Stack &stack) {
+#ifndef SIMPLE_VALUE
         Compiler::activeVocabularies.gcScan();
         gc::object::scanStack(&stack.front(), &stack.back());
 #if 1
@@ -113,6 +115,7 @@ namespace repl {
         auto [preserved, freed] = gc::object::sweep();
         if (freed > 0)
             cout << "GC: freed " << freed << " objects; " << preserved << " left.\n";
+#endif
 #endif
     }
 

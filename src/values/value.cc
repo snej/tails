@@ -18,8 +18,8 @@
 
 #include "value.hh"
 #include "gc.hh"
-#include "word.hh"
-#include "test.hh"
+#include "compiler.hh"  // just for CompiledWord
+#include "io.hh"
 #include <iomanip>
 #include <iostream>
 #include <string.h>
@@ -35,6 +35,21 @@ namespace tails {
 
 #else
 
+    /**
+     ### Value data representation:
+
+     `Value` is a subclass of `NanTagged` (see nan_tagged.hh), which magically allows numbers,
+     pointers and inline data to be stored in 64 bits. It exposes a `double`, a pointer,
+     two tag bits, and an "inline" flag.
+
+     - A number is represented as a regular `double` value. (This includes exact storage of integers
+       up to ±2^51.)
+     - A string has `kStringTag`. If up to 6 bytes long it can be stored inline; the length is
+       determined by the number of trailing zero bytes. Otherwise it points to a gc::String object.
+     - An array has `kArrayTag` and points to a `gc::Array` object. (It's never inline.)
+     - A quotation has `kQuoteTag` and points to a `gc::Quote` object. (It's never inline.)
+     - Null is a singleton value that's tagged as a String but has a null pointer.
+    */
 
 
     Value::Value(const char* str)
@@ -58,24 +73,25 @@ namespace tails {
     Value::Value(std::initializer_list<Value> arrayItems)
     :NanTagged((void**)0)
     {
-        auto array = new Array(arrayItems);
-        setPointer((char*)array);
+        vector<Value> array(arrayItems);
+        setPointer(new gc::Array(move(array)));
         setTags(kArrayTag);
     }
 
 
-    Value::Value(Array *array)
+    Value::Value(vector<Value> &&array)
     :NanTagged((void**)0)
     {
-        setPointer((char*)array);
+        setPointer(new gc::Array(move(array)));
         setTags(kArrayTag);
     }
 
 
-    Value::Value(const Word *word)
-    :NanTagged((char*)word)
+    Value::Value(CompiledWord *word)
+    :NanTagged(word)
     {
         assert(word);
+        setPointer(new gc::Quote(word));
         setTags(kQuoteTag);
     }
 
@@ -105,7 +121,7 @@ namespace tails {
             return (char*)setInline();
         } else {
             auto heapStr = gc::String::make(len);
-            setPointer((char*)heapStr);
+            setPointer(heapStr);
             return (char*)heapStr->c_str();
         }
     }
@@ -128,33 +144,43 @@ namespace tails {
     }
 
 
-    Value::Array* Value::asArray() const {
+    vector<Value>* Value::asArray() const {
         if (tags() == kArrayTag)
-            return (Array*)asPointer();
+            return &((gc::Array*)asPointer())->array();
         return nullptr;
     }
 
 
     const Word* Value::asQuote() const {
         if (tags() == kQuoteTag)
-            return (const Word*)asPointer();
+            return ((gc::Quote*)asPointer())->word();
         return nullptr;
     }
 
 
     void Value::mark() const {
-        if (!isDouble()) {
-            switch (tags()) {
-                case kStringTag:
-                    if (!isInline())
-                        ((gc::String*)asPointer())->mark();
-                    break;
-                default:
-                    break;
-            }
+        switch (tags()) {
+            case kStringTag:
+                if (!isDouble() && !isInline())
+                    ((gc::String*)asPointer())->mark();
+                break;
+            case kArrayTag:
+                ((gc::Array*)asPointer())->mark();
+                break;
+            case kQuoteTag:
+                ((gc::Quote*)asPointer())->mark();
+            default:
+                break;
         }
     }
 
+
+    Value::operator bool() const {
+        if (isDouble())
+            return asDouble() != 0;
+        else
+            return !isNull();
+    }
 
     bool Value::operator== (const Value &v) const {
         if (NanTagged::operator==(v))
@@ -183,7 +209,7 @@ namespace tails {
             case AString:
                 return asString().compare(v.asString());
             case AnArray: {
-                const Array *a = asArray(), *b = v.asArray();
+                const vector<Value> *a = asArray(), *b = v.asArray();
                 auto ia = a->begin(), ib = b->begin();
                 for (size_t n = min(a->size(), b->size()); n > 0; --n, ++ia, ++ib) {
                     if (int c = ia->cmp(*ib); c != 0)
@@ -227,9 +253,10 @@ namespace tails {
             }
         } else if (isArray()) {
             // Add item to array:
-            auto newArray = new Array(*asArray());
-            newArray->push_back(v);
-            return Value((char*)newArray);
+            vector<Value> newArray(*asArray());
+            Value newVal(move(newArray));
+            newVal.asArray()->push_back(v);
+            return newVal;
         } else {
             return NullValue;
         }
@@ -264,7 +291,7 @@ namespace tails {
     }
 
 
-    static std::ostream& operator<< (std::ostream &out, const Value::Array &array) {
+    static std::ostream& operator<< (std::ostream &out, const vector<Value> &array) {
         out << '{';
         int n = 0;
         for (auto value : array) {

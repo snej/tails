@@ -176,9 +176,7 @@ The `Value` class defines what Tails can operate on. The stack is just a C array
 
 **The simple Value** is just a trivial wrapper around a `double`, so all it supports are numbers.
 
-**The fancy Value** uses the so-called "[NaN tagging][NAN]" or "Nan boxing" trick that's used by several dynamic language runtimes, such as LuaJIT and the WebKit and Mozilla JavaScript VMs. It currently supports `double`s, strings, arrays and Words (quotations), and is extensible.
-
-There is unfortunately no garbage collector or ref-counting yet, so heap-allocated data is simply leaked. Fortunately the fancy Value can store strings up to six bytes long inline, which reduces waste.
+**The fancy Value** uses the so-called "[NaN tagging][NAN]" or "Nan boxing" trick that's used by several dynamic language runtimes, such as LuaJIT and the WebKit and Mozilla JavaScript VMs. It currently supports `double`s, strings, arrays and Words (quotations), and is extensible. It has a very simple garbage collector.
 
 ### Performance
 

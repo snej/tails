@@ -1,15 +1,25 @@
-#! /bin/sh -e
+#! /bin/bash -e
+# Super-stupid build script. Feel free to submit a real make / CMake project :)
 
-echo "Building tails_test ..."
+echo "Building Tails ..."
+cd src
 rm -f *.o
 
-# Compile core_words.cc with special flags to suppress unnecessary stack frames
-cc -c -std=c++17 -Wall -O3 -fomit-frame-pointer -fno-stack-check -fno-stack-protector src/core_words.cc
+compile='cc -std=c++17 -Wall -I . -I core -I values -I compiler'
 
-cc -c -std=c++17 -Wall src/{compiler,test,value,vocabulary}.cc
-cc -lc++ *.o -o tails_test
+# Compile core_words.cc with special flags to suppress unnecessary stack frames
+$compile -c -O3 -fomit-frame-pointer -fno-stack-check -fno-stack-protector \
+    core/core_words.cc more_words.cc
+
+$compile -c {values,compiler}/*.cc
 
 echo "Testing..."
-./tails_test >/dev/null || ./tails_test
+$compile -lc++ *.o test.cc -o ../tails_test
+../tails_test >/dev/null || ../tails_test
+
+echo "Building 'tails' REPL ..."
+cc -c -I ../vendor/linenoise ../vendor/linenoise/{linenoise,utf8}.c
+$compile -I ../vendor/linenoise *.o repl.cc -lc++ -o ../tails
+rm *.o
 
 echo "Done."

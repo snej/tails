@@ -23,7 +23,7 @@
 #include "more_words.hh"
 #include "stack_effect_parser.hh"
 #include "vocabulary.hh"
-#include "test.hh"
+#include "io.hh"
 #include <array>
 #include <iomanip>
 #include <iostream>
@@ -56,9 +56,11 @@ static Value run(const Word &word) {
 
 
 static void garbageCollect() {
+#ifndef SIMPLE_VALUE
     Compiler::activeVocabularies.gcScan();
     auto [preserved, freed] = gc::object::sweep();
     cout << "GC: freed " << freed << " objects; " << preserved << " left.\n";
+#endif
 }
 
 
@@ -261,7 +263,7 @@ int main(int argc, char *argv[]) {
     TEST_PARSER(12,                 R"( 3 4  1 [*] [DROP] IFELSE)");
     TEST_PARSER(3,                  R"( 3 4  0 [*] [DROP] IFELSE)");
 
-    TEST_PARSER(0,                  R"( "Hello" . SP. 17 . CRLF. 0 )");
+    TEST_PARSER(0,                  R"( "Hello" . SP. 17 . NL. 0 )");
 
     garbageCollect();
     assert(gc::object::instanceCount() == 0);

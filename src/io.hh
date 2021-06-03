@@ -1,5 +1,5 @@
 //
-// test.hh
+// io.hh
 //
 // Copyright (C) 2020 Jens Alfke. All Rights Reserved.
 //
@@ -10,7 +10,7 @@
 
 namespace tails {
 
-    // Utilities for testing:
+    std::ostream& operator<< (std::ostream&, Value);
 
     inline std::ostream& operator<< (std::ostream &out, TypeSet entry) {
         if (entry.canBeAnyType())

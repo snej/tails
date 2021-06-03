@@ -204,7 +204,7 @@ namespace tails {
         throw compile_error("Arrays not supported", input);
 #else
         Value arrayVal({});
-        Value::Array *array = arrayVal.asArray();
+        std::vector<Value> *array = arrayVal.asArray();
         while (true) {
             string_view token = readToken(input);
             if (token == "}")

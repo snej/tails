@@ -17,6 +17,7 @@
 //
 
 #include "more_words.hh"
+#include "io.hh"
 #include "stack_effect_parser.hh"
 #include <iostream>
 
@@ -41,7 +42,7 @@ namespace tails::word {
         NEXT();
     }
 
-    NATIVE_WORD(CRLF, "CRLF.", "--"_sfx, 0) {
+    NATIVE_WORD(NL, "NL.", "--"_sfx, 0) {
         std::cout << '\n';
         sAtLeftMargin = true;
         NEXT();
@@ -54,7 +55,7 @@ namespace tails::word {
         }
     }
 
-    NATIVE_WORD(CRLFQ, "CRLF?", "--"_sfx, 0) {
+    NATIVE_WORD(NLQ, "NL?", "--"_sfx, 0) {
         endLine();
         NEXT();
     }
@@ -67,7 +68,7 @@ namespace tails::word {
     // This null-terminated list is used to register these words in the Vocabulary at startup.
 
     const Word* const kWords[] = {
-        &PRINT, &SP, &CRLF, &CRLFQ,
+        &PRINT, &SP, &NL, &NLQ,
         nullptr
     };
 

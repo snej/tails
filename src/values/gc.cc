@@ -17,21 +17,24 @@
 //
 
 #include "gc.hh"
+#include "compiler.hh"  // just for CompiledWord
 #include "value.hh"
 #include "word.hh"
 #include "core_words.hh"
 
+#ifndef SIMPLE_VALUE
+
 namespace tails::gc {
-    using namespace tails;
     using namespace std;
+    using namespace tails;
 
 
     object* object::sFirst = nullptr;
     size_t object::sInstanceCount = 0;
 
 
-    object::object()
-    :_next(intptr_t(sFirst))
+    object::object(int type)
+    :_next(intptr_t(sFirst) | (type & kTypeBits))
     {
         assert(next() == sFirst);
         sFirst = this;
@@ -58,44 +61,52 @@ namespace tails::gc {
 
     pair<size_t,size_t> object::sweep() {
         size_t freed = 0, kept = 0;
-        object *next, **prev = &sFirst;
-        bool lastSwept = false;
-        for (object *o = first(); o; o = next) {
+        object *next, *prev = nullptr, *o;
+        bool fixLink = false;
+
+        auto updateLink = [&] {
+            if (fixLink) {
+                if (prev) prev->setNext(o); else sFirst = o;
+                fixLink = false;
+            }
+        };
+
+        for (o = first(); o; o = next) {
             next = o->next();
             if (o->isMarked()) {
                 o->unmark();
-                if (lastSwept) {
-                    *prev = o;
-                    lastSwept = false;
-                }
-                prev = (object**)&o->_next;
+                updateLink();
+                prev = o;
                 ++kept;
             } else {
-                delete o;
-                lastSwept = true;
+                // Free unmarked objects:
+                o->collect();
+                fixLink = true;
                 ++freed;
             }
         }
-        if (lastSwept)
-            *prev = nullptr;
+        updateLink();
         assert(kept + freed == sInstanceCount);
         sInstanceCount -= freed;
         return {kept, freed};
     }
 
 
-    String* String::make(size_t len) {
-        return new (len) String(len);
+    void object::collect() {
+        switch (type()) {
+            case kStringType:  delete (String*)this; break;
+            case kArrayType:   delete (Array*)this; break;
+            case kQuoteType:   delete (Quote*)this; break;
+            default:           break;
+        }
     }
 
 
-    String* String::make(std::string_view str) {
-        return new (str.size()) String(str);
-    }
+#pragma mark - STRING:
 
 
     String::String(size_t len)
-    :object()
+    :object(kStringType)
     ,_len(uint32_t(len))
     {
         assert(len < UINT32_MAX);
@@ -109,4 +120,33 @@ namespace tails::gc {
         memcpy(_data, str.data(), str.size());
     }
 
+
+#pragma mark - ARRAY:
+
+
+    void Array::mark() {
+        if (object::mark()) {
+            for (auto val : _array)
+                val.mark();
+        }
+    }
+
+
+#pragma mark - QUOTE:
+
+
+    Quote::Quote(CompiledWord *word)
+    :object(kQuoteType)
+    ,_word(word)
+    { }
+
+    Quote::~Quote() = default;
+
+    void Quote::mark() {
+        if (object::mark())
+            scanWord(_word.get());
+    }
+
 }
+
+#endif // SIMPLE_VALUE

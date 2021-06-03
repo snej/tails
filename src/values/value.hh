@@ -18,7 +18,6 @@
 
 #pragma once
 #include "platform.hh"
-#include <iosfwd>
 #include <stdint.h>
 
 #ifndef SIMPLE_VALUE
@@ -74,17 +73,18 @@ namespace tails {
 #else
 
     class Word;
+    class CompiledWord;
 
     /// Type of values stored on the stack.
     ///
-    /// This is a more complex implementation that can store numbers, strings and arrays.
-    /// (But there is no garbage collector, so strings and arrays just leak...)
-    class Value : private NanTagged<char> {
+    /// This is a more complex implementation that can store numbers, strings, arrays, and
+    /// "quotations" (anonymous words, aka lambdas.) This all still fits in 64 bits thanks to the
+    /// magic of NaN Tagging.
+    class Value : private NanTagged<void> {
     public:
-        using Array = std::vector<Value>;
-
         constexpr Value()          :NanTagged(nullptr) { }
         constexpr Value(nullptr_t) :Value() { }
+
         constexpr Value(double n)  :NanTagged(n) { }
         constexpr Value(int n)     :Value(double(n)) { }
         constexpr Value(size_t n)  :Value(double(n)) { }
@@ -93,9 +93,9 @@ namespace tails {
         Value(const char* str, size_t len);
 
         Value(std::initializer_list<Value> arrayItems);
-        Value(Array *array);
+        Value(std::vector<Value>&&);
 
-        Value(const Word*);
+        explicit Value(CompiledWord*);
 
         enum Type {
             ANull,
@@ -106,7 +106,6 @@ namespace tails {
         };
 
         Type type() const;
-
         static const char* typeName(Type);
 
         constexpr bool isNull() const       {return NanTagged::isNullPointer();}
@@ -119,27 +118,27 @@ namespace tails {
         constexpr double asDouble() const   {return NanTagged::asDouble();}
         constexpr int    asInt() const      {return int(asDoubleOrZero());}
         std::string_view asString() const;
-        Array*           asArray() const;
+        std::vector<Value>* asArray() const;
         const Word*      asQuote() const;
 
-        constexpr explicit operator bool() const {
-            if (isDouble())
-                return asDouble() != 0;
-            else
-                return isString();
-        }
-
+        /// 'Truthiness' -- any Value except 0 and null is considered truthy.
+        explicit operator bool() const;
+        /// Equality comparison
         bool operator== (const Value &v) const;
+        /// 3-way comparison, like the C++20 `<=>` operator.
         int cmp(Value v) const;
 
-        Value length() const;
-
+        // Arithmetic operators. `+` is overloaded to concatenate strings and arrays.
         Value operator+ (Value v) const;
         Value operator- (Value v) const;
         Value operator* (Value v) const;
         Value operator/ (Value v) const;
         Value operator% (Value v) const;
 
+        /// Returns the length of a string or array; not valid for other types.
+        Value length() const;
+
+        /// Marks this value as in use during garbage collection. (See `gc.hh` for main GC API.)
         void mark() const;
 
     private:
@@ -157,6 +156,4 @@ namespace tails {
     static inline bool operator>= (const Value &a, const Value &b) {return a.cmp(b) >= 0;}
     static inline bool operator<  (const Value &a, const Value &b) {return a.cmp(b) < 0;}
     static inline bool operator<= (const Value &a, const Value &b) {return a.cmp(b) <= 0;}
-
-    std::ostream& operator<< (std::ostream&, Value);
 }
