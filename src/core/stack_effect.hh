@@ -22,6 +22,7 @@
 #include <algorithm>
 #include <array>
 #include <ctype.h>
+#include <initializer_list>
 #include <optional>
 #include <stdint.h>
 
@@ -33,7 +34,12 @@ namespace tails {
     public:
         constexpr TypeSet() { }
 
-        constexpr explicit TypeSet(Value::Type type)        {addType(type);}
+        constexpr TypeSet(Value::Type type)        {addType(type);}
+
+        constexpr TypeSet(std::initializer_list<Value::Type> types) {
+            for (auto type : types)
+                addType(type);
+        }
 
         constexpr static TypeSet anyType() {return TypeSet(kTypeFlags);}
         constexpr static TypeSet noType()  {return TypeSet();}
@@ -55,8 +61,14 @@ namespace tails {
         constexpr bool isInputMatch() const                 {return (_flags & 0xE0) != 0;}
         constexpr int inputMatch() const                    {return (_flags >> kNumTypes) - 1;}
 
-        constexpr void setInputMatch(TypeSet inputEntry, unsigned entryNo) {
-            _flags = ((entryNo+1) << kNumTypes) | (inputEntry._flags & kTypeFlags);
+        constexpr void setInputMatch(TypeSet inputEntry, unsigned inputNo) {
+            assert(inputNo <= 6);
+            _flags = ((inputNo+1) << kNumTypes) | (inputEntry._flags & kTypeFlags);
+        }
+
+        constexpr TypeSet operator/ (unsigned inputNo) const {
+            assert(inputNo <= 6);
+            return TypeSet(typeFlags() | ((inputNo+1) << kNumTypes));
         }
 
         /// I am "greater than" another entry if I support types it doesn't.
@@ -102,6 +114,21 @@ namespace tails {
         constexpr StackEffect(uint8_t inputs, uint8_t outputs)
         :StackEffect(inputs, outputs, 0)
         {
+            setMax();
+        }
+
+        constexpr StackEffect(std::initializer_list<TypeSet> inputs,
+                              std::initializer_list<TypeSet> outputs)
+        :_ins(inputs.size())
+        ,_outs(outputs.size())
+        {
+            if (inputs.size() + outputs.size() >= kMaxEntries)
+                throw std::runtime_error("Too many stack entries");
+            auto entry = &_entries[0];
+            for (auto in : inputs)
+                *entry++ = in;
+            for (auto out : outputs)
+                *entry++ = out;
             setMax();
         }
 

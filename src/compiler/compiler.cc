@@ -228,7 +228,7 @@ namespace tails {
 
     namespace core_words {
 
-        NATIVE_WORD(DEFINE, "DEFINE", "{code} $name -- "_sfx, 0) {
+        NATIVE_WORD(DEFINE, "DEFINE", "{code} $name -- "_sfx) {
             auto name = sp[0].asString();
             auto quote = (const CompiledWord*)sp[-1].asQuote();
             sp -= 2;

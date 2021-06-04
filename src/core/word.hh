@@ -39,6 +39,10 @@ namespace tails {
             HasWordParam= 0x08, ///< This word is followed by a Word param (INTERP, TAILINTERP, etc)
             Magic       = 0x10, ///< Low-level, not allowed in parsed code (0BRANCH, INTERP, etc.)
             Inline      = 0x20, ///< Should be inlined at call site
+
+            MagicIntParam  = Magic | HasIntParam,
+            MagicValParam  = Magic | HasValParam,
+            MagicWordParam = Magic | HasWordParam,
         };
 
         constexpr Word(const char *name,
@@ -50,7 +54,7 @@ namespace tails {
         ,_name(name)
         ,_effect(effect)
         ,_flags(Flags(flags | Native))
-        ,_nParams(nParams)
+        ,_nParams(std::max(nParams, uint8_t((flags & (HasIntParam|HasValParam|HasWordParam)) != 0)))
         { }
 
         constexpr Word(const char *name, StackEffect effect, const Instruction words[])
@@ -97,14 +101,11 @@ namespace tails {
     // @param NAME  The C++ name of the Word object to define.
     // @param FORTHNAME  The word's Forth name (a string literal.)
     // @param EFFECT  The \ref StackEffect. Must be accurate!
-    // @param FLAGS  Flags; use \ref HasIntParam if this word takes a following parameter.
-    #define NATIVE_WORD_PARAMS(NAME, FORTHNAME, EFFECT, FLAGS, PARAMS) \
+    // Flags and parameter count may optionally follow, as per the Word constructor.
+    #define NATIVE_WORD(NAME, FORTHNAME, EFFECT, ...) \
         extern "C" Value* f_##NAME(Value *sp, const Instruction *pc); \
-        constexpr Word NAME(FORTHNAME, f_##NAME, EFFECT, Word::Flags(FLAGS), PARAMS); \
+        constexpr Word NAME(FORTHNAME, f_##NAME, EFFECT, ## __VA_ARGS__); \
         Value* f_##NAME(Value *sp, const Instruction *pc)
-
-    #define NATIVE_WORD(NAME, FORTHNAME, EFFECT, FLAGS) \
-        NATIVE_WORD_PARAMS(NAME, FORTHNAME, EFFECT, FLAGS, 0)
 
 
     // Shortcut for defining a native word implementing a binary operator like `+` or `==`.
@@ -112,7 +113,7 @@ namespace tails {
     // @param FORTHNAME  The word's Forth name (a string literal.)
     // @param INFIXOP  The raw C++ infix operator to implement, e.g. `+` or `==`.
     #define BINARY_OP_WORD(NAME, FORTHNAME, EFFECT, INFIXOP) \
-        NATIVE_WORD(NAME, FORTHNAME, EFFECT, Word::NoFlags) { \
+        NATIVE_WORD(NAME, FORTHNAME, EFFECT) { \
             sp[-1] = Value(sp[-1] INFIXOP sp[0]);\
             --sp;\
             NEXT(); \

@@ -30,19 +30,19 @@ namespace tails::word {
 
     static bool sAtLeftMargin = true;
 
-    NATIVE_WORD(PRINT, ".", "a --"_sfx, 0) {
+    NATIVE_WORD(PRINT, ".", "a --"_sfx) {
         std::cout << *(sp--);
         sAtLeftMargin = false;
         NEXT();
     }
 
-    NATIVE_WORD(SP, "SP.", "--"_sfx, 0) {
+    NATIVE_WORD(SP, "SP.", "--"_sfx) {
         std::cout << ' ';
         sAtLeftMargin = false;
         NEXT();
     }
 
-    NATIVE_WORD(NL, "NL.", "--"_sfx, 0) {
+    NATIVE_WORD(NL, "NL.", "--"_sfx) {
         std::cout << '\n';
         sAtLeftMargin = true;
         NEXT();
@@ -55,7 +55,7 @@ namespace tails::word {
         }
     }
 
-    NATIVE_WORD(NLQ, "NL?", "--"_sfx, 0) {
+    NATIVE_WORD(NLQ, "NL?", "--"_sfx) {
         endLine();
         NEXT();
     }
