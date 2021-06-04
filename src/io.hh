@@ -10,7 +10,8 @@
 
 namespace tails {
 
-    std::ostream& operator<< (std::ostream&, Value);
+    std::ostream& operator<< (std::ostream&, Value);  // defined in value.cc
+
 
     inline std::ostream& operator<< (std::ostream &out, TypeSet entry) {
         if (entry.canBeAnyType())
@@ -30,15 +31,18 @@ namespace tails {
         return out;
     }
 
-    inline std::ostream& operator<< (std::ostream &out, const StackEffect &effect) {
-        for (int i = effect.inputs() - 1; i >= 0; --i) {
-            out << effect.input(i) << ' ';
-        }
-        out << "--";
-        for (int i = effect.outputs() - 1; i >= 0; --i) {
-            out << ' ' << effect.output(i);
+
+    inline std::ostream& operator<< (std::ostream &out, TypesView types) {
+        for (auto i = types.rbegin(); i != types.rend(); ++i) {
+            if (i != types.rbegin()) out << ' ';
+            out << *i;
         }
         return out;
+    }
+
+
+    inline std::ostream& operator<< (std::ostream &out, const StackEffect &effect) {
+        return out << effect.inputs() << " -- " << effect.outputs();
     }
 
 

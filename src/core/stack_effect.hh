@@ -21,9 +21,9 @@
 #include "utils.hh"
 #include <algorithm>
 #include <array>
-#include <ctype.h>
 #include <initializer_list>
 #include <optional>
+#include <stdexcept>
 #include <stdint.h>
 
 namespace tails {
@@ -105,18 +105,57 @@ namespace tails {
     };
 
 
+
+    /// A reference to a list of TypeSets in stack order. (Basically like a C++20 range.)
+    class TypesView {
+    public:
+        constexpr TypesView(TypeSet *bottom, TypeSet *top)
+        :_bottom(bottom), _top(top)
+        { assert(bottom && top && _bottom <= _top + 1); }
+
+        constexpr TypesView(TypeSet *bottom, size_t size)
+        :TypesView(bottom, bottom + size - 1)
+        { }
+
+        constexpr int size() const                      {return int(_top - _bottom + 1);}
+
+        // Indexing is from the top of the stack
+        constexpr TypeSet operator[] (size_t i) const   {assert (i < size()); return *(_top - i);}
+        constexpr TypeSet& operator[] (size_t i)        {assert (i < size()); return *(_top - i);}
+
+        // rbegin/rend start at the bottom of the stack
+        constexpr const TypeSet* rbegin() const         {return _bottom;}
+        constexpr TypeSet* rbegin()                     {return _bottom;}
+        constexpr const TypeSet* rend() const           {return _top + 1;}
+        constexpr TypeSet* rend()                       {return _top + 1;}
+
+        constexpr bool operator== (const TypesView &other) const {
+            auto sz = size();
+            if (sz != other.size())
+                return false;
+            for (size_t i = 0; i < sz; ++i)
+                if (_bottom[i] != other._bottom[i])
+                    return false;
+            return true;
+        }
+
+        constexpr bool operator!= (const TypesView &other) const {
+            return !(*this == other);
+        }
+
+    private:
+        TypeSet* const _bottom;
+        TypeSet* const _top;
+    };
+
+
+
     class StackEffect {
     public:
         /// Constructs an empty instance with zero inputs and outputs and max.
         constexpr StackEffect() { }
 
-        /// Creates a stack effect from the number of inputs and outputs; any types are allowed.
-        constexpr StackEffect(uint8_t inputs, uint8_t outputs)
-        :StackEffect(inputs, outputs, 0)
-        {
-            setMax();
-        }
-
+        /// Creates a stack effect lists of inputs and outputs.
         constexpr StackEffect(std::initializer_list<TypeSet> inputs,
                               std::initializer_list<TypeSet> outputs)
         :_ins(inputs.size())
@@ -167,9 +206,9 @@ namespace tails {
         }
 
         /// Number of items read from stack on entry (i.e. minimum stack depth on entry)
-        constexpr int inputs() const    {assert(!_weird); return _ins;}
+        constexpr int inputCount() const    {assert(!_weird); return _ins;}
         /// Number of items left on stack on exit, "replacing" the input
-        constexpr int outputs() const   {assert(!_weird); return _outs;}
+        constexpr int outputCount() const   {assert(!_weird); return _outs;}
         /// Net change in stack depth from entry to exit; equal to `output` - `input`.
         constexpr int net() const       {assert(!_weird); return int(_outs) - int(_ins);}
         /// Max growth of stack while the word runs
@@ -177,17 +216,17 @@ namespace tails {
         /// True if the stack effect is unknown at compile time or depends on instruction params
         constexpr bool isWeird() const  {return _weird;}
 
-        constexpr TypeSet& input(unsigned i)  {assert(i < _ins);  return _entries[_ins - 1 - i];}
-        constexpr TypeSet& output(unsigned i) {assert(i < _outs); return _entries[_ins + _outs - 1 - i];}
+        constexpr const TypesView inputs() const {return TypesView((TypeSet*)&_entries[0], _ins);}
+        constexpr const TypesView outputs() const {return TypesView((TypeSet*)&_entries[_ins], _outs);}
 
-        constexpr TypeSet input(unsigned i) const  {assert(i < _ins);  return _entries[_ins - 1 - i];}
-        constexpr TypeSet output(unsigned i) const {assert(i < _outs); return _entries[_ins + _outs - 1 - i];}
+        constexpr TypesView inputs() {return TypesView(&_entries[0], _ins);}
+        constexpr TypesView outputs() {return TypesView(&_entries[_ins], _outs);}
 
         constexpr bool operator== (const StackEffect &other) const {
             if (_ins == other._ins && _outs == other._outs && _max == other._max
                     && !_weird && !other._weird) {
                 for (int i = _ins + _outs - 1; i >= 0; --i)
-                    if (_entries[i].flags() != other._entries[i].flags())
+                    if (_entries[i] != other._entries[i])
                         return false;
                 return true;
             }
@@ -198,13 +237,6 @@ namespace tails {
 
     private:
         friend constexpr void _parseStackEffect(StackEffect&, const char *str, const char *end);
-
-        constexpr StackEffect(uint8_t inputs, uint8_t outputs, uint16_t max)
-        :_ins(inputs), _outs(outputs), _max(max)
-        {
-            for (uint8_t i = 0; i < inputs + outputs; ++i)
-                _entries[i] = TypeSet::anyType();
-        }
 
         constexpr void checkNotFull() const {
             if (_ins + _outs >= kMaxEntries)

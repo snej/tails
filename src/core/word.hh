@@ -19,12 +19,9 @@
 #pragma once
 #include "instruction.hh"
 #include "stack_effect.hh"
-#include <stdexcept>
 
 
 namespace tails {
-
-
 
     /// A Forth word definition: name, flags and code.
     /// This base class itself is used for predefined words that are constructed at compile time.
@@ -57,7 +54,9 @@ namespace tails {
         ,_nParams(std::max(nParams, uint8_t((flags & (HasIntParam|HasValParam|HasWordParam)) != 0)))
         { }
 
-        constexpr Word(const char *name, StackEffect effect, const Instruction words[])
+        constexpr Word(const char *name,
+                       StackEffect effect,
+                       const Instruction words[])
         :_instr(words)
         ,_name(name)
         ,_effect(effect)

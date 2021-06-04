@@ -41,10 +41,10 @@ static Value * StackBase;
 /// @return  The top value left on the stack.
 static Value run(const Word &word) {
     assert(!word.isNative());           // must be interpreted
-    assert(word.stackEffect().inputs() == 0);  // must not require any inputs
-    assert(word.stackEffect().outputs() > 0);  // must produce results
+    assert(word.stackEffect().inputCount() == 0);  // must not require any inputs
+    assert(word.stackEffect().outputCount() > 0);  // must produce results
     size_t stackSize = word.stackEffect().max();
-    assert(stackSize >= word.stackEffect().outputs());
+    assert(stackSize >= word.stackEffect().outputCount());
     std::vector<Value> stack;
     stack.resize(stackSize);
     auto stackBase = &stack.front();
@@ -142,43 +142,43 @@ __unused static constexpr StackEffect kSomeTS = "x# -- y#"_sfx;
 
 static void testStackEffect() {
     StackEffect ts = "--"_sfx;
-    assert(ts.inputs() == 0);
-    assert(ts.outputs() == 0);
+    assert(ts.inputCount() == 0);
+    assert(ts.outputCount() == 0);
 
     ts = "a -- b"_sfx;
-    assert(ts.inputs() == 1);
-    assert(ts.outputs() == 1);
-    assert(ts.input(0).flags() == 0x1F);
-    assert(ts.output(0).flags() == 0x1F);
+    assert(ts.inputCount() == 1);
+    assert(ts.outputCount() == 1);
+    assert(ts.inputs()[0].flags() == 0x1F);
+    assert(ts.outputs()[0].flags() == 0x1F);
 
 #ifndef SIMPLE_VALUE
     ts = "aaa# bbb#? -- ccc$ [d_d]?"_sfx;
-    assert(ts.inputs() == 2);
-    assert(ts.outputs() == 2);
-    assert(ts.input(0).flags() == 0x03);
-    assert(ts.input(1).flags() == 0x02);
-    assert(ts.output(0).flags() == 0x09);
-    assert(ts.output(1).flags() == 0x04);
-    assert(!ts.output(0).isInputMatch());
-    assert(ts.output(0).inputMatch() == -1);
+    assert(ts.inputCount() == 2);
+    assert(ts.outputCount() == 2);
+    assert(ts.inputs()[0].flags() == 0x03);
+    assert(ts.inputs()[1].flags() == 0x02);
+    assert(ts.outputs()[0].flags() == 0x09);
+    assert(ts.outputs()[1].flags() == 0x04);
+    assert(!ts.outputs()[0].isInputMatch());
+    assert(ts.outputs()[0].inputMatch() == -1);
 #endif
 
     ts = "apple ball# cat -- ball# cat apple"_sfx;
-    assert(ts.inputs() == 3);
-    assert(ts.outputs() == 3);
-    assert(ts.input(0).flags() == 0x1F);
+    assert(ts.inputCount() == 3);
+    assert(ts.outputCount() == 3);
+    assert(ts.inputs()[0].flags() == 0x1F);
 #ifndef SIMPLE_VALUE
-    assert(ts.input(1).flags() == 0x02);
+    assert(ts.inputs()[1].flags() == 0x02);
 #endif
-    assert(ts.input(2).flags() == 0x1F);
-    assert(ts.output(0).isInputMatch());
-    assert(ts.output(0).inputMatch() == 2);
-    assert(ts.output(1).inputMatch() == 0);
-    assert(ts.output(2).inputMatch() == 1);
-    assert(ts.output(0).flags() == 0x7F);
-    assert(ts.output(1).flags() == 0x3F);
+    assert(ts.inputs()[2].flags() == 0x1F);
+    assert(ts.outputs()[0].isInputMatch());
+    assert(ts.outputs()[0].inputMatch() == 2);
+    assert(ts.outputs()[1].inputMatch() == 0);
+    assert(ts.outputs()[2].inputMatch() == 1);
+    assert(ts.outputs()[0].flags() == 0x7F);
+    assert(ts.outputs()[1].flags() == 0x3F);
 #ifndef SIMPLE_VALUE
-    assert(ts.output(2).flags() == 0x42);
+    assert(ts.outputs()[2].flags() == 0x42);
 #endif
 }
 

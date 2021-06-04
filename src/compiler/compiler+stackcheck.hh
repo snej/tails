@@ -39,15 +39,19 @@ namespace tails {
         using Item = variant<TypeSet,Value>;
 
         EffectStack(const StackEffect &initial) {
-            for (int i = initial.inputs() - 1; i >= 0; --i)
-                _stack.emplace_back(initial.input(i));
+            auto inputs = initial.inputs();
+            for (auto i = inputs.rbegin(); i != inputs.rend(); ++i)
+                _stack.emplace_back(*i);
             _maxDepth = _initialDepth = depth();
         }
 
-        size_t depth() const {return _stack.size();}
-        size_t maxGrowth() const {return _maxDepth - _initialDepth;}
+        size_t depth() const        {return _stack.size();}
+        size_t maxGrowth() const    {return _maxDepth - _initialDepth;}
 
-        const Item& at(size_t i) const {return _stack[_stack.size() - 1 - i];}
+        const Item& at(size_t i) const {
+            assert(i < _stack.size());
+            return _stack[_stack.size() - 1 - i];
+        }
 
         optional<Value> literalAt(size_t i) const {
             if (i < depth()) {
@@ -62,32 +66,22 @@ namespace tails {
         }
 
         /// Adds the stack effect of calling a word. Throws an exception on failure.
-        void add(const StackEffect &effect, const Word *word, const char *sourceCode) {
+        void add(const Word *word, const StackEffect &effect, const char *sourceCode) {
             // Check that the inputs match what's on the stack:
-            const auto nInputs = effect.inputs();
+            const auto nInputs = effect.inputCount();
             if (nInputs > depth())
-                throw compile_error(format("Stack underflow calling `%s`: %zu needed, %zu available",
+                throw compile_error(format("Calling `%s` would underflow (%zu needed, %zu available)",
                                            word->name(), nInputs, depth()),
                                     sourceCode);
-            Item inputs[max(nInputs, 1)];
-            for (int i = 0; i < nInputs; ++i) {
-                auto input = effect.input(i);
-                auto &item = at(i);
-                inputs[i] = item;
-                optional<Value::Type> badType;
-                if (auto valP = std::get_if<Value>(&item); valP) {
-                    if (!input.canBeType(valP->type())) {
-                        badType = valP->type();
-                    }
-                } else {
-                    badType = (std::get<TypeSet>(item) - input).firstType();
-                }
-                if (badType)
-                    throw compile_error(format("Type mismatch passing %s to `%s` at depth %zu",
-                                               Value::typeName(*badType), word->name(), i),
-                                        sourceCode);
+            int i;
+            if (auto badType = typeCheck(effect.inputs(), &i); badType)
+                throw compile_error(format("Type mismatch passing %s to `%s` (depth %i)",
+                                           Value::typeName(*badType), word->name(), i),
+                                    sourceCode);
 
-            }
+            Item inputs[max(nInputs, 1)];
+            for (i = 0; i < nInputs; ++i)
+                inputs[i] = at(i);
 
             _maxDepth = max(_maxDepth, depth() + effect.max());
 
@@ -95,8 +89,8 @@ namespace tails {
             _stack.resize(depth() - nInputs);
 
             // Push the outputs to the stack:
-            for (int i = effect.outputs() - 1; i >= 0; --i) {
-                TypeSet ef = effect.output(i);
+            for (int i = effect.outputCount() - 1; i >= 0; --i) {
+                TypeSet ef = effect.outputs()[i];
                 if (auto in = ef.inputMatch(); in >= 0)
                     _stack.emplace_back(inputs[in]);
                 else
@@ -110,6 +104,7 @@ namespace tails {
             _maxDepth = max(_maxDepth, depth());
         }
 
+        /// Inserts a type at the _bottom_ of the stack -- used if deducing the input effect.
         void addAtBottom(TypeSet entry) {
             _stack.insert(_stack.begin(), entry);
             _maxDepth = max(_maxDepth, depth());
@@ -124,47 +119,53 @@ namespace tails {
                 Item &mine = _stack[_stack.size() - 1 - i];
                 const Item others = other.at(i);
                 if (others != mine)
-                    mine = itemEntry(mine) | itemEntry(others);
+                    mine = itemTypes(mine) | itemTypes(others);
             }
         }
 
         /// Checks whether the current stack matches a StackEffect's outputs.
         /// if `canAddOutputs` is true, extra items on the stack will be added to the effect.
         void checkOutputs(StackEffect &effect, bool canAddOutputs) const {
-            const auto nOutputs = effect.outputs();
+            const auto nOutputs = effect.outputCount();
             const auto myDepth = depth();
             if (nOutputs > myDepth)
                 throw compile_error(format("Insufficient outputs: have %zu, declared %zu",
                                            myDepth, nOutputs), nullptr);
             // Check effect outputs against stack:
-            for (int i = 0; i < nOutputs; ++i) {
-                auto ef = effect.output(i);
-                auto &item = at(i);
-                if (auto valP = std::get_if<Value>(&item); valP) {
-                    if (!ef.canBeType(valP->type()))
-                        throw compile_error("Output type mismatch", nullptr);
-                } else {
-                    if (std::get<TypeSet>(item) > ef)
-                        throw compile_error("Output type mismatch", nullptr);
-                }
-            }
+            int i;
+            if (auto badType = typeCheck(effect.outputs(), &i); badType)
+                throw compile_error(format("Output type mismatch: can't be %s (depth %d)",
+                                           Value::typeName(*badType), i), nullptr);
 
             // Add extra stack items to effect, if allowed:
-            for (int i = nOutputs; i < myDepth; ++i) {
+            for (i = nOutputs; i < myDepth; ++i) {
                 if (!canAddOutputs)
                     throw compile_error(format("Too many outputs: have %zu, declared %zu",
                                                myDepth, nOutputs), nullptr);
-                auto entry = itemEntry(at(i));
+                auto entry = itemTypes(at(i));
                 effect.addOutputAtBottom(entry);
             }
         }
 
     private:
-        static TypeSet itemEntry(const Item &item) {
+        static TypeSet itemTypes(const Item &item) {
             if (auto valP = std::get_if<Value>(&item); valP)
                 return TypeSet(valP->type());
             else
                 return std::get<TypeSet>(item);
+        }
+
+        /// Checks if the stack items all match the allowed TypesView;
+        /// if not, returns one of the invalid types.
+        std::optional<Value::Type> typeCheck(TypesView types, int *outStackIndex) const {
+            for (int i = 0; i < types.size(); ++i) {
+                TypeSet badTypes = itemTypes(at(i)) - types[i];
+                if (auto badType = badTypes.firstType(); badType) {
+                    *outStackIndex = i;
+                    return badType;
+                }
+            }
+            return std::nullopt;
         }
 
         std::vector<Item> _stack;
@@ -236,17 +237,17 @@ namespace tails {
                 if (_effectCanAddInputs) {
                     // We are parsing code with unknown inputs, i.e. a quotation. If the word being
                     // called takes more inputs than are on the stack, make them inputs of this code.
-                    const auto nInputs = nextEffect.inputs();
+                    const auto nInputs = nextEffect.inputCount();
                     auto nAvailable = curStack.depth();
                     for (auto i = int(nAvailable); i < nInputs; ++i) {
-                        auto entry = nextEffect.input(i);
+                        auto entry = nextEffect.inputs()[i];
                         curStack.addAtBottom(entry);
                         _effect.addInputAtBottom(entry);
                     }
                 }
 
                 // apply the word's effect:
-                curStack.add(nextEffect, i->word, i->sourceCode);
+                curStack.add(i->word, nextEffect, i->sourceCode);
             }
 
             if (i->word == &_RETURN) {
@@ -293,23 +294,23 @@ namespace tails {
 
         StackEffect result = a;
 
-        for (int i = 0; i < b.inputs(); i++) {
-            auto entry = b.input(i);
-            if (i < a.inputs()) {
-                entry = entry & result.input(i);
+        for (int i = 0; i < b.inputCount(); i++) {
+            auto entry = b.inputs()[i];
+            if (i < a.inputCount()) {
+                entry = entry & result.inputs()[i];
                 if (!entry)
                     throw compile_error(format("IFELSE quotes have incompatible parameter #%d", i),
                                         pos->sourceCode);
-                result.input(i) = entry;
+                result.inputs()[i] = entry;
             } else {
                 result.addInput(entry);
             }
         }
 
-        for (int i = 0; i < b.outputs(); i++) {
-            auto entry = b.output(i);
-            if (i < a.outputs()) {
-                result.output(i) = result.output(i) | entry;
+        for (int i = 0; i < b.outputCount(); i++) {
+            auto entry = b.outputs()[i];
+            if (i < a.outputCount()) {
+                result.outputs()[i] = result.outputs()[i] | entry;
             } else {
                 result.addOutput(entry);
             }

@@ -19,7 +19,8 @@ $compile -lc++ *.o test.cc -o ../tails_test
 
 echo "Building 'tails' REPL ..."
 cc -c -I ../vendor/linenoise ../vendor/linenoise/{linenoise,utf8}.c
-$compile -I ../vendor/linenoise *.o repl.cc -lc++ -o ../tails
+$compile -c -O3 {values,compiler}/*.cc
+$compile -O3 -I ../vendor/linenoise *.o repl.cc -lc++ -o ../tails
 rm *.o
 
 echo "Done."
