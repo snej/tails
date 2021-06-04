@@ -234,7 +234,7 @@ int main(int argc, char *argv[]) {
     TEST_PARSER(123,  "1 IF 123 ELSE 666 THEN");
     TEST_PARSER(666,  "0 IF 123 ELSE 666 THEN");
 
-    TEST_PARSER(120,  "1 5 BEGIN  DUP  WHILE  SWAP OVER * SWAP 1 -  REPEAT  DROP");
+    TEST_PARSER(120,  "1 5 begin  dup  while  swap over * swap 1 -  repeat  drop");
 
     garbageCollect();
 
@@ -270,8 +270,8 @@ int main(int argc, char *argv[]) {
     TEST_PARSER(0,                  R"( "Hello" . SP. 17 . NL. 0 )");
 
     // Defining a new word:
-    TEST_PARSER(0,                  R"( {(# -- #) 3 *} "thrice" DEFINE  0 )");
-    TEST_PARSER(72,                 R"( 8 thrice thrice )");
+    TEST_PARSER(0,                  R"( {(# -- #) 3 *} "thrice" define  0 )");
+    TEST_PARSER(72,                 R"( 8 thrice Thrice )");
 
     garbageCollect();
     assert(gc::object::instanceCount() == 0);

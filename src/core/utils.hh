@@ -23,6 +23,13 @@ namespace tails {
     }
 
 
+    static inline std::string toupper(std::string str) {
+        for (char &c : str)
+            c = ::toupper(c);
+        return str;
+    }
+
+
     // Constexpr equivalents of strlen and memcmp, for use in constexpr functions:
 
     constexpr static inline size_t _strlen(const char *str) noexcept {

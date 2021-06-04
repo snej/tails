@@ -21,6 +21,7 @@
 #include "disassembler.hh"
 #include "core_words.hh"
 #include "stack_effect_parser.hh"
+#include "utils.hh"
 #include "vocabulary.hh"
 #include <optional>
 #include <sstream>
@@ -37,7 +38,7 @@ namespace tails {
 
 
     CompiledWord::CompiledWord(string &&name, StackEffect effect, vector<Instruction> &&instrs)
-    :_nameStr(move(name))
+    :_nameStr(toupper(name))
     ,_instrs(move(instrs))
     {
         _effect = effect;

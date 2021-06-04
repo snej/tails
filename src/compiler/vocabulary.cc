@@ -17,8 +17,9 @@
 //
 
 #include "vocabulary.hh"
-#include "word.hh"
 #include "core_words.hh"
+#include "word.hh"
+#include "utils.hh"
 #include "gc.hh"
 
 
@@ -44,7 +45,7 @@ namespace tails {
 
 
     const Word* Vocabulary::lookup(std::string_view name) const {
-        if (auto i = _words.find(name); i != _words.end())
+        if (auto i = _words.find(toupper(std::string(name))); i != _words.end())
             return i->second;
         else
             return nullptr;

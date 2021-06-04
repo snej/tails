@@ -41,6 +41,11 @@ namespace tails {
         return *input;
     }
 
+    static bool match(string_view token, string_view str) {
+        return token.size() == str.size()
+            && strncasecmp(token.data(), str.data(), token.size()) == 0;
+    }
+
     /// Skips whitespace, then reads & returns the next token:
     /// * an empty string at EOF;
     /// * a string literal, starting and ending with double-quotes;
@@ -128,32 +133,32 @@ namespace tails {
             } else if (token == "{") {
                 add({_LITERAL, parseQuote(input)}, token.data());
 
-            } else if (token == "IF") {
+            } else if (match(token, "IF")) {
                 // IF compiles into 0BRANCH, with offset TBD:
                 pushBranch('i', &_ZBRANCH);
 
-            } else if (token == "ELSE") {
+            } else if (match(token, "ELSE")) {
                 // ELSE compiles into BRANCH, with offset TBD, and resolves the IF's branch:
                 auto ifPos = popBranch("i");
                 pushBranch('e', &_BRANCH);
                 fixBranch(ifPos);
 
-            } else if (token == "THEN") {
+            } else if (match(token, "THEN")) {
                 // THEN generates no code but completes the remaining branch from IF or ELSE:
                 auto ifPos = popBranch("ie");
                 fixBranch(ifPos);
 
-            } else if (token == "BEGIN") {
+            } else if (match(token, "BEGIN")) {
                 // BEGIN generates no code but remembers the current address:
                 pushBranch('b');
 
-            } else if (token == "WHILE") {
+            } else if (match(token, "WHILE")) {
                 // IF compiles into 0BRANCH, with offset TBD:
                 if (_controlStack.empty() || _controlStack.back().first != 'b')
                     throw compile_error("no matching BEGIN for this WHILE", sourcePos);
                 pushBranch('w', &_ZBRANCH);
 
-            } else if (token == "REPEAT") {
+            } else if (match(token, "REPEAT")) {
                 // REPEAT generates a BRANCH back to the BEGIN's position,
                 // and fixes up the WHILE to point to the next instruction:
                 auto whilePos = popBranch("w");
