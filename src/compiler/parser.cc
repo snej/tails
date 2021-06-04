@@ -31,6 +31,16 @@ namespace tails {
     using namespace tails::core_words;
 
 
+    static void skipWhitespace(const char* &input) {
+        while (*input != 0 && isspace(*input))
+            ++input;
+    }
+
+    static char peek(const char* &input) {
+        skipWhitespace(input);
+        return *input;
+    }
+
     /// Skips whitespace, then reads & returns the next token:
     /// * an empty string at EOF;
     /// * a string literal, starting and ending with double-quotes;
@@ -38,11 +48,7 @@ namespace tails {
     /// * a "[" or "]";
     /// * else the largest number of consecutive non-whitespace non-closing-brace characters.
     static string_view readToken(const char* &input) {
-        // Skip whitespace
-        while (*input != 0 && isspace(*input))
-            ++input;
-
-        // Read token
+        skipWhitespace(input);
         auto start = input;
         switch (*input) {
             case 0:
@@ -57,6 +63,7 @@ namespace tails {
                 if (*input)
                     ++input; // include the trailing quote
                 break;
+            case '(':
             case '{':
             case '[':
                 // Open array or quotation -- just return the single delimiter character
@@ -66,7 +73,8 @@ namespace tails {
                 // General token: read until next whitespace or closing brace/bracket:
                 do {
                     ++input;
-                } while (*input != 0 && !isspace(*input) && *input != '}' && *input != ']');
+                } while (*input != 0 && !isspace(*input)
+                         && *input != ')'&& *input != '}' && *input != ']');
                 break;
         }
         return {start, size_t(input - start)};
@@ -229,8 +237,20 @@ namespace tails {
 #ifdef SIMPLE_VALUE
         throw compile_error("Quotes not supported", input);
 #else
-        // Recursively create a Compiler to parse tokens to a new Word until the '}' delimiter:
         Compiler quoteCompiler;
+        // Check if there's a stack effect declaration:
+        if (peek(input) == '(') {
+            const char *start = input + 1;
+            do {
+                ++input;
+                if (*input == 0)
+                    throw compile_error("Missing ') to end quotation stack effect'", input);
+            } while (*input != ')');
+            quoteCompiler.setStackEffect(parseStackEffect(start, input));
+            ++input;
+        }
+
+        // parse tokens to a new Word until the ']' delimiter:
         input = quoteCompiler.parse(input);
         if (*input != '}')
             throw compile_error("Missing '}'; unfinished quotation", input);

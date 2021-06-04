@@ -260,7 +260,7 @@ int main(int argc, char *argv[]) {
     TEST_PARSER("yes",              R"( 1 {"yes"} {"no"} IFELSE )");
     TEST_PARSER("no",               R"( 0 {"yes"} {"no"} IFELSE )");
     
-    TEST_PARSER(12,                 R"( 3 4  1 {*} {+} IFELSE )");
+    TEST_PARSER(12,                 R"( 3 4  1 {(# # -- #) *} {(# # -- #) +} IFELSE )");
     TEST_PARSER(7,                  R"( 3 4  0 {*} {+} IFELSE )");
 
     TEST_PARSER(12,                 R"( 3 4  1 {*} {DROP} IFELSE )");
@@ -270,7 +270,7 @@ int main(int argc, char *argv[]) {
     TEST_PARSER(0,                  R"( "Hello" . SP. 17 . NL. 0 )");
 
     // Defining a new word:
-    TEST_PARSER(0,                  R"( {3 *} "thrice" DEFINE  0 )");
+    TEST_PARSER(0,                  R"( {(# -- #) 3 *} "thrice" DEFINE  0 )");
     TEST_PARSER(72,                 R"( 8 thrice thrice )");
 
     garbageCollect();

@@ -134,10 +134,17 @@ namespace tails {
 
     /// Creates a StackEffect from a human-readable stack effect declaration.
     /// See the above \ref _parseStackEffect function for details.
-    constexpr StackEffect parseStackEffect(const char *str) {
+    constexpr StackEffect parseStackEffect(const char *str, const char *end) {
         StackEffect effect;
-        _parseStackEffect(effect, str, str + _strlen(str));
+        _parseStackEffect(effect, str, end);
         return effect;
+    }
+
+
+    /// Creates a StackEffect from a human-readable stack effect declaration.
+    /// See the above \ref _parseStackEffect function for details.
+    constexpr StackEffect parseStackEffect(const char *str) {
+        return parseStackEffect(str, str + _strlen(str));
     }
 
 
