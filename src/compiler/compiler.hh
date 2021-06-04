@@ -43,6 +43,10 @@ namespace tails {
 
         /// Constructs a word from a compiler. Call this instead of Compiler::finish.
         explicit CompiledWord(Compiler&&);
+
+        /// Copies a CompiledWord, adding a name.
+        CompiledWord(const CompiledWord&, std::string &&name);
+
     private:
         std::string const              _nameStr;   // Backing store for inherited _name
         std::vector<Instruction> const _instrs {}; // Backing store for inherited _instr

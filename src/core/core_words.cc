@@ -324,6 +324,7 @@ namespace tails::core_words {
         &NULL_,
         &LENGTH,
         &IFELSE,
+        &DEFINE,
 #endif
         nullptr
     };

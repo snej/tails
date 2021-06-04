@@ -20,6 +20,7 @@
 #include "compiler+stackcheck.hh"
 #include "disassembler.hh"
 #include "core_words.hh"
+#include "stack_effect_parser.hh"
 #include "vocabulary.hh"
 #include <optional>
 #include <sstream>
@@ -55,6 +56,11 @@ namespace tails {
         _flags = compiler._flags;
         _effect = compiler._effect;
     }
+
+
+    CompiledWord::CompiledWord(const CompiledWord &word, std::string &&name)
+    :CompiledWord(move(name), word.stackEffect(), vector<Instruction>(word._instrs))
+    { }
 
 
 #pragma mark - COMPILER:
@@ -215,4 +221,19 @@ namespace tails {
         return CompiledWord(move(*this)); // the CompiledWord constructor will call generateInstructions()
     }
 
+
+#pragma mark WORDS:
+    
+
+    namespace core_words {
+
+        NATIVE_WORD(DEFINE, "DEFINE", "{code} $name -- "_sfx, 0) {
+            auto name = sp[0].asString();
+            auto quote = (const CompiledWord*)sp[-1].asQuote();
+            sp -= 2;
+            new CompiledWord(*quote, string(name));
+            NEXT();
+        }
+
+    }
 }

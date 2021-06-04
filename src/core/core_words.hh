@@ -34,7 +34,8 @@ namespace tails::core_words {
         ABS, MAX, MIN,
         DIV, MOD, MINUS, MULT, PLUS,
         _BRANCH, _ZBRANCH,
-        ONE, ZERO;
+        ONE, ZERO,
+        DEFINE;
     
 #ifndef SIMPLE_VALUE
     extern const Word NULL_, LENGTH, CALL, IFELSE;

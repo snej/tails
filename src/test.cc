@@ -239,11 +239,13 @@ int main(int argc, char *argv[]) {
     garbageCollect();
 
 #ifndef SIMPLE_VALUE
+    // Strings:
     TEST_PARSER("hello",            R"( "hello" )");
     TEST_PARSER("truthy",           R"( 1 IF "truthy" ELSE "falsey" THEN )");
     TEST_PARSER("HiThere",          R"( "Hi" "There" + )");
     TEST_PARSER(5,                  R"( "hello" LENGTH )");
 
+    // Arrays:
     TEST_PARSER(Value({12,34,56}),  R"( [12 34 56] )");
     TEST_PARSER(Value({Value(12)}), R"( [12] )");
     TEST_PARSER(Value({12,"hi there",Value({}),56}),
@@ -252,18 +254,24 @@ int main(int argc, char *argv[]) {
 
     garbageCollect();
 
-    TEST_PARSER(3,                  R"( 3 {DUP 4} DROP)");
+    // Quotations and IFELSE:
+    TEST_PARSER(3,                  R"( 3 {DUP 4} DROP )");
 
-    TEST_PARSER("yes",              R"( 1 {"yes"} {"no"} IFELSE)");
-    TEST_PARSER("no",               R"( 0 {"yes"} {"no"} IFELSE)");
+    TEST_PARSER("yes",              R"( 1 {"yes"} {"no"} IFELSE )");
+    TEST_PARSER("no",               R"( 0 {"yes"} {"no"} IFELSE )");
     
-    TEST_PARSER(12,                 R"( 3 4  1 {*} {+} IFELSE)");
-    TEST_PARSER(7,                  R"( 3 4  0 {*} {+} IFELSE)");
+    TEST_PARSER(12,                 R"( 3 4  1 {*} {+} IFELSE )");
+    TEST_PARSER(7,                  R"( 3 4  0 {*} {+} IFELSE )");
 
-    TEST_PARSER(12,                 R"( 3 4  1 {*} {DROP} IFELSE)");
-    TEST_PARSER(3,                  R"( 3 4  0 {*} {DROP} IFELSE)");
+    TEST_PARSER(12,                 R"( 3 4  1 {*} {DROP} IFELSE )");
+    TEST_PARSER(3,                  R"( 3 4  0 {*} {DROP} IFELSE )");
 
+    // Writing to stdout:
     TEST_PARSER(0,                  R"( "Hello" . SP. 17 . NL. 0 )");
+
+    // Defining a new word:
+    TEST_PARSER(0,                  R"( {3 *} "thrice" DEFINE  0 )");
+    TEST_PARSER(72,                 R"( 8 thrice thrice )");
 
     garbageCollect();
     assert(gc::object::instanceCount() == 0);
