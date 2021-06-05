@@ -1,6 +1,6 @@
 # Tails, A Fast C+\+ Forth Core
 
-**Tails** is a minimal, fast [Forth][FORTH]-like interpreter core written entirely in C+\+. I created it as a one-day hack to celebrate May Forth 2021 … then kept going because it's fun.
+**Tails** is a minimal, fast [Forth][FORTH]-like interpreter core. It uses no assembly code, only C+\+, but an elegant tail-recursion technique inspired by [Wasm3][WASM3] makes it nearly as efficient as hand-written assembly. I created it as a one-day hack to celebrate May Forth 2021 … then kept going because it's fun.
 
 It started out as tiny but functional. The magic core code (`NEXT`, `INTERP`, `RETURN`, `LITERAL`, `DUP`, etc.) is about 200SLOC and compiles to a few hundred bytes, many of which are NOPs the compiler adds for padding. The parser and compiler add a few KB more.
 
@@ -10,7 +10,7 @@ Tails doesn't follow the usual Forth implementation strategy of starting with a 
 
 ## Why Another Forth?
 
-I think "build a working Forth interpreter" has been on my bucket list for a while. As a teenager circa 1980, I had an Apple II and wrote a lot of programs in BASIC. I got frustrated by its slowness, but but 6502 assembly (which most games were written in) was quite nasty. Then I got FIG-Forth, which was kind of a Goldilocks language -- a lot faster than BASIC, with direct access to memory and hardware, but much friendlier than assembly. I got ahold of a printed listing of FIG-Forth (the Z80 version, for some reason) and worked my way through it, learning a lot. Then in college I tried to write my own interpreter for a 68000-based workstation, but never got it debugged. Now I'm trying again, but starting from a higher level.
+I think "build a working Forth interpreter" has been on my bucket list for a while. As a teenager circa 1980, I had an Apple II and wrote a lot of programs in BASIC. I got frustrated by its slowness, but 6502 assembly (which most games were written in) was quite nasty. Then I got FIG-Forth, which was kind of a Goldilocks language -- a lot faster than BASIC, with direct access to memory and hardware, but much friendlier than assembly. I got ahold of a printed listing of FIG-Forth (the Z80 version, for some reason) and worked my way through it, learning a lot. Then in college I tried to write my own interpreter for a 68000-based workstation, but never got it debugged. Now I'm trying again, but starting from a higher level.
 
 A more recent reason, and more practical, is to have a simple but fast interpreter to use for things like implementing database queries. Queries can do very general-purpose things like evaluating arbitrary arithmetic and logical expressions, and they also have complex higher-level logic for traversing indexes. They're usually translated into an interpreted form. I wrote such a query interpreter last year for a database project, but was unhappy with the implementation.
 
