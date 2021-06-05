@@ -4,9 +4,17 @@
 
 It started out as tiny but functional. The magic core code (`NEXT`, `INTERP`, `RETURN`, `LITERAL`, `DUP`, etc.) is about 200SLOC and compiles to a few hundred bytes, many of which are NOPs the compiler adds for padding. The parser and compiler add a few KB more.
 
-It's grown significantly since then: there's a parser, stack-checking type-checking compiler, multiple value types including strings and arrays, "quotations" (i.e. lambdas or blocks) ... but the simple core can still be extracted and used if something more minimal is needed.
+It's grown significantly since then: there's a parser; a stack-checking & type-checking compiler; multiple value types including strings and arrays; "quotations" (i.e. lambdas or blocks); garbage collection ... but the simple core can still be extracted and used if something more minimal is needed.
 
-The reason I wrote this, besides to fulfil a decades-old dream of building a working Forth interpreter, is to apply the really elegant and efficient implementation technique used by [Wasm3][WASM3] (a [WebAssembly][WASM] interpreter), which is probably the fastest pure non-JIT interpreter there is. See below under "Performance".
+Tails doesn't follow the usual Forth implementation strategy of starting with a minimal assembly-language core and then building as much as possible in Forth itself. That makes sense for a system where you're going to be writing applications entirely in Forth; but for my purposes I'm more interested in having an embedded language to use for small tasks inside an application written in a more traditional compiled language like C++.
+
+## Why Another Forth?
+
+I think "build a working Forth interpreter" has been on my bucket list for a while. As a teenager circa 1980, I had an Apple II and wrote a lot of programs in BASIC. I got frustrated by its slowness, but but 6502 assembly (which most games were written in) was quite nasty. Then I got FIG-Forth, which was kind of a Goldilocks language -- a lot faster than BASIC, with direct access to memory and hardware, but much friendlier than assembly. I got ahold of a printed listing of FIG-Forth (the Z80 version, for some reason) and worked my way through it, learning a lot. Then in college I tried to write my own interpreter for a 68000-based workstation, but never got it debugged. Now I'm trying again, but starting from a higher level.
+
+A more recent reason, and more practical, is to have a simple but fast interpreter to use for things like implementing database queries. Queries can do very general-purpose things like evaluating arbitrary arithmetic and logical expressions, and they also have complex higher-level logic for traversing indexes. They're usually translated into an interpreted form. I wrote such a query interpreter last year for a database project, but was unhappy with the implementation.
+
+The final reason, the immediate impetus, was to apply the really elegant and efficient implementation technique used by [Wasm3][WASM3] (a [WebAssembly][WASM] interpreter), which is probably the fastest pure non-JIT interpreter there is. See below under "Performance".
  
 ## Just Show Me The Code!
 
