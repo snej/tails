@@ -19,8 +19,8 @@ The final reason, the immediate impetus, was to apply the really elegant and eff
 ## Just Show Me The Code!
 
 * The absolute core is [instruction.hh](https://github.com/snej/tails/blob/main/src/core/instruction.hh), which defines how code is structured and called, and how one primitive/native word proceeds to the next. (It uses a class `Value` that represents the items on the stack; for now you can just pretend that's a typedef for `int` or `double`.)
-* [word.hh](https://github.com/snej/tails/blob/main/src/word.hh) defines the `Word` class that associates a name and flags with an (interpreted or primitive) function.
-* [core_words.cc](https://github.com/snej/tails/blob/main/src/core_words.cc) defines the very basic primitives like `LITERAL`, `DUP`, `+`, and some interpreted words like `ABS` and `MAX`.
+* [word.hh](https://github.com/snej/tails/blob/main/src/core/word.hh) defines the `Word` class that associates a name and flags with an (interpreted or primitive) function.
+* [core_words.cc](https://github.com/snej/tails/blob/main/src/core/core_words.cc) defines the very basic primitives like `LITERAL`, `DUP`, `+`, and some interpreted words like `ABS` and `MAX`.
  
 ## Theory Of Operation
 
