@@ -36,6 +36,7 @@ namespace tails {
             HasWordParam= 0x08, ///< This word is followed by a Word param (INTERP, TAILINTERP, etc)
             Magic       = 0x10, ///< Low-level, not allowed in parsed code (0BRANCH, INTERP, etc.)
             Inline      = 0x20, ///< Should be inlined at call site
+            Recursive   = 0x40, ///< Calls itself recursively
 
             MagicIntParam  = Magic | HasIntParam,
             MagicValParam  = Magic | HasValParam,

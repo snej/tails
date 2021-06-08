@@ -136,6 +136,8 @@ namespace tails {
 
         void addBranchBackTo(InstructionPos);
 
+        void addRecurse();
+
         /// Updates a previously-written `BRANCH` or `ZBRANCH` instruction, to branch to the
         /// next instruction to be written.
         /// @param src  The branch instruction to update.
@@ -169,6 +171,7 @@ namespace tails {
         Value parseQuote(const char* &input);
         void pushBranch(char identifier, const Word *branch =nullptr);
         InstructionPos popBranch(const char *matching);
+        bool returnsImmediately(InstructionPos);
         void computeEffect();
         void computeEffect(InstructionPos i,
                            EffectStack stack);

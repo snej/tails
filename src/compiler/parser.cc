@@ -166,6 +166,9 @@ namespace tails {
                 addBranchBackTo(beginPos);
                 fixBranch(whilePos);
 
+            } else if (match(token, "RECURSE")) {
+                addRecurse();
+
             } else if (const Word *word = Compiler::activeVocabularies.lookup(token); word) {
                 // Known word is added as an instruction:
                 if (word->isMagic())

@@ -184,10 +184,17 @@ namespace tails {
         ,sourceCode(source)
         { }
 
+        void branchesTo(InstructionPos pos) {
+            branchTo = pos;
+            pos->isBranchDestination = true;
+        }
+
         const char*  sourceCode;                        // Points to source code where word appears
         std::optional<EffectStack> knownStack;          // Stack effect at this point, once known
-        std::optional<InstructionPos> branchDestination;// Points to where a branch goes
+        std::optional<InstructionPos> branchTo;         // Points to where a branch goes
         int pc;                                         // Relative address during code-gen
+        const Word* interpWord = nullptr;               // Which INTERP-family word to use
+        bool isBranchDestination = false;               // True if a branch points here
     };
 
 
@@ -226,12 +233,24 @@ namespace tails {
                 // Determine the effect of a word:
                 StackEffect nextEffect = i->word->stackEffect();
                 if (nextEffect.isWeird()) {
+                    if (i->word == &_RECURSE) {
+                        if (_effectCanAddInputs || _effectCanAddOutputs)
+                            throw compile_error("RECURSE requires an explicit stack effect declaration",
+                                                i->sourceCode);
+                        nextEffect = _effect;
+                        if (!returnsImmediately(next(i))) {
+                            if (_flags & Word::Inline)
+                                throw compile_error("Illegal recursion in an inline word",
+                                                    i->sourceCode);
+                            nextEffect = nextEffect.withUnknownMax();   // non-tail recursion
+                        }
 #ifndef SIMPLE_VALUE
-                    if (i->word == &IFELSE)
+                    } else if (i->word == &IFELSE) {
                         nextEffect = effectOfIFELSE(i, curStack);
-                    else
 #endif
+                    } else {
                         throw compile_error("Oops, don't know word's stack effect", i->sourceCode);
+                    }
                 }
 
                 if (_effectCanAddInputs) {
@@ -259,13 +278,13 @@ namespace tails {
                 return;
 
             } else if (i->word == &_BRANCH || i->word == &_ZBRANCH) {
-                assert(i->branchDestination);
+                assert(i->branchTo);
                 // If this is a 0BRANCH, recurse to follow the non-branch case too:
                 if (i->word == &_ZBRANCH)
                     computeEffect(next(i), curStack);
 
                 // Follow the branch:
-                i = *i->branchDestination;
+                i = *i->branchTo;
 
             } else {
                 // Continue to next instruction:

@@ -25,7 +25,7 @@ namespace tails {
     union Instruction;
 
 
-    // If ENABLE_TRACING is defined, a function `TRACE(sp,pc)` will be called after each Instruction.
+    // If ENABLE_TRACING is defined, a function `TRACE(sp,pc)` will be called before each Instruction.
     // Enabling this makes the code much less optimal, so only use when debugging.
     #if DEBUG
     #    define ENABLE_TRACING
@@ -85,6 +85,7 @@ namespace tails {
     /// @return      The stack pointer on completion.
     ALWAYS_INLINE
     static inline Value* call(Value *sp, const Instruction *start) {
+        TRACE(sp, start);
         return start->native(sp, start + 1);
     }
 

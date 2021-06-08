@@ -206,6 +206,17 @@ namespace tails::core_words {
         NEXT();
     }
 
+    // recursively calls the current word. The offset back to the start of the word is stored at
+    // *pc, so this is similar to a BRANCH back to the start, except it uses `call`.
+    NATIVE_WORD(_RECURSE, "_RECURSE", StackEffect::weird(),
+                Word::MagicIntParam)
+    {
+        call(sp, pc + 1 + pc->offset);
+        ++pc;
+        NEXT();
+    }
+
+
 #ifndef SIMPLE_VALUE
     // (? quote -> ?)  Pops a quotation (word) and calls it.
     // The actual stack effect is that of the quotation it calls, which in the general case is
@@ -342,7 +353,8 @@ namespace tails::core_words {
         &_INTERP, &_INTERP2, &_INTERP3, &_INTERP4,
         &_TAILINTERP, &_TAILINTERP2, &_TAILINTERP3, &_TAILINTERP4, 
         &_LITERAL, &_RETURN, &_BRANCH, &_ZBRANCH,
-        &DROP, &DUP, &OVER, &ROT, &SWAP, &NOP,
+        &NOP, &_RECURSE,
+        &DROP, &DUP, &OVER, &ROT, &SWAP,
         &ZERO, &ONE,
         &EQ, &NE, &EQ_ZERO, &NE_ZERO,
         &GE, &GT, &GT_ZERO,

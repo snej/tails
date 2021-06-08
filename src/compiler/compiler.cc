@@ -53,7 +53,8 @@ namespace tails {
     CompiledWord::CompiledWord(Compiler &&compiler)
     :CompiledWord(move(compiler._name), {}, compiler.generateInstructions())
     {
-        assert((compiler._flags & ~(Word::Inline | Word::Magic)) == 0);
+        // Compiler's flags & effect are not valid until after generateInstructions(), above.
+        assert((compiler._flags & ~(Word::Inline | Word::Recursive | Word::Magic)) == 0);
         _flags = compiler._flags;
         _effect = compiler._effect;
     }
@@ -61,7 +62,9 @@ namespace tails {
 
     CompiledWord::CompiledWord(const CompiledWord &word, std::string &&name)
     :CompiledWord(move(name), word.stackEffect(), vector<Instruction>(word._instrs))
-    { }
+    {
+        _flags = word._flags;
+    }
 
 
 #pragma mark - COMPILER:
@@ -99,8 +102,11 @@ namespace tails {
 
 
     Compiler::InstructionPos Compiler::add(const WordRef &ref, const char *source) {
-        _words.back() = SourceWord(ref, source);
         auto i = prev(_words.end());
+        bool isDst = i->isBranchDestination;
+        *i = SourceWord(ref, source);
+        i->isBranchDestination = isDst;  // preserve this flag
+
         _words.push_back({NOP});
         return i;
     }
@@ -121,12 +127,18 @@ namespace tails {
     }
 
 
-    void Compiler::addBranchBackTo(InstructionPos pos) {
-        add({_BRANCH, intptr_t(-1)})->branchDestination = pos;
+    void Compiler::addRecurse() {
+        add({_RECURSE, intptr_t(-1)})->branchesTo(_words.begin());
     }
 
+
+    void Compiler::addBranchBackTo(InstructionPos pos) {
+        add({_BRANCH, intptr_t(-1)})->branchesTo(pos);
+    }
+
+
     void Compiler::fixBranch(InstructionPos src) {
-        src->branchDestination = prev(_words.end());
+        src->branchesTo(prev(_words.end()));
     }
 
 
@@ -155,6 +167,15 @@ namespace tails {
     }
 
 
+    // Returns true if this instruction a RETURN, or a BRANCH to a RETURN.
+    bool Compiler::returnsImmediately(Compiler::InstructionPos pos) {
+        if (pos->word == &_BRANCH)
+            return returnsImmediately(*pos->branchTo);
+        else
+            return (pos->word == &_RETURN);
+    }
+
+
     vector<Instruction> Compiler::generateInstructions() {
         if (!_controlStack.empty())
             throw compile_error("Unfinished IF-ELSE-THEN or BEGIN-WHILE-REPEAT)", nullptr);
@@ -163,63 +184,87 @@ namespace tails {
         assert(_words.back().word == &NOP);
         _words.back() = {_RETURN};
 
-        // Compute the stack effect:
+        // Compute the stack effect and do type-checking:
         computeEffect();
 
-        // If the word ends in a call to an interpreted word, we can make it a tail-call:
-        SourceWord *tailCallHere = nullptr;
-        if (_words.size() >= 2) {
-            SourceWord *lastWord = &*prev(prev(_words.end()));     // look before the RETURN
-            if (!lastWord->word->isNative())
-                tailCallHere = lastWord;
-        }
-
-        // Assign the relative pc of each word, leaving space for parameters:
+        // Assign a PC offset to each instruction, and do some optimizations:
+        int interpCount = 0;
+        InstructionPos firstInterp;
+        bool afterBranch = false;
         int pc = 0;
-        for (SourceWord &ref : _words) {
-            ref.pc = pc++;
-            if (ref.hasParam())
-                pc++;
+        for (auto i = _words.begin(); i != _words.end();) {
+            if (afterBranch && !i->isBranchDestination) {
+                // Unreachable instruction after a branch
+                i = _words.erase(i);
+                continue;
+            }
+
+            i->pc = pc;
+            if (i->word->isNative()) {
+                if (i->word == &_RECURSE) {
+                    // Detect tail recursion: Change RECURSE to BRANCH if it's followed by RETURN:
+                    if (returnsImmediately(next(i)))
+                        i->word = &_BRANCH;
+                    else
+                        _flags = Word::Flags(_flags | Word::Recursive);
+                }
+                if (auto dst = i->branchTo; dst) {
+                    // Follow chains of branches:
+                    while ((*dst)->word == &_BRANCH)
+                        dst = (*dst)->branchTo;
+                    i->branchTo = dst;
+                }
+                // Note: We could optimize a BRANCH to RETURN into a RETURN; but currently we use
+                // RETURN as an end-of-word marker, so it can only appear at the end of a word.
+                interpCount = 0;
+                pc += i->word->parameters();
+            } else {
+                // In a series of 1 or more interpreted words, set the _first_ one's `interpWord` to
+                // the appropriate word. As more words are found it's changed from INTERP to INTERP2
+                // etc.; and if the final one is followed by RETURN it's changed to the matching
+                // TAILINTERP word.
+                if (interpCount == 0 || interpCount >= kMaxInterp || i->isBranchDestination) {
+                    interpCount = 0;
+                    firstInterp = i;
+                    pc += 1;
+                }
+                bool isTail = returnsImmediately(next(i));
+                firstInterp->interpWord = kInterpWords[isTail][interpCount];
+                ++interpCount;
+            }
+            afterBranch = (i->word == &_BRANCH);
+            ++pc;
+            ++i;
         }
 
-        // Assemble instructions:
+        // Assemble `_words` into a series of instructions:
         vector<Instruction> instrs;
         instrs.reserve(pc);
-        int interps = 0;
         for (auto i = _words.begin(); i != _words.end(); ++i) {
-            auto &ref = *i;
-            if (ref.word->isNative()) {
-                assert(interps == 0);
-                instrs.push_back(*ref.word);
-                if (ref.branchDestination)
-                    ref.param.offset = (*ref.branchDestination)->pc - ref.pc - 2;
-                if (ref.word->parameters())
-                    instrs.push_back(ref.param);
+            if (i->word->isNative()) {
+                // Add a native word. If it's a branch, compute its PC offset. Then add any param:
+                instrs.push_back(*i->word);
+                if (i->branchTo)
+                    i->param.offset = (*i->branchTo)->pc - i->pc - 2;
+                if (i->word->parameters())
+                    instrs.push_back(i->param);
             } else {
-                if (interps-- == 0) {
-                    interps = 0;
-                    bool tail = false;
-                    const Word *interpWord;
-                    for (auto j = next(i); j != _words.end(); ++j) {
-                        if (j->word->isNative())
-                            break;
-                        if (&*j == tailCallHere)
-                            tail = true;
-                        if (++interps >= kMaxInterp)
-                            break;
-                    }
-                    interpWord = kInterpWords[tail][interps];
-                    instrs.push_back(*interpWord);
-                }
-                instrs.push_back(*ref.word);
+                // The first of a series of interpreted words will have `interpWord` set to the
+                // appropriate INTERP-family native word, so emit it:
+                if (i->interpWord)
+                    instrs.push_back(*i->interpWord);
+                // For each interpreted word add its word as a parameter:
+                instrs.push_back(*i->word);
             }
         }
+        assert(instrs.size() == pc);
         return instrs;
     }
 
 
     CompiledWord Compiler::finish() && {
-        return CompiledWord(move(*this)); // the CompiledWord constructor will call generateInstructions()
+        return CompiledWord(move(*this));
+        // the CompiledWord constructor will call generateInstructions()
     }
 
 

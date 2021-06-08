@@ -124,6 +124,7 @@ namespace tails {
         constexpr TypeSet& operator[] (size_t i)        {assert (i < size()); return *(_top - i);}
 
         // rbegin/rend start at the bottom of the stack
+        // (begin() / end() would take more work to implement since ++ needs to decrement the ptr)
         constexpr const TypeSet* rbegin() const         {return _bottom;}
         constexpr TypeSet* rbegin()                     {return _bottom;}
         constexpr const TypeSet* rend() const           {return _top + 1;}
@@ -150,6 +151,13 @@ namespace tails {
 
 
 
+    /// Describes the API of a word:
+    /// - how many inputs it reads from the stack, and their allowed types;
+    /// - how many outputs it leaves on the stack, and their potential types;
+    /// - the net change in stack depth (output count minus input count);
+    /// - the maximum increase in stack depth during execution.
+    /// This is used by the compiler's stack checker to verify stack safety and type safety,
+    /// and by the interpreter to allocate a sufficiently large stack at runtime.
     class StackEffect {
     public:
         /// Constructs an empty instance with zero inputs and outputs and max.
@@ -171,12 +179,19 @@ namespace tails {
             setMax();
         }
 
-        /// Sets the max of an instance. Useful for compile-time definitions of interpreted words.
+        /// Returns a copy with the max stack depth set to `max`.
+        /// (However, the max will not be set less than 0, or less than the `net()`.)
+        /// Usually called after the constructor to declare a custom max.
         constexpr StackEffect withMax(int max) {
             auto result = *this;
             result.setMax(max);
             return result;
         }
+
+        static constexpr uint16_t kUnknownMax = UINT16_MAX;
+
+        /// Returns a copy with the max stack depth set to "unknown".
+        constexpr StackEffect withUnknownMax()      {return withMax(kUnknownMax);}
 
         /// Returns a StackEffect whose inputs and outputs are not known at compile time.
         constexpr static StackEffect weird() {
@@ -185,42 +200,39 @@ namespace tails {
             return result;
         }
 
-        void addInput(TypeSet entry) {
-            insert(entry, _ins);
-            ++_ins;
-        }
+        void addInput(TypeSet entry)                {insert(entry, _ins); ++_ins;}
 
-        void addOutput(TypeSet entry) {
-            insert(entry, _ins + _outs);
-            ++_outs;
-        }
+        void addOutput(TypeSet entry)               {insert(entry, _ins + _outs); ++_outs;}
 
-        void addInputAtBottom(TypeSet entry) {
-            insert(entry, 0);
-            ++_ins;
-        }
+        void addInputAtBottom(TypeSet entry)        {insert(entry, 0); ++_ins;}
 
-        void addOutputAtBottom(TypeSet entry) {
-            insert(entry, _ins);
-            ++_outs;
-        }
+        void addOutputAtBottom(TypeSet entry)       {insert(entry, _ins); ++_outs;}
 
         /// Number of items read from stack on entry (i.e. minimum stack depth on entry)
-        constexpr int inputCount() const    {assert(!_weird); return _ins;}
+        constexpr int inputCount() const        {assert(!_weird); return _ins;}
+
         /// Number of items left on stack on exit, "replacing" the input
-        constexpr int outputCount() const   {assert(!_weird); return _outs;}
+        constexpr int outputCount() const       {assert(!_weird); return _outs;}
+
         /// Net change in stack depth from entry to exit; equal to `output` - `input`.
-        constexpr int net() const       {assert(!_weird); return int(_outs) - int(_ins);}
+        constexpr int net() const               {assert(!_weird); return int(_outs) - int(_ins);}
+
         /// Max growth of stack while the word runs
-        constexpr int max() const       {assert(!_weird); return _max;}
+        constexpr int max() const               {assert(!_weird); return _max;}
+
+        /// True if actual max stack growth is not known at compile time (e.g. recursive fns)
+        constexpr bool maxIsUnknown() const     {return _max == UINT16_MAX;}
+
         /// True if the stack effect is unknown at compile time or depends on instruction params
         constexpr bool isWeird() const  {return _weird;}
 
-        constexpr const TypesView inputs() const {return TypesView((TypeSet*)&_entries[0], _ins);}
-        constexpr const TypesView outputs() const {return TypesView((TypeSet*)&_entries[_ins], _outs);}
+        /// The array of input types
+        constexpr const TypesView inputs() const   {return TypesView((TypeSet*)&_entries[0], _ins);}
+        constexpr TypesView inputs()               {return TypesView(&_entries[0], _ins);}
 
-        constexpr TypesView inputs() {return TypesView(&_entries[0], _ins);}
-        constexpr TypesView outputs() {return TypesView(&_entries[_ins], _outs);}
+        /// The array of output types
+        constexpr const TypesView outputs() const {return TypesView((TypeSet*)&_entries[_ins], _outs);}
+        constexpr TypesView outputs()             {return TypesView(&_entries[_ins], _outs);}
 
         constexpr bool operator== (const StackEffect &other) const {
             if (_ins == other._ins && _outs == other._outs && _max == other._max
@@ -251,10 +263,8 @@ namespace tails {
         }
 
         constexpr void setMax(int m =0) {
-            if (m > UINT16_MAX)
-                throw std::runtime_error("Stack max too deep");
-            m = std::max(m, net());
-            _max = uint8_t(std::max(m, 0));
+            m = std::max({m, 0, net(), int(_max)});
+            _max = uint16_t(std::min(m, int(kUnknownMax)));
         }
 
         static constexpr size_t kMaxEntries = 8;

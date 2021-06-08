@@ -71,8 +71,7 @@ static void garbageCollect() {
     namespace tails {
         /// Tracing function called at the end of each native op -- prints the stack
         void TRACE(Value *sp, const Instruction *pc) {
-            --pc; // the pc we are passed is of the _next_ Instruction
-            cout << "\tafter " << setw(14) << pc;
+            cout << "\tbefore " << setw(14) << pc;
             auto dis = Disassembler::wordOrParamAt(pc);
             cout << " " << setw(12) << std::left << dis.word->name();
             cout << ": ";
@@ -86,6 +85,20 @@ static void garbageCollect() {
 
 static void printStackEffect(StackEffect f) {
     cout << "Stack effect: (" << f << "), max stack " << f.max() << "\n";
+}
+
+
+static void printDisassembly(const Word *word) {
+    auto dis = Disassembler::disassembleWord(word->instruction().word, true);
+    for (auto &wordRef : dis) {
+        cout << ' ' << (wordRef.word->name() ? wordRef.word->name() : "???");
+        if (wordRef.word->hasIntParams())
+            cout << "+<" << (int)wordRef.param.offset << '>';
+        else if (wordRef.word->hasValParams())
+            cout << ":<" << wordRef.param.literal << '>';
+        else if (wordRef.word->hasWordParams())
+            cout << ":<" << Compiler::activeVocabularies.lookup(wordRef.param.word)->name() << '>';
+    }
 }
 
 
@@ -109,16 +122,7 @@ static Value _runParser(const char *source) {
     CompiledWord parsed(move(compiler));
 
     cout << "\tDisassembly:";
-    auto dis = Disassembler::disassembleWord(parsed.instruction().word, true);
-    for (auto &wordRef : dis) {
-        cout << ' ' << (wordRef.word->name() ? wordRef.word->name() : "???");
-        if (wordRef.word->hasIntParams())
-            cout << "+<" << (int)wordRef.param.offset << '>';
-        else if (wordRef.word->hasValParams())
-            cout << ":<" << wordRef.param.literal << '>';
-        else if (wordRef.word->hasWordParams())
-            cout << ":<" << Compiler::activeVocabularies.lookup(wordRef.param.word)->name() << '>';
-    }
+    printDisassembly(&parsed);
     cout << "\n";
 
     printStackEffect(parsed.stackEffect());
@@ -272,6 +276,31 @@ int main(int argc, char *argv[]) {
     // Defining a new word:
     TEST_PARSER(0,                  R"( {(# -- #) 3 *} "thrice" define  0 )");
     TEST_PARSER(72,                 R"( 8 thrice Thrice )");
+
+    // Define a typical recursive factorial function:
+    TEST_PARSER(0,                  R"( {(# -- #) DUP 1 > IF DUP 1 - RECURSE * ELSE DROP 1 THEN} "factorial" define  0 )");
+    TEST_PARSER(120,                R"( 5 factorial )");
+    auto fact = Compiler::activeVocabularies.lookup("factorial");
+    assert(fact);
+    assert(fact->hasFlag(Word::Recursive));
+
+    // Define a tail-recursive form of factorial:
+    //   fact(a, n) -> fact(a * n, n - 1)  when n > 1
+    //              -> a                   when n ≤ 1
+    //           n! -> fact(1, n)
+    cout << '\n';
+    TEST_PARSER(0,                  R"( {(f# i# -- result#) DUP 1 > IF DUP ROT * SWAP 1 - RECURSE ELSE DROP THEN} "fact" define  0 )");
+    fact = Compiler::activeVocabularies.lookup("fact");
+    assert(fact);
+    cout << "`fact` stack effect: ";
+    printStackEffect(fact->stackEffect());
+    cout << "`fact` disassembly: ";
+    printDisassembly(fact);
+    cout << "\n";
+    assert(!fact->hasFlag(Word::Recursive));
+    assert(fact->stackEffect().max() == 2);
+
+    TEST_PARSER(120,                R"( 1 5 fact )");
 
     garbageCollect();
     assert(gc::object::instanceCount() == 0);
