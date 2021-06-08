@@ -191,7 +191,7 @@ namespace tails {
     };
 
 
-#pragma mark - COMPILER's STACK CHECKER:
+#pragma mark - COMPILER STACK CHECKER:
 
 
     // Computes the stack effect of the word, throwing if it's inconsistent.

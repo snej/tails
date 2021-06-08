@@ -18,6 +18,7 @@
 
 #pragma once
 #include "platform.hh"
+#include <stddef.h>
 #include <stdint.h>
 
 #ifndef SIMPLE_VALUE

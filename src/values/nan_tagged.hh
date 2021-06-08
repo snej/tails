@@ -65,28 +65,28 @@ namespace tails {
 
         // Type testing:
 
-        bool isDouble() const noexcept _pure        {return (_bits & kMagicBits) != kMagicBits;}
-        bool isPointer() const noexcept _pure       {return (_bits & kTypeMask) == kPointerType;}
-        bool isInline() const noexcept _pure        {return (_bits & kTypeMask) == kInlineType;}
+        constexpr bool isDouble() const noexcept _pure        {return (_bits & kMagicBits) != kMagicBits;}
+        constexpr bool isPointer() const noexcept _pure       {return (_bits & kTypeMask) == kPointerType;}
+        constexpr bool isInline() const noexcept _pure        {return (_bits & kTypeMask) == kInlineType;}
 
-        bool isNullPointer() const noexcept _pure   {return _bits == kPointerType;}
+        constexpr bool isNullPointer() const noexcept _pure   {return _bits == kPointerType;}
         
         // Getters:
 
         /// Returns the `double` this stores, or an `NaN` if it's not holding a double.
-        double asDouble() const noexcept _pure      {return _asDouble;}
+        constexpr double asDouble() const noexcept _pure      {return _asDouble;}
         /// Returns the `double` this stores, or 0.0 if it's not holding a double.
-        double asDoubleOrZero() const noexcept _pure{return isDouble() ? _asDouble : 0.0;}
+        constexpr double asDoubleOrZero() const noexcept _pure{return isDouble() ? _asDouble : 0.0;}
         /// Returns the pointer this stores, or nullptr if it's not holding a pointer.
-        const TO* asPointer() const noexcept _pure  {return isPointer() ? pointerValue() : nullptr;}
+        constexpr const TO* asPointer() const noexcept _pure  {return isPointer() ? pointerValue() : nullptr;}
         /// Returns the inline data this stores, or `{nullptr,0}` if it's not inline.
-        slice asInline() const noexcept _pure       {return isInline() ? inlineValue() : slice();}
+        constexpr slice asInline() const noexcept _pure       {return isInline() ? inlineValue() : slice();}
 
 
         // Pointer & inline values have two free tag bits:
-        bool tag1() const noexcept _pure    {return (_bits & kTagBit1) != 0; }
-        bool tag2() const noexcept _pure    {return (_bits & kTagBit2) != 0; }
-        int tags() const noexcept _pure     {return int((_bits >> 48) & 0x03);}
+        constexpr bool tag1() const noexcept _pure    {return (_bits & kTagBit1) != 0; }
+        constexpr bool tag2() const noexcept _pure    {return (_bits & kTagBit2) != 0; }
+        constexpr int tags() const noexcept _pure     {return int((_bits >> 48) & 0x03);}
 
         // Setters:
 

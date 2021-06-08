@@ -6,6 +6,7 @@
 
 #pragma once
 #include "value.hh"
+#include <memory>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string_view>
@@ -75,6 +76,8 @@ namespace tails::gc {
         std::string_view string_view() const    {return std::string_view(_data, _len);}
         /// Marks this string as in use.
         void mark()                             {object::mark();}
+
+        static void operator delete(void *ptr)  {::operator delete(ptr);}
     private:
         static void* operator new(size_t baseSize, size_t extra) {
             return ::operator new(baseSize + extra);

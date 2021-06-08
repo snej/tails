@@ -220,6 +220,7 @@ namespace tails {
             case AQuote:
                 return _cmp(asQuote(), v.asQuote());    // arbitrary ordering by address
         }
+        abort(); // unreachable, but GCC doesn't know that :p
     }
 
 
