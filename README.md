@@ -258,4 +258,4 @@ ARM64 calling conventions are more standardized, but the official specification 
 [FACTOR]: https://factorcode.org
 [NAN]: https://www.npopov.com/2012/02/02/Pointer-magic-for-efficient-dynamic-value-representations.html
 [HALTING]: https://en.wikipedia.org/wiki/Halting_problem
-[SYNTAX]: https://github.com/snej/tails/Syntax.md
+[SYNTAX]: https://github.com/snej/tails/blob/main/Syntax.md
