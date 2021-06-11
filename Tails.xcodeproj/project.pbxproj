@@ -117,6 +117,7 @@
 		2753DAD22667EAFE008EBCE0 /* more_words.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = more_words.cc; sourceTree = "<group>"; };
 		2753DAD826682769008EBCE0 /* gc.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = gc.hh; sourceTree = "<group>"; };
 		2753DAD926682769008EBCE0 /* gc.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = gc.cc; sourceTree = "<group>"; };
+		27736CBB26714B9200655493 /* Syntax.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = Syntax.md; sourceTree = "<group>"; };
 		27783694266164930025D97F /* compiler+stackcheck.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = "compiler+stackcheck.hh"; sourceTree = "<group>"; };
 		27BE518E266188870010DC42 /* io.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = io.hh; sourceTree = "<group>"; };
 		27BE518F266190850010DC42 /* utils.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = utils.hh; sourceTree = "<group>"; };
@@ -191,6 +192,7 @@
 			isa = PBXGroup;
 			children = (
 				273B20912643282500A14EC4 /* README.md */,
+				27736CBB26714B9200655493 /* Syntax.md */,
 				273B20862641B8AA00A14EC4 /* src */,
 				2739929B264C61D100301067 /* build.sh */,
 				2732F9C92652DBEB0013063A /* vendor */,

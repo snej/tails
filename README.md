@@ -8,7 +8,19 @@ It's grown significantly since then: there's a parser; a stack-checking & type-c
 
 Tails doesn't follow the usual Forth implementation strategy of starting with a minimal assembly-language core and then building as much as possible in Forth itself. That makes sense for a system where you're going to be writing applications entirely in Forth; but for my purposes I'm more interested in having an embedded language to use for small tasks inside an application written in a more traditional compiled language like C++.
 
-## Why Another Forth?
+## 0. TL;DR
+
+### Just Show Me The Code!
+
+* The absolute core is [instruction.hh](https://github.com/snej/tails/blob/main/src/core/instruction.hh), which defines how code is structured and called, and how one primitive/native word proceeds to the next. (It uses a class `Value` that represents the items on the stack; for now you can just pretend that's a typedef for `int` or `double`.)
+* [word.hh](https://github.com/snej/tails/blob/main/src/core/word.hh) defines the `Word` class that associates a name and flags with an (interpreted or primitive) function.
+* [core_words.cc](https://github.com/snej/tails/blob/main/src/core/core_words.cc) defines the very basic primitives like `LITERAL`, `DUP`, `+`, and some interpreted words like `ABS` and `MAX`.
+
+### Just Show Me The Language!
+
+Here's an [overview of the syntax and vocabulary][SYNTAX].
+
+## 1. Why Another Forth?
 
 I think "build a working Forth interpreter" has been on my bucket list for a while. As a teenager circa 1980, I had an Apple II and wrote a lot of programs in BASIC. I got frustrated by its slowness, but 6502 assembly (which most games were written in) was quite nasty. Then I got FIG-Forth, which was kind of a Goldilocks language -- a lot faster than BASIC, with direct access to memory and hardware, but much friendlier than assembly. I got ahold of a printed listing of FIG-Forth (the Z80 version, for some reason) and worked my way through it, learning a lot. Then in college I tried to write my own interpreter for a 68000-based workstation, but never got it debugged. Now I'm trying again, but starting from a higher level.
 
@@ -16,15 +28,9 @@ A more recent reason, and more practical, is to have a simple but fast interpret
 
 The final reason, the immediate impetus, was to apply the really elegant and efficient implementation technique used by [Wasm3][WASM3] (a [WebAssembly][WASM] interpreter), which is probably the fastest pure non-JIT interpreter there is. See below under "Performance".
  
-## Just Show Me The Code!
+## 2. Theory Of Operation
 
-* The absolute core is [instruction.hh](https://github.com/snej/tails/blob/main/src/core/instruction.hh), which defines how code is structured and called, and how one primitive/native word proceeds to the next. (It uses a class `Value` that represents the items on the stack; for now you can just pretend that's a typedef for `int` or `double`.)
-* [word.hh](https://github.com/snej/tails/blob/main/src/core/word.hh) defines the `Word` class that associates a name and flags with an (interpreted or primitive) function.
-* [core_words.cc](https://github.com/snej/tails/blob/main/src/core/core_words.cc) defines the very basic primitives like `LITERAL`, `DUP`, `+`, and some interpreted words like `ABS` and `MAX`.
- 
-## Theory Of Operation
-
-Tails's world is currently very simple: a stack of values, a call stack, and a program consisting of an array of function pointers. It's "the simplest thing that could possibly work", but it gets you quite a lot.
+Tails's world is currently very simple: a stack of (dynamically-typed) values, a call stack, and a program consisting of an array of function pointers. It's "the simplest thing that could possibly work", but it gets you quite a lot.
 
 ### Core (AKA native, primitive) functions
 
@@ -117,9 +123,17 @@ And yes, there exist `TAILINTERP2`, `TAILINTERP3`, `TAILINTERP4`.
 
 >Note: Of course there's nothing magic about 4; there could be any number of words in this family. In real usage it would probably be beneficial to go at least up to 8, maybe higher.
 
-Another optimization is inlining. The "inline" flag in an interpreted word's metadata is a hint to the compiler to insert its instructions inline instead of emitting a call. It turns out that inlining is pretty trivial to implement in a concatenative (stack-based) language: you literally just copy the contents of the word, stopping before the `RETURN`. 
+Another optimization is inlining. The "inline" flag in an interpreted word's metadata is a hint to the compiler to insert its instructions inline instead of emitting a call. It turns out that inlining is pretty trivial to implement in a concatenative (stack-based) language: you literally just copy the contents of the word, stopping before the `RETURN`.
 
-## Compilation
+### Recursion
+
+Recursion is tricky in most Forths, simply because the word you're defining doesn't yet have a name you can call it by; it isn't registered in the vocabulary until the definition is complete. Tails addresses this with a special word `RECURSE`, which recursively calls the current word.
+
+Recursion doesn't use `INTERP`; instead `RECURSE` is followed by a relative offset back to the start of the word. It's sort of a hybrid of `BRANCH` and `INTERP` in that it uses a PC offset but creates a new call-stack frame.
+
+Of course Tails supports tail-call optimization for recursive words! If `RECURSE` is followed by `RETURN`, or a `BRANCH` to `RETURN`, it's replaced by a simple `BRANCH` ... so the recursion is reduced to a loop.
+
+## 3. Compilation
 
 There are several ways to add words to Tails:
 
@@ -166,17 +180,31 @@ During this, stack checker also also tracks the maximum depth of the stack, and 
 
 >Warning: The  `NATIVE_WORD` and `INTERP_WORD` macros are **not** smart enough to check stack effects. When defining a word with these you have to give the word's stack effect, on the honor system; if you get it wrong, `CompiledWord` will get wrong results for words that call that one. G.I.G.O.!
 
+There are a couple of primitives whose stack effects are not fixed. These words are given a special flag called "Weird". The stack checker has hardcoded handlers for such words, as described below...
+
+#### Stack Checking Vs. Recursion
+
+The `RECURSE` word throws a few wrenches into the stack checking machinery.
+
+**First,** if the current word's stack effect hasn't been given explicitly, and the compiler is determining it as it goes along by tracing the flow of control, then it doesn't actually know what the stack effect of a recursive call is. (Or at least, I haven't put enough thought into figuring out whether or in what cases it could know.) So the compiler will fail with an error in this case. In other words, when defining a recursive word, you have to give its stack effect up front.
+
+**Second,** a recursive function's maximum stack depth can't be determined at compile time. Recursive functions can use unbounded or even infinite stack space (both data and call stacks.) Trying to statically analyze the code to determine the maximum recursion depth is equivalent to the [Halting Problem][HALTING], i.e. impossible. So Tails gives up: the `RECURSE` word is considered to have _infinite_ maximum stack depth, where by "infinite" we mean 65535, and this is propagated to the word that calls it. So in practice, the runtime will allocate a pretty large stack when running recursive code, which is usually sufficient.
+
+>Note: This doesn't apply to tail recursion. A tail-recursive word's stack effect can be determined normally, so it's finite. (A word that grew the stack before tail-recursing, like `{DUP RECURSE}`, would be rejected by the regular stack checker.)
+
+>Note: A future optimization could be to have the `RECURSE` primitive check the free space in the data stack, and (somehow) grow the stack if necessary.
+
 #### Stack Checking Vs. Quotations
 
-Unfortunately the recent (May 20 or so) addition of quotations (function values) has thrown a bit of a wrench into the stack checker. The `CALL` primitive which invokes a quotation has a stack effect that's indeterminate, because its effect is that of the quotation object on top of the stack, which in general isn't known at compile time.
+The `CALL` primitive which invokes a quotation has a stack effect that's indeterminate, because its effect is that of the quotation object on top of the stack, which in general isn't known at compile time.
 
 Factor calls this situation "row polymorphism" and has a complex type of stack effect declaration to express it. I'm still trying to figure out how it works and how it could be implemented.
 
-For now I've put in a simple kludge. Words with variable stack effects have a special flag called "Weird". There are currently two such words, the primitives `CALL` and `IFELSE`. The stack checker rejects such a word unless it has a hardcoded handler for it. The handler for `IFELSE` requires that the preceding two words are quote literals, with equivalent stack effects, and uses that effect.
+For now I've put in a simple kludge. Words with variable stack effects have a special flag called "Weird". There are currently three such words: the primitives `CALL`, `IFELSE` and `RECURSE`. The stack checker rejects such a word unless it has a hardcoded handler for it. The handler for `IFELSE` requires that the preceding two words are quote literals, with equivalent stack effects, and uses that effect.
 
-I hooe to replace this with a more general and elegant mechanism soon. In the meantime, this means that the only use for quotes is with `IFELSE`. Sorry!
+I hope to replace this with a more general and elegant mechanism soon. In the meantime, this means that the only use for quotes is with `IFELSE`. Sorry!
 
-## Runtime
+## 4. Runtime
 
 ### Data Types
 
@@ -221,11 +249,6 @@ ARM64:
 ARM64 calling conventions are more standardized, but the official specification is extremely convoluted. In a nutshell, the first eight int/struct/pointer arguments are passed in registers x0–x7. The return value goes in x0 (up to 64 bits), or in x0 and x1 (up to 128 bits); if larger, the caller sets x8 to the location to write the result. (See this handy [ARM64 cheat sheet](https://github.com/Siguza/ios-resources/blob/master/bits/arm64.md#calling-convention).)
 
 
-## To-Do List
-
-* Add more data types, like dictionaries.
-* Define a bunch more core words.
-
 [FORTH]: https://en.wikipedia.org/wiki/Forth_(programming_language)
 [WASM]: https://webassembly.org
 [THREADED]: http://www.complang.tuwien.ac.at/forth/threaded-code.html
@@ -234,3 +257,5 @@ ARM64 calling conventions are more standardized, but the official specification 
 [WASM3INTERP]: https://github.com/wasm3/wasm3/blob/main/docs/Interpreter.md#m3-massey-meta-machine
 [FACTOR]: https://factorcode.org
 [NAN]: https://www.npopov.com/2012/02/02/Pointer-magic-for-efficient-dynamic-value-representations.html
+[HALTING]: https://en.wikipedia.org/wiki/Halting_problem
+[SYNTAX]: https://github.com/snej/tails/Syntax.md
