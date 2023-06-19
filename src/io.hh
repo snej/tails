@@ -20,11 +20,9 @@ namespace tails {
             out << "∅";
         else {
             static constexpr const char *kNames[] = {"?", "#", "$", "{}", "[]"};
-            int n = 0;
             for (int i = 0; i <= 5; ++i) {
                 if (entry.canBeType(Value::Type(i))) {
                     out << kNames[i];
-                    n++;
                 }
             }
         }
