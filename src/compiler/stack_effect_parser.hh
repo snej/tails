@@ -30,12 +30,10 @@ namespace tails {
     // Adds a type to a TypeSet given its stack-effect symbol.
     constexpr void addTypeSymbol(TypeSet &ts, char symbol) {
         switch (symbol) {
-#ifndef SIMPLE_VALUE
             case '?':           ts.addType(Value::ANull); break;
             case '$':           ts.addType(Value::AString); break;
             case '[': case ']': ts.addType(Value::AnArray); break;
             case '{': case '}': ts.addType(Value::AQuote); break;
-#endif
             case '#':           ts.addType(Value::ANumber); break;
             case 'a'...'z':
             case 'A'...'Z':

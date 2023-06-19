@@ -11,8 +11,6 @@
 #include <stdlib.h>
 #include <string_view>
 
-#ifndef SIMPLE_VALUE
-
 namespace tails {
     class Word;
     class CompiledWord;
@@ -117,5 +115,3 @@ namespace tails::gc {
     };
 
 }
-
-#endif // SIMPLE_VALUE

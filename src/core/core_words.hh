@@ -38,9 +38,7 @@ namespace tails::core_words {
         ONE, ZERO,
         DEFINE;
     
-#ifndef SIMPLE_VALUE
     extern const Word NULL_, LENGTH, CALL, IFELSE;
-#endif
 
     /// Array of pointers to the above core words, ending in nullptr
     extern const Word* const kWords[];

@@ -56,11 +56,9 @@ static Value run(const Word &word) {
 
 
 static void garbageCollect() {
-#ifndef SIMPLE_VALUE
     Compiler::activeVocabularies.gcScan();
     auto [preserved, freed] = gc::object::sweep();
     cout << "GC: freed " << freed << " objects; " << preserved << " left.\n";
-#endif
 }
 
 
@@ -155,7 +153,6 @@ static void testStackEffect() {
     assert(ts.inputs()[0].flags() == 0x1F);
     assert(ts.outputs()[0].flags() == 0x1F);
 
-#ifndef SIMPLE_VALUE
     ts = "aaa# bbb#? -- ccc$ [d_d]?"_sfx;
     assert(ts.inputCount() == 2);
     assert(ts.outputCount() == 2);
@@ -165,15 +162,12 @@ static void testStackEffect() {
     assert(ts.outputs()[1].flags() == 0x04);
     assert(!ts.outputs()[0].isInputMatch());
     assert(ts.outputs()[0].inputMatch() == -1);
-#endif
 
     ts = "apple ball# cat -- ball# cat apple"_sfx;
     assert(ts.inputCount() == 3);
     assert(ts.outputCount() == 3);
     assert(ts.inputs()[0].flags() == 0x1F);
-#ifndef SIMPLE_VALUE
     assert(ts.inputs()[1].flags() == 0x02);
-#endif
     assert(ts.inputs()[2].flags() == 0x1F);
     assert(ts.outputs()[0].isInputMatch());
     assert(ts.outputs()[0].inputMatch() == 2);
@@ -181,9 +175,7 @@ static void testStackEffect() {
     assert(ts.outputs()[2].inputMatch() == 1);
     assert(ts.outputs()[0].flags() == 0x7F);
     assert(ts.outputs()[1].flags() == 0x3F);
-#ifndef SIMPLE_VALUE
     assert(ts.outputs()[2].flags() == 0x42);
-#endif
 }
 
 
@@ -242,7 +234,6 @@ int main(int argc, char *argv[]) {
 
     garbageCollect();
 
-#ifndef SIMPLE_VALUE
     // Strings:
     TEST_PARSER("hello",            R"( "hello" )");
     TEST_PARSER("truthy",           R"( 1 IF "truthy" ELSE "falsey" THEN )");
@@ -329,7 +320,6 @@ int main(int argc, char *argv[]) {
 
     garbageCollect();
     assert(gc::object::instanceCount() == 0);
-#endif
     
     cout << "\nTESTS PASSED❣️❣️❣️\n\n";
 }

@@ -5,8 +5,8 @@ echo "Building Tails ..."
 cd src
 rm -f *.o
 
-CC=cc
-CPP=c++
+CC=clang
+CPP=clang++
 # The following lines let me force GCC, for compatibility checking. --Jens
 #CC=/usr/local/bin/gcc-11
 #CPP=/usr/local/bin/g++-11

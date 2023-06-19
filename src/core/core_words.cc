@@ -217,7 +217,6 @@ namespace tails::core_words {
     }
 
 
-#ifndef SIMPLE_VALUE
     // (? quote -> ?)  Pops a quotation (word) and calls it.
     // The actual stack effect is that of the quotation it calls, which in the general case is
     // only known at runtime. Until the compiler's stack checker can deal with this, I'm making
@@ -242,8 +241,6 @@ namespace tails::core_words {
         sp = call(sp - 3, quote->instruction().word);
         NEXT();
     }
-#endif // SIMPLE_VALUE
-
 
 
 #pragma mark Arithmetic & Relational:
@@ -264,13 +261,9 @@ namespace tails::core_words {
     static constexpr StackEffect kRelEffect({Any, Any}, {Num});
     static constexpr StackEffect k0RelEffect({Any}, {Num});
 
-#ifdef SIMPLE_VALUE
-    BINARY_OP_WORD(PLUS,  "+",   kBinEffect, +)
-#else
     BINARY_OP_WORD(PLUS,  "+",   StackEffect({Num|Str|Arr, Num|Str|Arr},
                                              {(Num|Str|Arr)/0}),
                    +)
-#endif
     BINARY_OP_WORD(MINUS, "-",   kBinEffect, -)
     BINARY_OP_WORD(MULT,  "*",   kBinEffect, *)
     BINARY_OP_WORD(DIV,   "/",   kBinEffect, /)
@@ -288,8 +281,6 @@ namespace tails::core_words {
     NATIVE_WORD(GT_ZERO, "0>",  k0RelEffect)  { sp[0] = Value(sp[0] >  Value(0)); NEXT(); }
     NATIVE_WORD(LT_ZERO, "0<",  k0RelEffect)  { sp[0] = Value(sp[0] <  Value(0)); NEXT(); }
 
-#ifndef SIMPLE_VALUE
-
     // [Appended an "_" to the symbol name to avoid conflict with C's `NULL`.]
     NATIVE_WORD(NULL_, "NULL", StackEffect({}, {Nul})) {
         *(++sp) = NullValue;
@@ -303,9 +294,6 @@ namespace tails::core_words {
         *sp = sp->length();
         NEXT();
     }
-
-
-#endif
 
 
 #pragma mark - INTERPRETED WORDS:
@@ -361,13 +349,11 @@ namespace tails::core_words {
         &LE, &LT, &LT_ZERO,
         &ABS, &MAX, &MIN,
         &DIV, &MOD, &MINUS, &MULT, &PLUS,
-#ifndef SIMPLE_VALUE
         &CALL,
         &NULL_,
         &LENGTH,
         &IFELSE,
         &DEFINE,
-#endif
         nullptr
     };
 

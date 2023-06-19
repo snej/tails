@@ -1,6 +1,6 @@
 # Tails, A Fast C+\+ Forth Core
 
-**Tails** is a minimal, fast [Forth][FORTH]-like interpreter core. It uses no assembly code, only C+\+, but an elegant tail-recursion technique inspired by [Wasm3][WASM3] makes it nearly as efficient as hand-written assembly. I created it as a one-day hack to celebrate May Forth 2021 … then kept going because it's fun.
+**Tails** is a minimal, fast [Forth][FORTH]-like interpreter core. It uses no assembly code, only C+\+, but an elegant tail-recursion technique inspired by [Wasm3][WASM3] makes it nearly as efficient as an interpreter hand-written in assembly. I created it as a one-day hack to celebrate May Forth 2021 … then kept going because it's fun.
 
 It started out as tiny but functional. The magic core code (`NEXT`, `INTERP`, `RETURN`, `LITERAL`, `DUP`, etc.) is about 200SLOC and compiles to a few hundred bytes, many of which are NOPs the compiler adds for padding. The parser and compiler add a few KB more.
 
@@ -27,7 +27,7 @@ I think "build a working Forth interpreter" has been on my bucket list for a whi
 A more recent reason, and more practical, is to have a simple but fast interpreter to use for things like implementing database queries. Queries can do very general-purpose things like evaluating arbitrary arithmetic and logical expressions, and they also have complex higher-level logic for traversing indexes. They're usually translated into an interpreted form. I wrote such a query interpreter last year for a database project, but was unhappy with the implementation.
 
 The final reason, the immediate impetus, was to apply the really elegant and efficient implementation technique used by [Wasm3][WASM3] (a [WebAssembly][WASM] interpreter), which is probably the fastest pure non-JIT interpreter there is. See below under "Performance".
- 
+
 ## 2. Theory Of Operation
 
 Tails's world is currently very simple: a stack of (dynamically-typed) values, a call stack, and a program consisting of an array of function pointers. It's "the simplest thing that could possibly work", but it gets you quite a lot.
@@ -64,7 +64,7 @@ Since this occurs at the end of every native function, it's abstracted into a ma
 
 The stack doesn't grow, because of _tail call optimization_: if a C/C+\+ function ends with a call to another function and simply returns that function's result, the compiler can replace the 'call' and 'return' machine instructions with a simple jump to the other function. Pretty much every C/C+\+ compiler does this when optimizations are enabled.
 
-> Note: In _non-optimized_ (debug) builds, the stack does grow. To work around this, Tails attempts to use a compiler attribute called `musttail` that forces the compiler to tail-call-optimize even when optimizations aren't on. Currently [May 2021] this is only available in Clang, and won't be in a release until Clang 13. Until then, don't let your tests don't run so long that they blow the stack!
+> Note: In _non-optimized_ (debug) builds, the stack does grow. To work around this, Tails attempts to use a compiler attribute called `musttail` that forces the compiler to tail-call-optimize even when optimizations aren't on. This is available in Clang 13 or later. (There may be a comparable attribute in GCC; if you tell me what it is I'll add support for it.)
 
 **When does this ever return? Is it just an infinite regress?**
 
@@ -208,13 +208,15 @@ I hope to replace this with a more general and elegant mechanism soon. In the me
 
 ### Data Types
 
-The `Value` class defines what Tails can operate on. The stack is just a C array of `Value`s. There are currently two `Value` implementations, available at the flip of a `#define`:
+The `Value` class defines what Tails can operate on. The stack is just a C array of `Value`s. The `Value` class can be replaced without too much difficulty; it mostly just involves reimplementing the guts of the primitive instructions.
 
-**The simple Value** is just a trivial wrapper around a `double`, so all it supports are numbers.
+The current Value implementation uses the so-called "[NaN tagging][NAN]" or "Nan boxing" trick that's used by several dynamic language runtimes, such as LuaJIT and the WebKit and Mozilla JavaScript VMs. It  supports `double`s, strings, arrays and Words (quotations), and is extensible. It has a very simple garbage collector.
 
-**The fancy Value** uses the so-called "[NaN tagging][NAN]" or "Nan boxing" trick that's used by several dynamic language runtimes, such as LuaJIT and the WebKit and Mozilla JavaScript VMs. It currently supports `double`s, strings, arrays and Words (quotations), and is extensible. It has a very simple garbage collector.
+(There used to be a trivial `Value` that only supported numbers; there was an `#ifdef` that switched which version was in use. You can find it in commits before 2023.)
 
 ### Performance
+
+> **TL;DR:** Tails can execute primitive instructions like `DUP` and `+` in about five clock cycles on an Apple M1 Pro CPU, according to one micro-benchmark detailed below; that's almost 600MIPS. 😅
 
 Tails was directly inspired by [the design of the Wasm3 interpreter][WASM3INTERP], which cleverly uses tail calls and register-based parameter passing to remove most of the overhead of C, allowing the code to be nearly as optimal as hand-written assembly. I realized this would permit the bootstrap part of a Forth interpreter -- the part that implements the way words (functions) are called, and the primitive words -- to be written in pure C or C+\+.
 
@@ -224,7 +226,7 @@ It turned out to be as efficient as Steven Massey promised, though you do need a
 
 The first flag enables optimizations so that tail calls become jumps; the other flags disable stack frames, so functions don't unnecessarily push and pop to the native stack.
 
-For example, here's the x86-64 assembly code of the PLUS function, compiled by Clang 11. Since the platform calling conventions use registers for the initial parameters and the return value, there's no use of the C stack at all!
+For example, here's the x86-64 assembly code of the `PLUS` function, compiled by Clang 11. Since the platform calling conventions use registers for the initial parameters and the return value, there's no use of the C stack at all!
 ```
 3cd0    movl    (%rdi), %eax        ; load top of data stack into eax
 3cd2    addl    %eax, 0x4(%rdi)     ; add eax to second data stack item
@@ -233,6 +235,24 @@ For example, here's the x86-64 assembly code of the PLUS function, compiled by C
 3cdc    addq    $0x8, %rsi          ; bump the program counter
 3ce0    jmpq    *%rax               ; jump to the next word
 ```
+
+#### A simple benchmark
+
+At the end of the test code (`test.cc`) is a simple benchmark: a tail-recursive function that computes the `n`th triangle number. (It's the same code as factorial, but with `+` instead of `*` so it won't overflow.) The source code of `TRI` is:
+
+```
+{ (f# i# -- result#) DUP 1 > IF DUP ROT + SWAP 1 - RECURSE ELSE DROP THEN }
+```
+
+This compiles into instructions:
+
+```
+DUP 1 > 0BRANCH+<8> DUP ROT + SWAP 1 - BRANCH+<-13> DROP _RETURN
+```
+
+The loop is 11 instructions long, from the start up through the `BRANCH`.
+
+On my MacBook Pro (2021 model, M1 Pro CPU, 3GHz) it computes `1 1.0e8 TRI` in 1.9 seconds. That's 19 nanoseconds per iteration of the loop, or **1.7ns per Tails instruction, about 5 clock cycles.** Another way of saying it is that **the Tails virtual machine ran at something like 590 MIPS**. Not shabby!
 
 #### Register usage in function calls
 

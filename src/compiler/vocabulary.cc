@@ -98,10 +98,8 @@ namespace tails {
 
 
     void VocabularyStack::gcScan() {
-#ifndef SIMPLE_VALUE
         for (auto word : *this)
             gc::object::scanWord(word);
-#endif
     }
 
 

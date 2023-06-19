@@ -204,21 +204,14 @@ namespace tails {
 
 
     Value Compiler::parseString(string_view token) {
-#ifdef SIMPLE_VALUE
-        throw compile_error("Strings not supported", token.data());
-#else
         if (token.size() == 1 || token[token.size()-1] != '"')
             throw compile_error("Unfinished string literal", token.end());
         token = token.substr(1, token.size() - 2);
         return Value(token.data(), token.size());
-#endif
     }
 
 
     Value Compiler::parseArray(const char* &input) {
-#ifdef SIMPLE_VALUE
-        throw compile_error("Arrays not supported", input);
-#else
         Value arrayVal({});
         std::vector<Value> *array = arrayVal.asArray();
         while (true) {
@@ -237,14 +230,10 @@ namespace tails {
                 throw compile_error("Invalid literal '" + string(token) + "' in array", token.data());
         }
         return arrayVal;
-#endif
     }
 
 
     Value Compiler::parseQuote(const char* &input) {
-#ifdef SIMPLE_VALUE
-        throw compile_error("Quotes not supported", input);
-#else
         Compiler quoteCompiler;
         // Check if there's a stack effect declaration:
         if (peek(input) == '(') {
@@ -265,7 +254,6 @@ namespace tails {
         ++input;
 
         return Value(new CompiledWord(move(quoteCompiler)));
-#endif
     }
 
 }

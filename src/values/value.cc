@@ -27,14 +27,6 @@
 namespace tails {
     using namespace std;
 
-#ifdef SIMPLE_VALUE
-
-    std::ostream& operator<< (std::ostream &out, Value value) {
-        return out << value.asDouble();
-    }
-
-#else
-
     /**
      ### Value data representation:
 
@@ -315,7 +307,5 @@ namespace tails {
         }
         return out;
     }
-
-#endif
 
 }

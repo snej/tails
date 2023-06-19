@@ -244,10 +244,8 @@ namespace tails {
                                                     i->sourceCode);
                             nextEffect = nextEffect.withUnknownMax();   // non-tail recursion
                         }
-#ifndef SIMPLE_VALUE
                     } else if (i->word == &IFELSE) {
                         nextEffect = effectOfIFELSE(i, curStack);
-#endif
                     } else {
                         throw compile_error("Oops, don't know word's stack effect", i->sourceCode);
                     }
@@ -294,7 +292,6 @@ namespace tails {
     }
 
 
-#ifndef SIMPLE_VALUE
     StackEffect Compiler::effectOfIFELSE(InstructionPos pos, EffectStack &curStack) {
         // Special case for IFELSE, which has a non-constant stack effect.
         // The two top stack items must be literal quotation values (not just types):
@@ -342,6 +339,5 @@ namespace tails {
 
         return result.withMax( max(0, max(a.max(), b.max()) - 3) );
     }
-#endif
 
 }

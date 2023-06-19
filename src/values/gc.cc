@@ -22,8 +22,6 @@
 #include "word.hh"
 #include "core_words.hh"
 
-#ifndef SIMPLE_VALUE
-
 namespace tails::gc {
     using namespace std;
     using namespace tails;
@@ -148,5 +146,3 @@ namespace tails::gc {
     }
 
 }
-
-#endif // SIMPLE_VALUE

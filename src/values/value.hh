@@ -18,60 +18,14 @@
 
 #pragma once
 #include "platform.hh"
+#include "nan_tagged.hh"
 #include <stddef.h>
 #include <stdint.h>
-
-#ifndef SIMPLE_VALUE
-#include "nan_tagged.hh"
 #include <string_view>
 #include <vector>
-#endif
 
 
 namespace tails {
-
-#ifdef SIMPLE_VALUE
-
-    /// Type of values stored on the stack.
-    ///
-    /// This is just a simple example; you'll probably want a type that uses tag bits to represent
-    /// multiple data types, like at least strings. But remember not to make `Value` larger than a
-    /// pointer, or it'll bloat your code since \ref Instruction contains a `Value`.
-    class Value {
-    public:
-        constexpr Value(double n = 0)                       :_number(n) { }
-        constexpr Value(int n)                              :_number(n) { }
-
-        constexpr double asNumber() const                   {return _number;}
-        constexpr double asDouble() const                   {return _number;}
-        constexpr int    asInt() const                      {return int(_number);}
-
-        constexpr explicit operator bool() const            {return _number != 0.0;}
-
-        constexpr bool operator== (const Value &v) const    {return _number == v._number;}
-
-        int cmp(Value v) const {
-            return _number == v._number ? 0 : (_number < v._number ? -1 : 1);
-        }
-
-        Value operator+(Value v) const  {return Value(asNumber() + v.asNumber());}
-        Value operator-(Value v) const  {return Value(asNumber() - v.asNumber());}
-        Value operator*(Value v) const  {return Value(asNumber() * v.asNumber());}
-        Value operator/(Value v) const  {return Value(asNumber() / v.asNumber());}
-        Value operator%(Value v) const  {return Value(asInt() % v.asInt());}
-
-        // A minimal type system with only one type:
-        enum Type {
-            ANumber,
-        };
-        constexpr Type type() const       {return ANumber;}
-        static const char* typeName(Type) {return "number";}
-
-    private:
-        double _number;
-    };
-
-#else
 
     class Word;
     class CompiledWord;
@@ -149,8 +103,6 @@ namespace tails {
     };
 
     constexpr Value NullValue;
-
-#endif
 
     static inline bool operator!= (const Value &a, const Value &b) {return !(a == b);}
     static inline bool operator>  (const Value &a, const Value &b) {return a.cmp(b) > 0;}
