@@ -302,6 +302,31 @@ int main(int argc, char *argv[]) {
 
     TEST_PARSER(120,                R"( 1 5 fact )");
 
+    // Define a tail-recursive form of triangle-number:
+    cout << '\n';
+    TEST_PARSER(0,                  R"( {(f# i# -- result#) DUP 1 > IF DUP ROT + SWAP 1 - RECURSE ELSE DROP THEN} "tri" define  0 )");
+    auto tri = Compiler::activeVocabularies.lookup("tri");
+    assert(tri);
+    cout << "`tri` stack effect: ";
+    printStackEffect(tri->stackEffect());
+    cout << "`tri` disassembly: ";
+    printDisassembly(tri);
+    cout << "\n";
+    assert(!tri->hasFlag(Word::Recursive));
+    assert(tri->stackEffect().max() == 2);
+
+    TEST_PARSER(15,                R"( 1 5 tri )");
+
+#ifndef DEBUG
+    auto start = std::chrono::steady_clock::now();
+    auto result = _runParser(R"( 1 100000000 tri )");
+    assert(result.asDouble() == (1e8 * (1e8 + 1)) / 2);
+    auto end = std::chrono::steady_clock::now();
+    std::chrono::duration<double> diff = end - start;
+    cout << "Got " << result << endl;
+    cout << "Time to compute tri(1e8): " << diff.count() << " s; " << (diff.count() / 1e8 * 1e9) << " ns / iteration\n";
+#endif
+
     garbageCollect();
     assert(gc::object::instanceCount() == 0);
 #endif
