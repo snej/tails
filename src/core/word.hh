@@ -81,11 +81,11 @@ namespace tails {
     protected:
         Word() :_instr {}, _name(nullptr), _effect(), _flags(NoFlags) { };
 
-        Instruction _instr; // Instruction that calls it (either an Op or an Instruction*)
-        const char* _name;  // Forth name, or NULL if anonymous
-        StackEffect _effect;
-        Flags       _flags; // Flags (see above)
-        uint8_t     _nParams = 0;
+        Instruction _instr;         // Instruction that calls it (either an Op or an Instruction*)
+        const char* _name;          // Forth name, or NULL if anonymous
+        StackEffect _effect;        // Number of function parameters / return values
+        Flags       _flags;         // Flags (see above)
+        uint8_t     _nParams = 0;   // Number of parameters following instr in code
     };
 
 

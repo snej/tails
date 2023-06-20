@@ -78,8 +78,8 @@ namespace tails {
             const Word* operator* () const          {return _iWord->second;}
             const Word* operator-> () const         {return _iWord->second;}
             iterator& operator++ ();
-            bool operator==(const iterator &other)  {return _iVoc == other._iVoc;}
-            bool operator!=(const iterator &other)  {return _iVoc != other._iVoc;}
+            bool operator==(const iterator &other) const  {return _iVoc == other._iVoc;}
+            bool operator!=(const iterator &other) const {return _iVoc != other._iVoc;}
 
         private:
             friend class VocabularyStack;

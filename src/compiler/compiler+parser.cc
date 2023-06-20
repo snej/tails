@@ -125,13 +125,13 @@ namespace tails {
 
             } else if (token[0] == '"') {
                 // String literal:
-                add({_LITERAL, parseString(token)}, sourcePos);
+                addLiteral(parseString(token), sourcePos);
 
             } else if (token == "[") {
-                add({_LITERAL, parseArray(input)}, token.data());
+                addLiteral(parseArray(input), token.data());
 
             } else if (token == "{") {
-                add({_LITERAL, parseQuote(input)}, token.data());
+                addLiteral(parseQuote(input), token.data());
 
             } else if (match(token, "IF")) {
                 // IF compiles into 0BRANCH, with offset TBD:
@@ -171,28 +171,20 @@ namespace tails {
 
             } else if (const Word *word = Compiler::activeVocabularies.lookup(token); word) {
                 // Known word is added as an instruction:
-                if (word->isMagic())
-                        throw compile_error("Special word " + string(token)
-                                            + " cannot be added by parser", sourcePos);
                 if (word->parameters()) {
                     assert(word->parameters() == 1);
                     auto numTok = readToken(input);
                     auto param = asNumber(numTok);
                     if (!param || (*param != intptr_t(*param)))
                         throw compile_error("Invalid param after " + string(token), numTok.data());
-                    if (word->hasIntParams())
-                        add({*word, (intptr_t)*param}, sourcePos);
-                    else
-                        add({*word, Value(*param)}, sourcePos);
-                } else if (word->hasFlag(Word::Inline)) {
-                    addInline(*word, sourcePos);
+                    add(word, (intptr_t)*param, sourcePos);
                 } else {
-                    add(*word, sourcePos);
+                    add(word, sourcePos);
                 }
 
             } else if (auto np = asNumber(token); np) {
                 // A number is added as a LITERAL instruction:
-                add({_LITERAL, Value(*np)}, sourcePos);
+                addLiteral(Value(*np), sourcePos);
 
             } else {
                 throw compile_error("Unknown word '" + string(token) + "'", sourcePos);

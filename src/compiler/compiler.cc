@@ -112,10 +112,11 @@ namespace tails {
     }
 
 
-    void Compiler::addInline(const Word &word, const char *source) {
+    Compiler::InstructionPos Compiler::addInline(const Word &word, const char *source) {
         if (word.isNative()) {
-            add({word});
+            return add({word});
         } else {
+            auto i = prev(_words.end());
             Disassembler dis(word.instruction().word);
             while (true) {
                 WordRef ref = dis.next();
@@ -123,7 +124,41 @@ namespace tails {
                     break;
                 add(ref, source);
             }
+            return i;
         }
+    }
+
+
+    Compiler::InstructionPos Compiler::add(const Word* word, const char *sourcePos) {
+        if (word->isMagic())
+            throw compile_error("Special word " + string(word->name())
+                                + " cannot be added by parser", sourcePos);
+        assert(word->parameters() == 0);
+        if (word->hasFlag(Word::Inline)) {
+            return addInline(*word, sourcePos);
+        } else {
+            return add(*word, sourcePos);
+        }
+    }
+
+
+    Compiler::InstructionPos Compiler::add(const Word* word,
+                                           intptr_t param,
+                                           const char *sourcePos)
+    {
+        if (word->isMagic())
+            throw compile_error("Special word " + string(word->name())
+                                + " cannot be added by parser", sourcePos);
+        assert(word->parameters() == 1);
+        if (word->hasIntParams())
+            return add({*word, param}, sourcePos);
+        else
+            return add({*word, Value(double(param))}, sourcePos);
+    }
+
+
+    Compiler::InstructionPos Compiler::addLiteral(Value v, const char *sourcePos) {
+        return add({_LITERAL, v}, sourcePos);
     }
 
 

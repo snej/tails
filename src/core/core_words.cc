@@ -185,7 +185,6 @@ namespace tails::core_words {
         are two primitives.
         BRANCH is an unconditional branch.
         0BRANCH is a conditional branch (it only branches if the top of stack is zero)." --JonesForth
-        But t
      */
 
     // reads offset from *pc

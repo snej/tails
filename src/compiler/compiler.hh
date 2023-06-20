@@ -131,11 +131,24 @@ namespace tails {
         /// @return  An opaque reference to this instruction, that can be used later to fix branches.
         InstructionPos add(const WordRef&, const char *source =nullptr);
 
-        /// Adds a word by inlining its definition, if it's interpreted. Native words added normally.
-        void addInline(const Word&, const char *source);
+        /// Adds a call to a compiled word.
+        InstructionPos add(const Word* word,
+                           const char *sourcePos =nullptr);
+        
+        /// Adds a call to a compiled word that takes a parameter.
+        InstructionPos add(const Word* word,
+                           intptr_t intParam,
+                           const char *sourcePos =nullptr);
 
+        InstructionPos addLiteral(Value v, const char *sourcePos =nullptr);
+
+        /// Adds a word by inlining its definition, if it's interpreted. Native words added normally.
+        InstructionPos addInline(const Word&, const char *source);
+
+        /// Adds a BRANCH instruction that jumps back to the given position.
         void addBranchBackTo(InstructionPos);
 
+        /// Adds a RECURSE instruction, a recursive call to the word being compiled.
         void addRecurse();
 
         /// Updates a previously-written `BRANCH` or `ZBRANCH` instruction, to branch to the

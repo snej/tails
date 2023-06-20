@@ -61,6 +61,8 @@ static void garbageCollect() {
     cout << "GC: freed " << freed << " objects; " << preserved << " left.\n";
 }
 
+extern void testPrattParser(); // test_parser.cc
+
 
 //======================== TEST CODE ========================//
 
@@ -320,6 +322,8 @@ int main(int argc, char *argv[]) {
 
     garbageCollect();
     assert(gc::object::instanceCount() == 0);
+
+    testPrattParser();
     
     cout << "\nTESTS PASSED❣️❣️❣️\n\n";
 }

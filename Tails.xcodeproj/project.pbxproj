@@ -18,8 +18,8 @@
 		2732F9EF2652DE510013063A /* test.cc in Sources */ = {isa = PBXBuildFile; fileRef = 273B20952643493E00A14EC4 /* test.cc */; };
 		2732F9F12652DE510013063A /* liblinenoise.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 2732F9DB2652DC6D0013063A /* liblinenoise.a */; };
 		2732F9F22652DE510013063A /* libCoreWords.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 273B20A62645AC8F00A14EC4 /* libCoreWords.a */; };
-		2732FA2B2655E89D0013063A /* parser.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2732FA2A2655E89D0013063A /* parser.cc */; };
-		2732FA2C2655E8DB0013063A /* parser.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2732FA2A2655E89D0013063A /* parser.cc */; };
+		2732FA2B2655E89D0013063A /* compiler+parser.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2732FA2A2655E89D0013063A /* compiler+parser.cc */; };
+		2732FA2C2655E8DB0013063A /* compiler+parser.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2732FA2A2655E89D0013063A /* compiler+parser.cc */; };
 		273B209A26434A1100A14EC4 /* vocabulary.cc in Sources */ = {isa = PBXBuildFile; fileRef = 273B209926434A1100A14EC4 /* vocabulary.cc */; };
 		273B20AB2645ACED00A14EC4 /* libCoreWords.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 273B20A62645AC8F00A14EC4 /* libCoreWords.a */; };
 		273B20AE2645ACFA00A14EC4 /* core_words.cc in Sources */ = {isa = PBXBuildFile; fileRef = 273B2093264348A400A14EC4 /* core_words.cc */; };
@@ -31,6 +31,11 @@
 		2753DADA26682769008EBCE0 /* gc.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2753DAD926682769008EBCE0 /* gc.cc */; };
 		2753DADB26682769008EBCE0 /* gc.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2753DAD926682769008EBCE0 /* gc.cc */; };
 		27783695266164930025D97F /* compiler+stackcheck.hh in Sources */ = {isa = PBXBuildFile; fileRef = 27783694266164930025D97F /* compiler+stackcheck.hh */; };
+		27AC392A2A40D32A00C9A8E6 /* tokenizer.cc in Sources */ = {isa = PBXBuildFile; fileRef = 27AC39292A40D32A00C9A8E6 /* tokenizer.cc */; };
+		27AC392D2A40E57E00C9A8E6 /* PrattParser.cc in Sources */ = {isa = PBXBuildFile; fileRef = 27AC392C2A40E57E00C9A8E6 /* PrattParser.cc */; };
+		27AC392F2A40F95E00C9A8E6 /* test_parser.cc in Sources */ = {isa = PBXBuildFile; fileRef = 27AC392E2A40F95E00C9A8E6 /* test_parser.cc */; };
+		27AC39302A40FBA500C9A8E6 /* tokenizer.cc in Sources */ = {isa = PBXBuildFile; fileRef = 27AC39292A40D32A00C9A8E6 /* tokenizer.cc */; };
+		27AC39312A40FBA500C9A8E6 /* PrattParser.cc in Sources */ = {isa = PBXBuildFile; fileRef = 27AC392C2A40E57E00C9A8E6 /* PrattParser.cc */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -97,7 +102,7 @@
 		2732F9DB2652DC6D0013063A /* liblinenoise.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = liblinenoise.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		2732F9F72652DE510013063A /* Tests */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = Tests; sourceTree = BUILT_PRODUCTS_DIR; };
 		2732FA0D26543FBF0013063A /* stack_effect.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = stack_effect.hh; sourceTree = "<group>"; };
-		2732FA2A2655E89D0013063A /* parser.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = parser.cc; sourceTree = "<group>"; };
+		2732FA2A2655E89D0013063A /* compiler+parser.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "compiler+parser.cc"; sourceTree = "<group>"; };
 		2739929B264C61D100301067 /* build.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = build.sh; sourceTree = "<group>"; };
 		273B20842641B8AA00A14EC4 /* Tails */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = Tails; sourceTree = BUILT_PRODUCTS_DIR; };
 		273B20912643282500A14EC4 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
@@ -119,6 +124,11 @@
 		2753DAD926682769008EBCE0 /* gc.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = gc.cc; sourceTree = "<group>"; };
 		27736CBB26714B9200655493 /* Syntax.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = Syntax.md; sourceTree = "<group>"; };
 		27783694266164930025D97F /* compiler+stackcheck.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = "compiler+stackcheck.hh"; sourceTree = "<group>"; };
+		27AC39282A40D32A00C9A8E6 /* tokenizer.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = tokenizer.hh; sourceTree = "<group>"; };
+		27AC39292A40D32A00C9A8E6 /* tokenizer.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = tokenizer.cc; sourceTree = "<group>"; };
+		27AC392B2A40E57E00C9A8E6 /* PrattParser.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = PrattParser.hh; sourceTree = "<group>"; };
+		27AC392C2A40E57E00C9A8E6 /* PrattParser.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = PrattParser.cc; sourceTree = "<group>"; };
+		27AC392E2A40F95E00C9A8E6 /* test_parser.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = test_parser.cc; sourceTree = "<group>"; };
 		27BE518E266188870010DC42 /* io.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = io.hh; sourceTree = "<group>"; };
 		27BE518F266190850010DC42 /* utils.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = utils.hh; sourceTree = "<group>"; };
 		27BE51902661C2050010DC42 /* disassembler.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = disassembler.hh; sourceTree = "<group>"; };
@@ -218,10 +228,12 @@
 				2753DADC26694D7A008EBCE0 /* core */,
 				2753DAD62668252E008EBCE0 /* values */,
 				2753DAD7266826E3008EBCE0 /* compiler */,
+				27AC39272A40D2FB00C9A8E6 /* parser */,
 				27BE518E266188870010DC42 /* io.hh */,
 				2753DAD22667EAFE008EBCE0 /* more_words.cc */,
 				2753DAD12667EAFE008EBCE0 /* more_words.hh */,
 				273B20952643493E00A14EC4 /* test.cc */,
+				27AC392E2A40F95E00C9A8E6 /* test_parser.cc */,
 				2732F9C62652DB940013063A /* repl.cc */,
 			);
 			path = src;
@@ -247,9 +259,9 @@
 				2753DACE2666E1BD008EBCE0 /* stack_effect_parser.hh */,
 				273B20AF2645D67000A14EC4 /* compiler.hh */,
 				273B20B02645D67000A14EC4 /* compiler.cc */,
+				2732FA2A2655E89D0013063A /* compiler+parser.cc */,
 				27783694266164930025D97F /* compiler+stackcheck.hh */,
 				27BE51902661C2050010DC42 /* disassembler.hh */,
-				2732FA2A2655E89D0013063A /* parser.cc */,
 			);
 			path = compiler;
 			sourceTree = "<group>";
@@ -266,6 +278,17 @@
 				273B20972643498900A14EC4 /* core_words.hh */,
 			);
 			path = core;
+			sourceTree = "<group>";
+		};
+		27AC39272A40D2FB00C9A8E6 /* parser */ = {
+			isa = PBXGroup;
+			children = (
+				27AC39282A40D32A00C9A8E6 /* tokenizer.hh */,
+				27AC39292A40D32A00C9A8E6 /* tokenizer.cc */,
+				27AC392B2A40E57E00C9A8E6 /* PrattParser.hh */,
+				27AC392C2A40E57E00C9A8E6 /* PrattParser.cc */,
+			);
+			path = parser;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -414,13 +437,16 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				27AC392F2A40F95E00C9A8E6 /* test_parser.cc in Sources */,
+				27AC39302A40FBA500C9A8E6 /* tokenizer.cc in Sources */,
+				27AC39312A40FBA500C9A8E6 /* PrattParser.cc in Sources */,
 				2732F9EC2652DE510013063A /* value.cc in Sources */,
 				2753DAD02666E1BD008EBCE0 /* stack_effect_parser.hh in Sources */,
 				2732F9EB2652DE510013063A /* vocabulary.cc in Sources */,
 				2753DADB26682769008EBCE0 /* gc.cc in Sources */,
 				2753DAD42667EAFE008EBCE0 /* more_words.cc in Sources */,
 				2732F9ED2652DE510013063A /* compiler.cc in Sources */,
-				2732FA2C2655E8DB0013063A /* parser.cc in Sources */,
+				2732FA2C2655E8DB0013063A /* compiler+parser.cc in Sources */,
 				2732F9EF2652DE510013063A /* test.cc in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -430,6 +456,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				27783695266164930025D97F /* compiler+stackcheck.hh in Sources */,
+				27AC392A2A40D32A00C9A8E6 /* tokenizer.cc in Sources */,
+				27AC392D2A40E57E00C9A8E6 /* PrattParser.cc in Sources */,
 				273B209A26434A1100A14EC4 /* vocabulary.cc in Sources */,
 				2753DAD32667EAFE008EBCE0 /* more_words.cc in Sources */,
 				2753DADA26682769008EBCE0 /* gc.cc in Sources */,
@@ -437,7 +465,7 @@
 				273B20B12645D67000A14EC4 /* compiler.cc in Sources */,
 				2753DACF2666E1BD008EBCE0 /* stack_effect_parser.hh in Sources */,
 				2732F9C72652DB940013063A /* repl.cc in Sources */,
-				2732FA2B2655E89D0013063A /* parser.cc in Sources */,
+				2732FA2B2655E89D0013063A /* compiler+parser.cc in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -529,7 +557,7 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
+				CLANG_CXX_LANGUAGE_STANDARD = "c++20";
 				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
@@ -599,7 +627,7 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
+				CLANG_CXX_LANGUAGE_STANDARD = "c++20";
 				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
