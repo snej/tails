@@ -171,16 +171,10 @@ namespace tails {
 
             } else if (const Word *word = Compiler::activeVocabularies.lookup(token); word) {
                 // Known word is added as an instruction:
-                if (word->parameters()) {
-                    assert(word->parameters() == 1);
-                    auto numTok = readToken(input);
-                    auto param = asNumber(numTok);
-                    if (!param || (*param != intptr_t(*param)))
-                        throw compile_error("Invalid param after " + string(token), numTok.data());
-                    add(word, (intptr_t)*param, sourcePos);
-                } else {
-                    add(word, sourcePos);
-                }
+                if (word->isMagic() || word->parameters() > 0)
+                    throw compile_error("Special word " + string(word->name())
+                                        + " cannot be added by parser", sourcePos);
+                add(word, sourcePos);
 
             } else if (auto np = asNumber(token); np) {
                 // A number is added as a LITERAL instruction:

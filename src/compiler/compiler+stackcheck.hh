@@ -83,6 +83,15 @@ namespace tails {
             if (i->word == &_LITERAL) {
                 // A literal, just push it
                 curStack.add(i->param.literal);
+            } else if (i->word == &_PARAM) {
+                // A function parameter:
+                TypeSet paramType = _effect.inputs()[i->param.offset];
+                i->param.offset += curStack.depth() - _effect.inputCount();
+                curStack.add(paramType);
+            } else if (i->word == &_POP_PARAMS) {
+                auto nParams = i->param.offset & 0xFFFF;
+                auto nResults = i->param.offset >> 16;
+                curStack.popParams(nParams, nResults);
             } else {
                 // Determine the effect of a word:
                 StackEffect nextEffect = i->word->stackEffect();
@@ -118,7 +127,7 @@ namespace tails {
                 }
 
                 // apply the word's effect:
-                curStack.add(i->word, nextEffect, i->sourceCode);
+                curStack.add(*i->word, nextEffect, i->sourceCode);
             }
 
             if (i->word == &_RETURN) {

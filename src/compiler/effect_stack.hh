@@ -18,6 +18,7 @@
 
 #pragma once
 #include "utils.hh"
+#include "word.hh"
 #include <optional>
 #include <variant>
 
@@ -31,6 +32,8 @@ namespace tails {
         // A stack item can be either a TypeSet (set of types) or a literal Value.
         using Item = variant<TypeSet,Value>;
 
+        EffectStack() = default;
+        
         EffectStack(const StackEffect &initial) {
             auto inputs = initial.inputs();
             for (auto i = inputs.rbegin(); i != inputs.rend(); ++i)
@@ -59,17 +62,21 @@ namespace tails {
         }
 
         /// Adds the stack effect of calling a word. Throws an exception on failure.
-        void add(const Word *word, const StackEffect &effect, const char *sourceCode) {
+        void add(const Word &word, const StackEffect &effect, const char *sourceCode) {
+            add(word.name(), effect, sourceCode);
+        }
+
+        void add(const char *wordName, const StackEffect &effect, const char *sourceCode) {
             // Check that the inputs match what's on the stack:
             const auto nInputs = effect.inputCount();
             if (nInputs > depth())
                 throw compile_error(format("Calling `%s` would underflow (%zu needed, %zu available)",
-                                           word->name(), nInputs, depth()),
+                                           wordName, nInputs, depth()),
                                     sourceCode);
             int i;
             if (auto badType = typeCheck(effect.inputs(), &i); badType)
                 throw compile_error(format("Type mismatch passing %s to `%s` (depth %i)",
-                                           Value::typeName(*badType), word->name(), i),
+                                           Value::typeName(*badType), wordName, i),
                                     sourceCode);
 
             Item inputs[max(nInputs, 1)];
@@ -91,6 +98,12 @@ namespace tails {
             }
         }
 
+        /// Pushes a type to the stack.
+        void add(TypeSet type) {
+            _stack.emplace_back(type);
+            _maxDepth = max(_maxDepth, depth());
+        }
+
         /// Pushes a literal to the stack.
         void add(Value value) {
             _stack.emplace_back(value);
@@ -101,6 +114,13 @@ namespace tails {
         void addAtBottom(TypeSet entry) {
             _stack.insert(_stack.begin(), entry);
             _maxDepth = max(_maxDepth, depth());
+        }
+
+        void popParams(size_t nParams, size_t nResults) {
+            if (nParams + nResults > _stack.size())
+                throw compile_error("Invalid _POP_PARAMS", nullptr);
+            _stack.erase(_stack.end() - nParams - nResults,
+                         _stack.end() - nResults);
         }
 
         /// Merges myself with another stack -- used when two flows of control join.

@@ -178,6 +178,32 @@ namespace tails::core_words {
         NEXT();
     }
 
+    // Generalized OVER, used for pushing a function parameter.
+    // _PARAM<0> is DUP, _PARAM<1> is OVER, ...
+    NATIVE_WORD(_PARAM, "_PARAM", StackEffect::weird(),  // or, StackEffect({}, {Any})
+                Word::MagicIntParam, 1)
+    {
+        auto n = (pc++)->offset;
+        ++sp;
+        sp[0] = sp[-1 - n];
+        NEXT();
+    }
+
+    // Removes unconsumed function parameters from the stack at the end of a function.
+    // The lower 16 bits of the param is the number of function parameters to remove;
+    // The upper bits of the param is the number of function results to preserve.
+    NATIVE_WORD(_POP_PARAMS, "_POP_PARAMS", StackEffect::weird(),
+                Word::MagicIntParam, 1)
+    {
+        auto n = (pc++)->offset;
+        auto nParams = n & 0xFFFF;
+        auto nResults = n >> 16;
+        if (nResults > 0)
+            memmove(&sp[-nParams-nResults], &sp[-nResults], nResults * sizeof(*sp));
+        sp -= nParams;
+        NEXT();
+    }
+
 
 #pragma mark Control Flow:
 
@@ -353,6 +379,7 @@ namespace tails::core_words {
         &LENGTH,
         &IFELSE,
         &DEFINE,
+        &_PARAM, &_POP_PARAMS,
         nullptr
     };
 

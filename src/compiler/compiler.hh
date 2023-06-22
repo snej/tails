@@ -54,15 +54,6 @@ namespace tails {
     };
 
 
-    class compile_error : public std::runtime_error {
-    public:
-        compile_error(const char *msg, const char *loc) :runtime_error(msg), location(loc) { }
-        compile_error(const std::string &msg, const char *loc) :runtime_error(msg), location(loc) { }
-
-        const char *const location;
-    };
-
-
     /// An object that assembles an interpreted word from a list of words to call.
     /// It computes and validates the word's stack effect.
     class Compiler {
@@ -141,6 +132,10 @@ namespace tails {
                            const char *sourcePos =nullptr);
 
         InstructionPos addLiteral(Value v, const char *sourcePos =nullptr);
+
+        InstructionPos addFnParam(unsigned stackOffset, const char *sourcePos);
+
+        void popParams();
 
         /// Adds a word by inlining its definition, if it's interpreted. Native words added normally.
         InstructionPos addInline(const Word&, const char *source);

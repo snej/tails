@@ -146,9 +146,6 @@ namespace tails {
                                            intptr_t param,
                                            const char *sourcePos)
     {
-        if (word->isMagic())
-            throw compile_error("Special word " + string(word->name())
-                                + " cannot be added by parser", sourcePos);
         assert(word->parameters() == 1);
         if (word->hasIntParams())
             return add({*word, param}, sourcePos);
@@ -159,6 +156,18 @@ namespace tails {
 
     Compiler::InstructionPos Compiler::addLiteral(Value v, const char *sourcePos) {
         return add({_LITERAL, v}, sourcePos);
+    }
+
+
+    Compiler::InstructionPos Compiler::addFnParam(unsigned stackOffset, const char *sourcePos) {
+        return add({_PARAM, stackOffset}, sourcePos);
+    }
+
+
+    void Compiler::popParams() {
+        unsigned n = _effect.inputCount() | (_effect.outputCount() << 16);
+        if (n != 0)
+            add({_POP_PARAMS, n}, nullptr);
     }
 
 

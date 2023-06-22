@@ -28,7 +28,7 @@ namespace tails::core_words {
         _TAILINTERP, _TAILINTERP2, _TAILINTERP3, _TAILINTERP4,
         _RETURN, _LITERAL,
         NOP, _RECURSE,
-        DROP, DUP, OVER, ROT, SWAP,
+        DROP, DUP, OVER, ROT, SWAP, _OVERN,
         EQ, NE, EQ_ZERO, NE_ZERO,
         GE, GT, GT_ZERO,
         LE, LT, LT_ZERO,
@@ -36,8 +36,9 @@ namespace tails::core_words {
         DIV, MOD, MINUS, MULT, PLUS,
         _BRANCH, _ZBRANCH,
         ONE, ZERO,
-        DEFINE;
-    
+        DEFINE,
+        _PARAM, _POP_PARAMS;
+
     extern const Word NULL_, LENGTH, CALL, IFELSE;
 
     /// Array of pointers to the above core words, ending in nullptr

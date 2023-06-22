@@ -7,6 +7,7 @@
 #pragma once
 #include "stdint.h"
 #include "stdio.h"
+#include <stdexcept>
 #include <string>
 
 namespace tails {
@@ -28,6 +29,15 @@ namespace tails {
             c = ::toupper(c);
         return str;
     }
+
+
+    class compile_error : public std::runtime_error {
+    public:
+        compile_error(const char *msg, const char *loc) :runtime_error(msg), location(loc) { }
+        compile_error(const std::string &msg, const char *loc) :runtime_error(msg), location(loc) { }
+
+        const char *const location;
+    };
 
 
     // Constexpr equivalents of strlen and memcmp, for use in constexpr functions:

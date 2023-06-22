@@ -28,12 +28,17 @@ namespace tails {
 
     Symbol::Symbol(Word const& word)
     :token(word.name())
-    ,_word(&word)
+    ,_value(&word)
     { }
 
     Symbol::Symbol(Value val)
     :token("")
-    ,_literal(val)
+    ,_value(val)
+    { }
+
+    Symbol::Symbol(const char* paramName, FnParam param)
+    :token(paramName)
+    ,_value(param)
     { }
 
     Symbol::Symbol(string const& token)
@@ -44,7 +49,6 @@ namespace tails {
 
     Symbol&& Symbol::makePrefix(priority_t priority) && {
         prefixPriority = priority;
-        _prefixWord = _word;
         return move(*this);
     }
 
@@ -69,7 +73,7 @@ namespace tails {
     Symbol&& Symbol::makeInfix(priority_t left, priority_t right, Word const& infixWord) && {
         leftPriority = left;
         rightPriority = right;
-        _word = &infixWord;
+        _value = &infixWord;
         return move(*this);
     }
 
@@ -98,11 +102,10 @@ namespace tails {
 
         StackEffect lhsEffect = parser.nextExpression(prefixPriority);
 
-        auto word = _prefixWord ? _prefixWord : _word;
-        assert(word);
-        assert(word->stackEffect().inputCount() == lhsEffect.outputCount());
-        parser.compiler().add(word);
-        return lhsEffect | word->stackEffect();
+        auto &word = _prefixWord ? *_prefixWord : this->word();
+        assert(word.stackEffect().inputCount() == lhsEffect.outputCount());
+        parser.add(word);
+        return lhsEffect | word.stackEffect();
     }
 
     StackEffect Symbol::parseInfix(StackEffect const& lhsEffect, Parser& parser) const {
@@ -113,11 +116,11 @@ namespace tails {
 
         StackEffect inputEffect = lhsEffect | rhsEffect;
 //        cout << "Infix 1: combined " << lhsEffect << " | " << rhsEffect << " --> " << inputEffect << endl;
-        assert(_word);
-        assert(_word->stackEffect().inputCount() == inputEffect.outputCount());
-        parser.compiler().add(_word);
-        auto result = inputEffect | _word->stackEffect();
-//        cout << "Infix 2: combined " << inputEffect << " | " << _word->stackEffect() << " --> " << result << endl;
+        auto &word = this->word();
+        assert(word.stackEffect().inputCount() == inputEffect.outputCount());
+        parser.add(word);
+        auto result = inputEffect | word.stackEffect();
+//        cout << "Infix 2: combined " << inputEffect << " | " << word.stackEffect() << " --> " << result << endl;
 //        cout << "Infix effect is " << result << endl;//TEMP
         return result;
     }
@@ -127,10 +130,10 @@ namespace tails {
             return _customParsePostfix(lhsEffect, parser);
 
         // same as parsePrefix but without the call to nextExpression since the LHS has been parsed.
-        assert(_word);
-        assert(_word->stackEffect().inputCount() == lhsEffect.outputCount());
-        parser.compiler().add(_word);
-        return lhsEffect | _word->stackEffect();
+        auto &word = this->word();
+        assert(word.stackEffect().inputCount() == lhsEffect.outputCount());
+        parser.add(word);
+        return lhsEffect | word.stackEffect();
     }
 
 
@@ -142,33 +145,52 @@ namespace tails {
     Symbol const* SymbolRegistry::get(string_view literal) const {
         if (auto i = _registry.find(string(literal)); i != _registry.end())
             return &i->second;
+        else if (_parent)
+            return _parent->get(literal);
         else
             return nullptr;
     }
 
 
     
-    CompiledWord Parser::parse(string const& sourceCode) {
+    CompiledWord Parser::parse(string const& sourceCode, StackEffect const& effect) {
         _tokens.reset(sourceCode);
         _compiler = make_unique<Compiler>();
-        auto effect = nextExpression(priority_t::None);
-//        cout << "Final effect is " << effect << endl;//TEMP
         _compiler->setStackEffect(effect);
+        _stack = EffectStack();
+
+        __unused auto exprEffect = nextExpression(priority_t::None); // Parse it all!
+//        cout << "Final effect is " << exprEffect << endl;//TEMP
         if (!_tokens.atEnd())
-            throw compile_error("Expected input to end here", _tokens.position());
+            fail("Expected input to end here");
+        _compiler->popParams();
         return std::move(*_compiler).finish();
     }
 
     StackEffect Parser::literal(Value literal) {
         _compiler->add(literal);
+        _stack.add(literal);
         return StackEffect({}, {literal.type()});
     }
+
+    void Parser::add(Word const& word) {
+        _compiler->add(word);
+        _stack.add(word, word.stackEffect(), _tokens.position());
+    }
+
+    StackEffect Parser::addParameter(FnParam param) {
+        _compiler->addFnParam(param.stackPos, _tokens.position());
+        StackEffect effect({}, {param.type});
+        _stack.add(core_words::_PARAM, effect, _tokens.position());
+        return effect;
+    }
+
 
     StackEffect Parser::nextExpression(priority_t minPriority) {
         StackEffect lhs;
         switch (Token firstTok = _tokens.next(); firstTok.type) {
             case Token::End:
-                throw compile_error("Unexpected end of input", _tokens.position());
+                fail("Unexpected end of input");
             case Token::Number:
                 lhs = literal(Value(firstTok.numberValue));
                 break;
@@ -179,15 +201,15 @@ namespace tails {
             case Token::Operator: {
                 Symbol const* symbol = _registry.get(firstTok.literal);
                 if (!symbol) {
-                    throw compile_error("Unknown symbol " + string(firstTok.literal),
-                                        _tokens.position());
+                    fail("Unknown symbol " + string(firstTok.literal));
                 } else if (symbol->isLiteral()) {
                     lhs = literal(symbol->literalValue());
+                } else if (symbol->isParameter()) {
+                    lhs = addParameter(symbol->parameter());
                 } else if (symbol->isPrefix()) {
                     lhs = symbol->parsePrefix(*this);
                 } else {
-                    throw compile_error(symbol->token + " cannot begin an expression",
-                                        _tokens.position());
+                    fail(symbol->token + " cannot begin an expression");
                 }
                 break;
             }
@@ -199,13 +221,12 @@ namespace tails {
                     goto exit;
                 case Token::Number:
                 case Token::String:
-                    throw compile_error("Expected an operator", _tokens.position());
+                    fail("Expected an operator");
                 case Token::Identifier:
                 case Token::Operator: {
                     Symbol const* symbol = _registry.get(op.literal);
                     if (!symbol)
-                        throw compile_error("Unknown symbol “" + string(op.literal) + "”",
-                                            _tokens.position());
+                        fail("Unknown symbol “" + string(op.literal) + "”");
                     else if (symbol->isPostfix()) {
                         if (symbol->postfixPriority < minPriority)
                             goto exit;
@@ -241,6 +262,9 @@ namespace tails {
             throw compile_error("expected “" + string(literal) + "”", _tokens.position());
     }
 
+    [[noreturn]] void Parser::fail(std::string&& message) {
+        throw compile_error(std::move(message), _tokens.position());
+    }
 
 
 }

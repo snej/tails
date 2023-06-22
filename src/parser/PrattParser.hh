@@ -6,16 +6,23 @@
 
 #pragma once
 #include "stack_effect.hh"
+#include "effect_stack.hh"
 #include "tokenizer.hh"
 #include "value.hh"
 #include <functional>
 #include <unordered_map>
+#include <variant>
 
 namespace tails {
     class Compiler;
     class Parser;
 
     enum class priority_t : int { None = INT_MIN };
+
+    struct FnParam {
+        TypeSet type;
+        unsigned stackPos;  // offset from top of stack at fn entry
+    };
 
     static inline priority_t operator""_pri (unsigned long long v) {return priority_t(int(v));}
 
@@ -24,14 +31,21 @@ namespace tails {
     public:
         explicit Symbol(Word const&);
         explicit Symbol(Value);
+        explicit Symbol(const char* paramName, FnParam);
         explicit Symbol(std::string const& token);
         explicit Symbol(const char* token)              :Symbol(std::string(token)) { }
         virtual ~Symbol();
 
         std::string token;
 
-        bool isLiteral() const      {return !_literal.isNull();}
-        Value literalValue() const  {return _literal;}
+        bool isLiteral() const      {return std::holds_alternative<Value>(_value);}
+        Value literalValue() const  {return std::get<Value>(_value);}
+
+        bool isParameter() const    {return std::holds_alternative<FnParam>(_value);}
+        FnParam parameter() const   {return std::get<FnParam>(_value);}
+
+        bool isWord() const         {return std::holds_alternative<Word const*>(_value);}
+        Word const& word() const    {return *std::get<Word const*>(_value);}
 
         using ParsePrefixFn  = std::function<StackEffect(Parser&)>;
         using ParseInfixFn   = std::function<StackEffect(StackEffect const&, Parser&)>;
@@ -62,9 +76,8 @@ namespace tails {
         virtual StackEffect parsePostfix(StackEffect const&, Parser&) const;
 
     private:
-        Word const*     _word = nullptr;
-        Word const*     _prefixWord = nullptr;
-        Value           _literal;
+        std::variant<nullptr_t,Word const*,Value,FnParam> _value;
+        Word const*     _prefixWord = nullptr;          // in case Word is different when prefix
         ParsePrefixFn   _customParsePrefix;
         ParseInfixFn    _customParseInfix;
         ParsePostfixFn  _customParsePostfix;
@@ -73,13 +86,14 @@ namespace tails {
 
     class SymbolRegistry {
     public:
-        SymbolRegistry() = default;
+        explicit SymbolRegistry(SymbolRegistry* parent =nullptr) :_parent(parent) { }
 
         void add(Symbol&&);
 
         Symbol const* get(std::string_view) const;
 
     private:
+        SymbolRegistry* _parent;
         std::unordered_map<std::string, Symbol> _registry;
     };
 
@@ -91,7 +105,7 @@ namespace tails {
         ,_tokens(_registry)
         { }
 
-        CompiledWord parse(std::string const& sourceCode);
+        CompiledWord parse(std::string const& sourceCode, StackEffect const& effect);
 
         StackEffect nextExpression(priority_t minPriority);
 
@@ -103,7 +117,10 @@ namespace tails {
         // Consumes the next token and returns true if its literal value matches; else returns false.
         bool ifToken(std::string_view);
 
-        Compiler& compiler()    {return *_compiler;}
+        void add(Word const&);
+        StackEffect addParameter(FnParam);
+
+        [[noreturn]] void fail(std::string&& message);
 
     private:
         StackEffect literal(Value);
@@ -111,6 +128,7 @@ namespace tails {
         SymbolRegistry const& _registry;
         Tokenizer _tokens;
         std::unique_ptr<Compiler> _compiler;
+        EffectStack _stack;
     };
 
 }

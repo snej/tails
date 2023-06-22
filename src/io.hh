@@ -54,7 +54,10 @@ namespace tails {
         for (auto &wordRef : dis) {
             if (n++) out << ' ';
             out << (wordRef.word->name() ? wordRef.word->name() : "???");
-            if (wordRef.word->hasIntParams())
+            if (wordRef.word == &core_words::_POP_PARAMS)
+                out << "<" << (wordRef.param.offset & 0xFFFF) << ","
+                    << (wordRef.param.offset >> 16) << ">";
+            else if (wordRef.word->hasIntParams())
                 out << "+<" << (int)wordRef.param.offset << '>';
             else if (wordRef.word->hasValParams())
                 out << ":<" << wordRef.param.literal << '>';

@@ -145,6 +145,8 @@ namespace tails {
         /// - b cannot have more inputs than a has outputs.
         /// - the outputs of a have to be type-compatible with corresponding inputs of b.
         friend StackEffect operator | (StackEffect const& a, StackEffect const& b) {
+            assert(!a._weird);
+            assert(!b._weird);
             auto aOutputs = a.outputCount(), bInputs = b.inputCount();
             if (aOutputs < bInputs)
                 throw std::logic_error("stack underflow");
