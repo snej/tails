@@ -18,8 +18,8 @@
 
 #include "PrattParser.hh"
 #include "compiler.hh"
-#include <iostream>
-#include <sstream>
+#include "core_words.hh"
+#include "io.hh"
 
 using namespace std;
 using namespace tails;
@@ -27,23 +27,20 @@ using namespace tails;
 void testPrattParser();
 
 
-static string toString(Expression const& e) {
-    std::stringstream s;
-    s << e;
-    return s.str();
-}
-
 static void testParser(Parser &p, string const& source, string_view expectedStr) {
     try {
-        Expression result = p.parse(source);
-        string str = toString(result);
+        CompiledWord result = p.parse(source);
+        string str = disassemble(result);
         cout << source << " \tbecomes:  " << str << endl;
         assert(str == expectedStr);
     } catch (compile_error const& x) {
         cout << source << endl;
-        auto offset = x.location - &source[0];
-        assert(offset >= 0 && offset <= source.size());
-        cout << string(offset, ' ') << "^-- " << x.what() << endl;
+        if (x.location) {
+            auto offset = x.location - &source[0];
+            assert(offset >= 0 && offset <= source.size());
+            cout << string(offset, ' ') << "^-- ";
+        }
+        cout << x.what() << endl;
         throw;
     }
 }
@@ -54,34 +51,52 @@ void testPrattParser() {
     SymbolRegistry reg;
 
     // Parentheses:
-    reg.add(Symbol(")", Expression::None));
-    reg.add(Symbol("(", Expression::None) .makePrefix(5_pri, [](Parser &parser) {
-        Expression x = parser.nextExpression(5_pri);
+    reg.add(Symbol(")"));
+    reg.add(Symbol("(")
+            .makePrefix(5_pri, [](Parser &parser) {
+        auto x = parser.nextExpression(5_pri);
         parser.requireToken(")");
         return x;
     }));
 
-    reg.add(Symbol(";", Expression::None) .makeInfix(0_pri, 1_pri, [](Expression &&lhs, Parser &parser) {
+    reg.add(Symbol(";")
+            .makeInfix(0_pri, 1_pri, [](StackEffect const& lhs, Parser &parser) {
+        for (int i = lhs.outputCount(); i > 0; --i)
+            parser.compiler().add(core_words::DROP);
         if (parser.tokens().peek()) {
-            Expression rhs = parser.nextExpression(1_pri);
-            return Expression{.type = Expression::None, .params = {lhs, rhs}};
+            auto rhs = parser.nextExpression(1_pri);
+            if (rhs.inputCount() > 0)
+                throw compile_error("stack underflow, RHS of ';'", parser.tokens().position());
+            for (int i = rhs.outputCount(); i > 0; --i)
+                parser.compiler().add(core_words::DROP);
+            return StackEffect(lhs.inputs(), TypesView{});
         } else {
             return lhs;
         }
     }));
 
-    reg.add(Symbol("else:", Expression::None));
-    reg.add(Symbol("if:", Expression::If) .makeInfix(5_pri, 6_pri, [](Expression &&lhs, Parser &parser) {
-        auto ifClause = parser.nextExpression(6_pri);
-        Expression result{.type = Expression::If, .params = {lhs, ifClause}};
-        if (parser.ifToken("else:"))
-            result.params.push_back( parser.nextExpression(6_pri) );
-        return result;
+    reg.add(Symbol("else:"));
+    reg.add(Symbol("if:")
+            .makeInfix(5_pri, 6_pri, [](StackEffect const& lhs, Parser &parser) {
+        if (lhs.outputCount() != 1)
+            throw compile_error("LHS of 'if:' must have a value", parser.tokens().position());
+        auto ifEffect = parser.nextExpression(6_pri);
+        if (parser.ifToken("else:")) {
+            auto elseEffect = parser.nextExpression(6_pri);
+            if (elseEffect.outputs() != ifEffect.outputs())
+                throw compile_error("`if` and `else` clauses must return same type", parser.tokens().position());
+        } else {
+            if (ifEffect.outputCount() != 0)
+                throw compile_error("`if` without `else` cannot return a value", parser.tokens().position());
+        }
+        return StackEffect(lhs.inputs(), ifEffect.outputs());
     }));
 
-    reg.add(Symbol("]", Expression::None));
-    reg.add(Symbol("|", Expression::None));
-    reg.add(Symbol("[", Expression::Block) .makePrefix(4_pri, [](Parser &parser) {
+#if 0
+    reg.add(Symbol("]"));
+    reg.add(Symbol("|"));
+    reg.add(Symbol("[")
+            .makePrefix(4_pri, [](Parser &parser) {
         vector<Expression> params;
         if (parser.ifToken("|")) {
             while (parser.tokens().peek().literal != "|") {
@@ -99,25 +114,35 @@ void testPrattParser() {
         parser.requireToken("]");
         return Expression{.type = Expression::Block, .params = {params}};
     }));
+#endif
 
-    reg.add(Symbol(":=",    Expression::Assign)  .makeInfix(11_pri, 10_pri));
-    reg.add(Symbol("=",     Expression::Assign)  .makeInfix(21_pri, 20_pri));
-    reg.add(Symbol("==",    Expression::Equals)  .makeInfix(21_pri, 20_pri));
-    reg.add(Symbol("+",     Expression::Add)     .makeInfix(50_pri, 51_pri));
-    reg.add(Symbol("-",     Expression::Subtract).makeInfix(50_pri, 51_pri).makePrefix(50_pri));
-    reg.add(Symbol("*",     Expression::Multiply).makeInfix(60_pri, 61_pri));
-    reg.add(Symbol("/",     Expression::Divide)  .makeInfix(60_pri, 61_pri));
-    reg.add(Symbol("self",  Expression::Variable));
-    reg.add(Symbol("x",     Expression::Variable));
+    reg.add(Symbol(":=")  .makeInfix(11_pri, 10_pri));
+    reg.add(Symbol("=")  .makeInfix(21_pri, 20_pri));
+    reg.add(Symbol("==")  .makeInfix(21_pri, 20_pri, core_words::EQ));
+    reg.add(Symbol(core_words::PLUS)     .makeInfix(50_pri, 51_pri));
+    reg.add(Symbol(core_words::MINUS).makeInfix(50_pri, 51_pri)
+            .makePrefix(50_pri, [](Parser &parser) {
+                parser.compiler().add(core_words::ZERO);
+                auto effect = parser.nextExpression(50_pri);
+                if (effect.inputCount() != 0 || effect.outputCount() != 1)
+                    throw compile_error("Invalid operand for prefix `-`", parser.tokens().position());
+                parser.compiler().add(core_words::MINUS);
+                return core_words::ZERO.stackEffect() | effect | core_words::MINUS.stackEffect();
+            }));
+    reg.add(Symbol(core_words::MULT).makeInfix(60_pri, 61_pri));
+    reg.add(Symbol(core_words::DIV)  .makeInfix(60_pri, 61_pri));
+//    reg.add(Symbol("self",  Expression::Variable));
+//    reg.add(Symbol("x",     Expression::Variable));
 
     Parser p(reg);
 
-    testParser(p, "3+4",            "+(3, 4)");
-    testParser(p, "-(3-4)",         "-(-(3, 4))");
-    testParser(p, "3+4*5",          "+(3, *(4, 5))");
-    testParser(p, "3*4+5",          "+(*(3, 4), 5)");
-    testParser(p, "3*(4+5)",        "*(3, +(4, 5))");
-    testParser(p, "3*4 == 5",       "==(*(3, 4), 5)");
+    testParser(p, "3+4",            "_LITERAL:<3> _LITERAL:<4> + _RETURN");
+    testParser(p, "-(3-4)",         "0 _LITERAL:<3> _LITERAL:<4> - - _RETURN");
+    testParser(p, "3+4*5",          "_LITERAL:<3> _LITERAL:<4> _LITERAL:<5> * + _RETURN");
+    testParser(p, "3*4+5",          "_LITERAL:<3> _LITERAL:<4> * _LITERAL:<5> + _RETURN");
+    testParser(p, "3*(4+5)",        "_LITERAL:<3> _LITERAL:<4> _LITERAL:<5> + * _RETURN");
+    testParser(p, "3*4 == 5",       "_LITERAL:<3> _LITERAL:<4> * _LITERAL:<5> = _RETURN");
+#if 0
     testParser(p, "x := 3/4",       ":=(x, /(3, 4))");
     testParser(p, "x = 3/4",        ":=(x, /(3, 4))");
     testParser(p, "12; x",          "none(12, x)");
@@ -129,4 +154,5 @@ void testPrattParser() {
     testParser(p, "[|x foo| 3+4]",      "block(x, foo, +(3, 4))");
     testParser(p, R"("foo"+2)",         R"(+("foo", 2))");
     testParser(p, R"("foo\"bar"+2)",    R"(+("foo\"bar", 2))");
+#endif
 }

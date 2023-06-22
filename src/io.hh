@@ -6,7 +6,9 @@
 
 #pragma once
 #include "stack_effect.hh"
+#include "disassembler.hh"
 #include <iostream>
+#include <sstream>
 
 namespace tails {
 
@@ -19,13 +21,15 @@ namespace tails {
         else if (!entry.exists())
             out << "∅";
         else {
-            static constexpr const char *kNames[] = {"?", "#", "$", "{}", "[]"};
-            for (int i = 0; i <= 5; ++i) {
+            static constexpr const char *kNames[] = {"?", "#", "$", "[]", "{}"};
+            for (int i = 0; i <= Value::MaxType; ++i) {
                 if (entry.canBeType(Value::Type(i))) {
                     out << kNames[i];
                 }
             }
         }
+        if (entry.isInputMatch())
+            out << "/" << entry.inputMatch();
         return out;
     }
 
@@ -43,5 +47,26 @@ namespace tails {
         return out << effect.inputs() << " -- " << effect.outputs();
     }
 
+
+    static inline void disassemble(std::ostream& out, const Word &word) {
+        auto dis = Disassembler::disassembleWord(word.instruction().word, true);
+        int n = 0;
+        for (auto &wordRef : dis) {
+            if (n++) out << ' ';
+            out << (wordRef.word->name() ? wordRef.word->name() : "???");
+            if (wordRef.word->hasIntParams())
+                out << "+<" << (int)wordRef.param.offset << '>';
+            else if (wordRef.word->hasValParams())
+                out << ":<" << wordRef.param.literal << '>';
+            else if (wordRef.word->hasWordParams())
+                out << ":<" << Compiler::activeVocabularies.lookup(wordRef.param.word)->name() << '>';
+        }
+    }
+
+    static inline std::string disassemble(const Word &word) {
+        std::stringstream out;
+        disassemble(out, word);
+        return out.str();
+    }
 
 }

@@ -28,6 +28,7 @@
 namespace tails {
 
     class Compiler;
+    class EffectStack;
     class VocabularyStack;
 
     namespace core_words {
@@ -66,7 +67,6 @@ namespace tails {
     /// It computes and validates the word's stack effect.
     class Compiler {
     public:
-        class EffectStack;
 
         /// A reference to a word and its parameter (if any), used during compilation.
         struct WordRef {

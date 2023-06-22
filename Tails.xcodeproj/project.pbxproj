@@ -129,6 +129,8 @@
 		27AC392B2A40E57E00C9A8E6 /* PrattParser.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = PrattParser.hh; sourceTree = "<group>"; };
 		27AC392C2A40E57E00C9A8E6 /* PrattParser.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = PrattParser.cc; sourceTree = "<group>"; };
 		27AC392E2A40F95E00C9A8E6 /* test_parser.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = test_parser.cc; sourceTree = "<group>"; };
+		27AC39322A427CBB00C9A8E6 /* type_set.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = type_set.hh; sourceTree = "<group>"; };
+		27AC39332A44B45E00C9A8E6 /* effect_stack.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = effect_stack.hh; sourceTree = "<group>"; };
 		27BE518E266188870010DC42 /* io.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = io.hh; sourceTree = "<group>"; };
 		27BE518F266190850010DC42 /* utils.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = utils.hh; sourceTree = "<group>"; };
 		27BE51902661C2050010DC42 /* disassembler.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = disassembler.hh; sourceTree = "<group>"; };
@@ -257,6 +259,7 @@
 				273B209926434A1100A14EC4 /* vocabulary.cc */,
 				273B209826434A1000A14EC4 /* vocabulary.hh */,
 				2753DACE2666E1BD008EBCE0 /* stack_effect_parser.hh */,
+				27AC39332A44B45E00C9A8E6 /* effect_stack.hh */,
 				273B20AF2645D67000A14EC4 /* compiler.hh */,
 				273B20B02645D67000A14EC4 /* compiler.cc */,
 				2732FA2A2655E89D0013063A /* compiler+parser.cc */,
@@ -273,6 +276,7 @@
 				27BE518F266190850010DC42 /* utils.hh */,
 				273B20922643479600A14EC4 /* instruction.hh */,
 				2732FA0D26543FBF0013063A /* stack_effect.hh */,
+				27AC39322A427CBB00C9A8E6 /* type_set.hh */,
 				273B209C264351E400A14EC4 /* word.hh */,
 				273B2093264348A400A14EC4 /* core_words.cc */,
 				273B20972643498900A14EC4 /* core_words.hh */,

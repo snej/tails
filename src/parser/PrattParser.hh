@@ -5,56 +5,44 @@
 //
 
 #pragma once
+#include "stack_effect.hh"
 #include "tokenizer.hh"
 #include "value.hh"
 #include <functional>
 #include <unordered_map>
-#include <vector>
 
 namespace tails {
+    class Compiler;
     class Parser;
-
-    struct Expression {
-        enum Type {
-            None,
-            Literal,
-            Variable,
-            Add, Subtract, Multiply, Divide,
-            Equals,
-            Assign,
-            If,
-            Block,
-        };
-
-        Type type;
-        Value value;
-        std::string identifier;
-        std::vector<Expression> params;
-
-        friend std::ostream& operator<<(std::ostream&, Expression const&);
-    };
 
     enum class priority_t : int { None = INT_MIN };
 
     static inline priority_t operator""_pri (unsigned long long v) {return priority_t(int(v));}
 
-    // A symbol in the grammar.
+    // A symbol in the grammar: defines how to parse it.
     class Symbol {
     public:
-        Symbol(std::string literal_, Expression::Type type);
+        explicit Symbol(Word const&);
+        explicit Symbol(Value);
+        explicit Symbol(std::string const& token);
+        explicit Symbol(const char* token)              :Symbol(std::string(token)) { }
         virtual ~Symbol();
 
-        Expression::Type type;
-        std::string literal;
+        std::string token;
 
-        using ParsePrefixFn = std::function<Expression(Parser&)>;
-        using ParseInfixFn = std::function<Expression(Expression&&,Parser&)>;
+        bool isLiteral() const      {return !_literal.isNull();}
+        Value literalValue() const  {return _literal;}
+
+        using ParsePrefixFn  = std::function<StackEffect(Parser&)>;
+        using ParseInfixFn   = std::function<StackEffect(StackEffect const&, Parser&)>;
         using ParsePostfixFn = ParseInfixFn;
 
         Symbol&& makePrefix(priority_t) &&;
+        Symbol&& makePrefix(priority_t, Word const&) &&;
         Symbol&& makePrefix(priority_t, ParsePrefixFn) &&;
 
         Symbol&& makeInfix(priority_t left, priority_t right) &&;
+        Symbol&& makeInfix(priority_t left, priority_t right, Word const&) &&;
         Symbol&& makeInfix(priority_t left, priority_t right, ParseInfixFn) &&;
 
         Symbol&& makePostfix(priority_t) &&;
@@ -69,14 +57,17 @@ namespace tails {
         priority_t rightPriority   = priority_t::None;
         priority_t postfixPriority = priority_t::None;
 
-        virtual Expression parsePrefix(Parser&) const;
-        virtual Expression parseInfix(Expression&&,Parser&) const;
-        virtual Expression parsePostfix(Expression&&,Parser&) const;
+        virtual StackEffect parsePrefix(Parser&) const;
+        virtual StackEffect parseInfix(StackEffect const&, Parser&) const;
+        virtual StackEffect parsePostfix(StackEffect const&, Parser&) const;
 
     private:
-        ParsePrefixFn  _customParsePrefix;
-        ParseInfixFn   _customParseInfix;
-        ParsePostfixFn _customParsePostfix;
+        Word const*     _word = nullptr;
+        Word const*     _prefixWord = nullptr;
+        Value           _literal;
+        ParsePrefixFn   _customParsePrefix;
+        ParseInfixFn    _customParseInfix;
+        ParsePostfixFn  _customParsePostfix;
     };
 
 
@@ -100,9 +91,9 @@ namespace tails {
         ,_tokens(_registry)
         { }
 
-        Expression parse(std::string const& sourceCode);
+        CompiledWord parse(std::string const& sourceCode);
 
-        Expression nextExpression(priority_t minPriority);
+        StackEffect nextExpression(priority_t minPriority);
 
         Tokenizer& tokens()     {return _tokens;}
 
@@ -112,9 +103,14 @@ namespace tails {
         // Consumes the next token and returns true if its literal value matches; else returns false.
         bool ifToken(std::string_view);
 
+        Compiler& compiler()    {return *_compiler;}
+
     private:
+        StackEffect literal(Value);
+        
         SymbolRegistry const& _registry;
         Tokenizer _tokens;
+        std::unique_ptr<Compiler> _compiler;
     };
 
 }

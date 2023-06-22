@@ -58,6 +58,8 @@ namespace tails {
             AString,
             AnArray,
             AQuote,
+
+            MaxType = AQuote
         };
 
         Type type() const;

@@ -17,139 +17,16 @@
 //
 
 #pragma once
+#include "type_set.hh"
 #include "value.hh"
 #include "utils.hh"
 #include <algorithm>
 #include <array>
 #include <initializer_list>
-#include <optional>
 #include <stdexcept>
 #include <stdint.h>
 
 namespace tails {
-
-    /// A set of Value types. Describes one item, an input or output, in a word's stack effect.
-    /// If it's a StackEffect output, it can optionally declare that it matches the type of an input.
-    class TypeSet {
-    public:
-        constexpr TypeSet() { }
-
-        constexpr TypeSet(Value::Type type)        {addType(type);}
-
-        constexpr TypeSet(std::initializer_list<Value::Type> types) {
-            for (auto type : types)
-                addType(type);
-        }
-
-        constexpr static TypeSet anyType() {return TypeSet(kTypeFlags);}
-        constexpr static TypeSet noType()  {return TypeSet();}
-
-        constexpr bool exists() const                       {return _flags != 0;}
-        constexpr bool canBeAnyType() const                 {return typeFlags() == kTypeFlags;}
-        constexpr bool canBeType(Value::Type type) const    {return (_flags & (1 << int(type))) != 0;}
-
-        std::optional<Value::Type> firstType() const {
-            for (int i = 0; i < kNumTypes; ++i)
-                if (_flags & (1<<i))
-                    return Value::Type(i);
-            return std::nullopt;
-        }
-
-        constexpr void addType(Value::Type type)            {_flags |= (1 << int(type));}
-        constexpr void addAllTypes()                        {_flags = kTypeFlags;}
-
-        constexpr bool isInputMatch() const                 {return (_flags & 0xE0) != 0;}
-        constexpr int inputMatch() const                    {return (_flags >> kNumTypes) - 1;}
-
-        constexpr void setInputMatch(TypeSet inputEntry, unsigned inputNo) {
-            assert(inputNo <= 6);
-            _flags = ((inputNo+1) << kNumTypes) | (inputEntry._flags & kTypeFlags);
-        }
-
-        constexpr TypeSet operator/ (unsigned inputNo) const {
-            assert(inputNo <= 6);
-            return TypeSet(typeFlags() | ((inputNo+1) << kNumTypes));
-        }
-
-        /// I am "greater than" another entry if I support types it doesn't.
-        constexpr int compare(const TypeSet &other) const {
-            if (typeFlags() == other.typeFlags())
-                return 0;
-            else if ((typeFlags() & ~other.typeFlags()) != 0)
-                return 1;
-            else
-                return -1;
-        }
-
-        constexpr bool operator== (const TypeSet &other) const   {return compare(other) == 0;}
-        constexpr bool operator!= (const TypeSet &other) const   {return compare(other) != 0;}
-        constexpr bool operator>  (const TypeSet &other) const   {return compare(other) > 0;}
-        constexpr bool operator<  (const TypeSet &other) const   {return compare(other) < 0;}
-
-        constexpr explicit operator bool() const                 {return exists();}
-
-        constexpr TypeSet operator| (const TypeSet &other) const {return _flags | other._flags;}
-        constexpr TypeSet operator& (const TypeSet &other) const {return _flags & other._flags;}
-        constexpr TypeSet operator- (const TypeSet &other) const {return _flags & ~other._flags;}
-
-        constexpr uint8_t typeFlags() const                      {return _flags & kTypeFlags;}
-        constexpr uint8_t flags() const                          {return _flags;} // tests only
-
-    private:
-        constexpr TypeSet(int flags) :_flags(uint8_t(flags)) { }
-
-        static constexpr int kNumTypes = 5;
-        static constexpr uint8_t kTypeFlags = (1 << kNumTypes) - 1;
-
-        uint8_t _flags = 0;
-    };
-
-
-
-    /// A reference to a list of TypeSets in stack order. (Basically like a C++20 range.)
-    class TypesView {
-    public:
-        constexpr TypesView(TypeSet *bottom, TypeSet *top)
-        :_bottom(bottom), _top(top)
-        { assert(bottom && top && _bottom <= _top + 1); }
-
-        constexpr TypesView(TypeSet *bottom, size_t size)
-        :TypesView(bottom, bottom + size - 1)
-        { }
-
-        constexpr int size() const                      {return int(_top - _bottom + 1);}
-
-        // Indexing is from the top of the stack
-        constexpr TypeSet operator[] (size_t i) const   {assert (i < size()); return *(_top - i);}
-        constexpr TypeSet& operator[] (size_t i)        {assert (i < size()); return *(_top - i);}
-
-        // rbegin/rend start at the bottom of the stack
-        // (begin() / end() would take more work to implement since ++ needs to decrement the ptr)
-        constexpr const TypeSet* rbegin() const         {return _bottom;}
-        constexpr TypeSet* rbegin()                     {return _bottom;}
-        constexpr const TypeSet* rend() const           {return _top + 1;}
-        constexpr TypeSet* rend()                       {return _top + 1;}
-
-        constexpr bool operator== (const TypesView &other) const {
-            auto sz = size();
-            if (sz != other.size())
-                return false;
-            for (size_t i = 0; i < sz; ++i)
-                if (_bottom[i] != other._bottom[i])
-                    return false;
-            return true;
-        }
-
-        constexpr bool operator!= (const TypesView &other) const {
-            return !(*this == other);
-        }
-
-    private:
-        TypeSet* const _bottom;
-        TypeSet* const _top;
-    };
-
-
 
     /// Describes the API of a word:
     /// - how many inputs it reads from the stack, and their allowed types;
@@ -163,7 +40,7 @@ namespace tails {
         /// Constructs an empty instance with zero inputs and outputs and max.
         constexpr StackEffect() { }
 
-        /// Creates a stack effect lists of inputs and outputs.
+        /// Creates a stack effect from lists of inputs and outputs.
         constexpr StackEffect(std::initializer_list<TypeSet> inputs,
                               std::initializer_list<TypeSet> outputs)
         :_ins(inputs.size())
@@ -176,6 +53,18 @@ namespace tails {
                 *entry++ = in;
             for (auto out : outputs)
                 *entry++ = out;
+            setMax();
+        }
+
+        /// Creates a stack effect from inputs and outputs.
+        constexpr StackEffect(TypesView inputs, TypesView outputs)
+        :_ins(inputs.size())
+        ,_outs(outputs.size())
+        {
+            if (inputs.size() + outputs.size() >= kMaxEntries)
+                throw std::runtime_error("Too many stack entries");
+            memcpy(&_entries[0],     inputs.rbegin(), _ins  * sizeof(TypeSet));
+            memcpy(&_entries[_ins], outputs.rbegin(), _outs * sizeof(TypeSet));
             setMax();
         }
 
@@ -200,39 +89,46 @@ namespace tails {
             return result;
         }
 
+        /// Adds an input at the top of the stack.
         void addInput(TypeSet entry)                {insert(entry, _ins); ++_ins;}
 
+        /// Adds an output at the top of the stack.
         void addOutput(TypeSet entry)               {insert(entry, _ins + _outs); ++_outs;}
 
+        /// Adds an input at the bottom of the stack.
         void addInputAtBottom(TypeSet entry)        {insert(entry, 0); ++_ins;}
 
+        /// Adds an output at the bottom of the stack.
         void addOutputAtBottom(TypeSet entry)       {insert(entry, _ins); ++_outs;}
 
+        /// Removes all the outputs.
+        void clearOutputs()                         {_outs = 0;}
+
         /// Number of items read from stack on entry (i.e. minimum stack depth on entry)
-        constexpr int inputCount() const        {assert(!_weird); return _ins;}
+        constexpr int inputCount() const            {assert(!_weird); return _ins;}
 
         /// Number of items left on stack on exit, "replacing" the input
-        constexpr int outputCount() const       {assert(!_weird); return _outs;}
+        constexpr int outputCount() const           {assert(!_weird); return _outs;}
 
-        /// Net change in stack depth from entry to exit; equal to `output` - `input`.
-        constexpr int net() const               {assert(!_weird); return int(_outs) - int(_ins);}
+        /// Net change in stack depth from entry to exit; equal to `outputCount` - `inputCount`.
+        constexpr int net() const                   {assert(!_weird); return int(_outs)-int(_ins);}
 
-        /// Max growth of stack while the word runs
-        constexpr int max() const               {assert(!_weird); return _max;}
+        /// Max growth of stack while the word runs.
+        constexpr int max() const                   {assert(!_weird); return _max;}
 
         /// True if actual max stack growth is not known at compile time (e.g. recursive fns)
-        constexpr bool maxIsUnknown() const     {return _max == UINT16_MAX;}
+        constexpr bool maxIsUnknown() const         {return _max == UINT16_MAX;}
 
-        /// True if the stack effect is unknown at compile time or depends on instruction params
-        constexpr bool isWeird() const  {return _weird;}
+        /// True if the stack effect is unknown at compile time or depends on instruction params.
+        constexpr bool isWeird() const              {return _weird;}
 
-        /// The array of input types
-        constexpr const TypesView inputs() const   {return TypesView((TypeSet*)&_entries[0], _ins);}
-        constexpr TypesView inputs()               {return TypesView(&_entries[0], _ins);}
+        /// The array of input types. Indexed with top of stack at 0.
+        constexpr const TypesView inputs() const    {return TypesView((TypeSet*)&_entries[0],_ins);}
+        constexpr TypesView inputs()                {return TypesView(&_entries[0], _ins);}
 
-        /// The array of output types
-        constexpr const TypesView outputs() const {return TypesView((TypeSet*)&_entries[_ins], _outs);}
-        constexpr TypesView outputs()             {return TypesView(&_entries[_ins], _outs);}
+        /// The array of output types. Indexed with top of stack at 0.
+        constexpr const TypesView outputs() const   {return TypesView((TypeSet*)&_entries[_ins], _outs);}
+        constexpr TypesView outputs()               {return TypesView(&_entries[_ins], _outs);}
 
         constexpr bool operator== (const StackEffect &other) const {
             if (_ins == other._ins && _outs == other._outs && _max == other._max
@@ -245,7 +141,39 @@ namespace tails {
             return false;
         }
 
-        constexpr bool operator!= (const StackEffect &other) const {return !(*this == other);}
+        /// The result of concatenating effects `a` and `b`.
+        /// - b cannot have more inputs than a has outputs.
+        /// - the outputs of a have to be type-compatible with corresponding inputs of b.
+        friend StackEffect operator | (StackEffect const& a, StackEffect const& b) {
+            auto aOutputs = a.outputCount(), bInputs = b.inputCount();
+            if (aOutputs < bInputs)
+                throw std::logic_error("stack underflow");
+            for (int i = 0; i < bInputs; ++i) {
+                if (TypeSet badTypes = a.outputs()[i] - b.inputs()[i]) {
+                    //auto badType = badTypes.firstType();
+                    throw std::logic_error("type mismatch");
+                }
+            }
+
+            StackEffect result(a.inputs(), b.outputs());
+
+            // Add unconsumed inputs of a as outputs, below b's outputs:
+            for (int i = bInputs; i < aOutputs; ++i)
+                result.addOutputAtBottom(a.outputs()[i]);
+
+            // If any outputs match inputs, update their types:
+            for (int i = 0; i < result.outputCount(); ++i) {
+                if (auto &type = result.outputs()[i]; type.isInputMatch()) {
+                    int inputNo = type.inputMatch();
+                    auto inType = a.outputs()[inputNo];
+                    if (inType.multiType())
+                        type.setInputMatch(inType, inputNo);
+                    else
+                        type = inType;
+                }
+            }
+            return result;
+        }
 
     private:
         friend constexpr void _parseStackEffect(StackEffect&, const char *str, const char *end);
