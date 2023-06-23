@@ -117,8 +117,9 @@ namespace tails {
         }
 
         void popParams(size_t nParams, size_t nResults) {
-            if (nParams + nResults > _stack.size())
-                throw compile_error("Invalid _POP_PARAMS", nullptr);
+            auto actualResults = _stack.size() - nParams;
+            if (actualResults != nResults)
+                throw compile_error(format("Should return %d values, not %d", nResults, actualResults), nullptr);
             _stack.erase(_stack.end() - nParams - nResults,
                          _stack.end() - nResults);
         }

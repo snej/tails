@@ -131,11 +131,16 @@ namespace tails {
                            intptr_t intParam,
                            const char *sourcePos =nullptr);
 
+        /// Adds an instruction to push a literal value on the stack.
         InstructionPos addLiteral(Value v, const char *sourcePos =nullptr);
 
-        InstructionPos addFnParam(unsigned stackOffset, const char *sourcePos);
+        /// Adds an instruction to get a function arg and push it.
+        /// @param stackOffset  Stack offset of the arg, at the time the function is called.
+        ///                     0 = last (top) arg, -1 is previous, etc.
+        InstructionPos addGetArg(int stackOffset, const char *sourcePos);
+        InstructionPos addSetArg(int stackOffset, const char *sourcePos);
 
-        void popParams();
+        void addDropArgs();
 
         /// Adds a word by inlining its definition, if it's interpreted. Native words added normally.
         InstructionPos addInline(const Word&, const char *source);

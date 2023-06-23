@@ -83,12 +83,18 @@ namespace tails {
             if (i->word == &_LITERAL) {
                 // A literal, just push it
                 curStack.add(i->param.literal);
-            } else if (i->word == &_PARAM) {
-                // A function parameter:
-                TypeSet paramType = _effect.inputs()[i->param.offset];
-                i->param.offset += curStack.depth() - _effect.inputCount();
+            } else if (i->word == &_GETARG) {
+                // Get a function argument. Adjust the offset for the current stack:
+                TypeSet paramType = _effect.inputs()[-i->param.offset];
+                i->param.offset -= curStack.depth() - _effect.inputCount();
                 curStack.add(paramType);
-            } else if (i->word == &_POP_PARAMS) {
+            } else if (i->word == &_SETARG) {
+                // Setting a function argument. Adjust the offset for the current stack:
+                TypeSet paramType = _effect.inputs()[-i->param.offset];
+                i->param.offset -= curStack.depth() - _effect.inputCount();
+                curStack.add(*i->word, StackEffect({paramType}, {}), i->sourceCode);
+            } else if (i->word == &_DROPARGS) {
+                // Popping the parameters:
                 auto nParams = i->param.offset & 0xFFFF;
                 auto nResults = i->param.offset >> 16;
                 curStack.popParams(nParams, nResults);

@@ -37,7 +37,7 @@ namespace tails::core_words {
         _BRANCH, _ZBRANCH,
         ONE, ZERO,
         DEFINE,
-        _PARAM, _POP_PARAMS;
+        _GETARG, _SETARG, _DROPARGS;
 
     extern const Word NULL_, LENGTH, CALL, IFELSE;
 

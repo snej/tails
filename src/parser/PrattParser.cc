@@ -36,11 +36,6 @@ namespace tails {
     ,_value(val)
     { }
 
-    Symbol::Symbol(const char* paramName, FnParam param)
-    :token(paramName)
-    ,_value(param)
-    { }
-
     Symbol::Symbol(string const& token)
     :token(token)
     { }
@@ -137,14 +132,45 @@ namespace tails {
     }
 
 
+#pragma mark - FN PARAM:
 
-    void SymbolRegistry::add(Symbol && symbol) {
-        _registry.emplace(symbol.token, move(symbol));
+
+    FnParam::FnParam(const char* paramName, TypeSet type, int stackPos)
+    :Symbol(paramName)
+    ,_type(type)
+    ,_stackPos(stackPos)
+    {
+        prefixPriority = 99_pri;
+    }
+
+    StackEffect FnParam::parsePrefix(Parser& parser) const {
+        if (auto next = parser.tokens().peek().literal; next == "=" || next == ":=" ) {
+            // Following token is `=` or `:=`, so this is a set:
+            parser.tokens().consumePeeked();
+            StackEffect rhsEffect = parser.nextExpression(10_pri);  //TODO: Don't hardcode
+            if (rhsEffect.inputCount() != 0 || rhsEffect.outputCount() != 1)
+                parser.fail("Right-hand side of assignment must have a (single) value");
+            else if (rhsEffect.outputs()[0] > _type)
+                parser.fail("Type mismatch assigning to " + token);
+            parser.addSetArg(_type, _stackPos);
+            return StackEffect();
+        } else {
+            // Get arg:
+            return parser.addGetArg(_type, _stackPos);
+        }
+    }
+
+
+#pragma mark - SYMBOL REGISTRY:
+
+
+    void SymbolRegistry::addPtr(unique_ptr<Symbol> symbol) {
+        _registry.emplace(symbol->token, move(symbol));
     }
 
     Symbol const* SymbolRegistry::get(string_view literal) const {
-        if (auto i = _registry.find(string(literal)); i != _registry.end())
-            return &i->second;
+        if (auto i = _registry.find(literal); i != _registry.end())
+            return i->second.get();
         else if (_parent)
             return _parent->get(literal);
         else
@@ -152,7 +178,9 @@ namespace tails {
     }
 
 
-    
+#pragma mark - PARSER:
+
+
     CompiledWord Parser::parse(string const& sourceCode, StackEffect const& effect) {
         _tokens.reset(sourceCode);
         _compiler = make_unique<Compiler>();
@@ -163,7 +191,7 @@ namespace tails {
 //        cout << "Final effect is " << exprEffect << endl;//TEMP
         if (!_tokens.atEnd())
             fail("Expected input to end here");
-        _compiler->popParams();
+        _compiler->addDropArgs();
         return std::move(*_compiler).finish();
     }
 
@@ -178,13 +206,19 @@ namespace tails {
         _stack.add(word, word.stackEffect(), _tokens.position());
     }
 
-    StackEffect Parser::addParameter(FnParam param) {
-        _compiler->addFnParam(param.stackPos, _tokens.position());
-        StackEffect effect({}, {param.type});
-        _stack.add(core_words::_PARAM, effect, _tokens.position());
+    StackEffect Parser::addGetArg(TypeSet type, int stackPos) {
+        _compiler->addGetArg(stackPos, _tokens.position());
+        StackEffect effect({}, {type});
+        _stack.add(core_words::_GETARG, effect, _tokens.position());
         return effect;
     }
 
+    StackEffect Parser::addSetArg(TypeSet type, int stackPos) {
+        _compiler->addSetArg(stackPos, _tokens.position());
+        StackEffect effect({type}, {});
+        _stack.add(core_words::_SETARG, effect, _tokens.position());
+        return effect;
+    }
 
     StackEffect Parser::nextExpression(priority_t minPriority) {
         StackEffect lhs;
@@ -204,8 +238,6 @@ namespace tails {
                     fail("Unknown symbol " + string(firstTok.literal));
                 } else if (symbol->isLiteral()) {
                     lhs = literal(symbol->literalValue());
-                } else if (symbol->isParameter()) {
-                    lhs = addParameter(symbol->parameter());
                 } else if (symbol->isPrefix()) {
                     lhs = symbol->parsePrefix(*this);
                 } else {

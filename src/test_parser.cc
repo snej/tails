@@ -91,6 +91,7 @@ void testPrattParser() {
         return StackEffect(lhs.inputs(), ifEffect.outputs());
     }));
 
+
 #if 0
     reg.add(Symbol("]"));
     reg.add(Symbol("|"));
@@ -132,23 +133,24 @@ void testPrattParser() {
     reg.add(Symbol(core_words::DIV)  .makeInfix(60_pri, 61_pri));
 
     SymbolRegistry localReg(&reg);
-    localReg.add(Symbol("x", FnParam{.type = TypeSet(Value::ANumber), 1}));
-    localReg.add(Symbol("y", FnParam{.type = TypeSet(Value::ANumber), 0}));
+    localReg.add(FnParam("x", TypeSet(Value::ANumber), -1));
+    localReg.add(FnParam("y", TypeSet(Value::ANumber), 0));
 
     Parser p(localReg);
 
-    testParser(p, "3+4",            "_LITERAL:<3> _LITERAL:<4> + _POP_PARAMS<2,1> _RETURN");
-    testParser(p, "-(3-4)",         "0 _LITERAL:<3> _LITERAL:<4> - - _POP_PARAMS<2,1> _RETURN");
-    testParser(p, "3+4*5",          "_LITERAL:<3> _LITERAL:<4> _LITERAL:<5> * + _POP_PARAMS<2,1> _RETURN");
-    testParser(p, "3*4+5",          "_LITERAL:<3> _LITERAL:<4> * _LITERAL:<5> + _POP_PARAMS<2,1> _RETURN");
-    testParser(p, "3*(4+5)",        "_LITERAL:<3> _LITERAL:<4> _LITERAL:<5> + * _POP_PARAMS<2,1> _RETURN");
-    testParser(p, "3*4 == 5",       "_LITERAL:<3> _LITERAL:<4> * _LITERAL:<5> = _POP_PARAMS<2,1> _RETURN");
-    testParser(p, "3+x",            "_LITERAL:<3> _PARAM+<2> + _POP_PARAMS<2,1> _RETURN");
-    testParser(p, "x+y",            "_PARAM+<1> _PARAM+<1> + _POP_PARAMS<2,1> _RETURN");
-    testParser(p, "12; x",          "_LITERAL:<12> DROP _PARAM+<1> _POP_PARAMS<2,1> _RETURN");
-    testParser(p, "12; x;",         "_LITERAL:<12> DROP _PARAM+<1> _POP_PARAMS<2,1> _RETURN");
+    testParser(p, "3+4",            "_LITERAL:<3> _LITERAL:<4> + _DROPARGS<2,1> _RETURN");
+    testParser(p, "-(3-4)",         "0 _LITERAL:<3> _LITERAL:<4> - - _DROPARGS<2,1> _RETURN");
+    testParser(p, "3+4*5",          "_LITERAL:<3> _LITERAL:<4> _LITERAL:<5> * + _DROPARGS<2,1> _RETURN");
+    testParser(p, "3*4+5",          "_LITERAL:<3> _LITERAL:<4> * _LITERAL:<5> + _DROPARGS<2,1> _RETURN");
+    testParser(p, "3*(4+5)",        "_LITERAL:<3> _LITERAL:<4> _LITERAL:<5> + * _DROPARGS<2,1> _RETURN");
+    testParser(p, "3*4 == 5",       "_LITERAL:<3> _LITERAL:<4> * _LITERAL:<5> = _DROPARGS<2,1> _RETURN");
+    
+    testParser(p, "3+x",            "_LITERAL:<3> _GETARG+<-2> + _DROPARGS<2,1> _RETURN");
+    testParser(p, "x+y",            "_GETARG+<-1> _GETARG+<-1> + _DROPARGS<2,1> _RETURN");
+    testParser(p, "12; x",          "_LITERAL:<12> DROP _GETARG+<-1> _DROPARGS<2,1> _RETURN");
+    testParser(p, "12; x;",         "_LITERAL:<12> DROP _GETARG+<-1> _DROPARGS<2,1> _RETURN");
+    testParser(p, "x := 5; y",      "_LITERAL:<5> _SETARG+<-2> _GETARG+<0> _DROPARGS<2,1> _RETURN");
 #if 0
-    testParser(p, "x := 3/4",       ":=(x, /(3, 4))");
     testParser(p, "x = 3/4",        ":=(x, /(3, 4))");
     testParser(p, "17 if: 1",           "if(17, 1)");
     testParser(p, "17 if: 1+2 else: 0", "if(17, +(1, 2), 0)");

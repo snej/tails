@@ -178,21 +178,36 @@ namespace tails::core_words {
         NEXT();
     }
 
-    // Generalized OVER, used for pushing a function parameter.
-    // _PARAM<0> is DUP, _PARAM<1> is OVER, ...
-    NATIVE_WORD(_PARAM, "_PARAM", StackEffect::weird(),  // or, StackEffect({}, {Any})
+#pragma mark Named Function Arguments & Locals:
+
+
+    // Pushes an arg/local on the stack. Param is its current stack offset (negative!)
+    NATIVE_WORD(_GETARG, "_GETARG", StackEffect::weird(),  // or, StackEffect({}, {Any})
                 Word::MagicIntParam, 1)
     {
         auto n = (pc++)->offset;
-        ++sp;
-        sp[0] = sp[-1 - n];
+        assert(n < 0);
+        auto val = sp[n];
+        *++sp = val;
         NEXT();
     }
 
-    // Removes unconsumed function parameters from the stack at the end of a function.
-    // The lower 16 bits of the param is the number of function parameters to remove;
+    // Writes to a function parameter. Pops a value and stores it `n` items back in the stack.
+    // _GETARG<0> is DUP, _GETARG<1> is OVER, ...
+    NATIVE_WORD(_SETARG, "_SETARG", StackEffect::weird(),  // or, StackEffect({Any}, {})
+                Word::MagicIntParam, 1)
+    {
+        auto n = (pc++)->offset;
+        assert(n < 0);
+        sp[n] = *sp;
+        --sp;
+        NEXT();
+    }
+
+    // Removes unconsumed function args from the stack at the end of a function.
+    // The lower 16 bits of the param is the number of function args to remove;
     // The upper bits of the param is the number of function results to preserve.
-    NATIVE_WORD(_POP_PARAMS, "_POP_PARAMS", StackEffect::weird(),
+    NATIVE_WORD(_DROPARGS, "_DROPARGS", StackEffect::weird(),
                 Word::MagicIntParam, 1)
     {
         auto n = (pc++)->offset;
@@ -379,7 +394,7 @@ namespace tails::core_words {
         &LENGTH,
         &IFELSE,
         &DEFINE,
-        &_PARAM, &_POP_PARAMS,
+        &_GETARG, &_SETARG, &_DROPARGS,
         nullptr
     };
 

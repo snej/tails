@@ -18,12 +18,6 @@ namespace tails {
     class Parser;
 
     enum class priority_t : int { None = INT_MIN };
-
-    struct FnParam {
-        TypeSet type;
-        unsigned stackPos;  // offset from top of stack at fn entry
-    };
-
     static inline priority_t operator""_pri (unsigned long long v) {return priority_t(int(v));}
 
     // A symbol in the grammar: defines how to parse it.
@@ -31,7 +25,6 @@ namespace tails {
     public:
         explicit Symbol(Word const&);
         explicit Symbol(Value);
-        explicit Symbol(const char* paramName, FnParam);
         explicit Symbol(std::string const& token);
         explicit Symbol(const char* token)              :Symbol(std::string(token)) { }
         virtual ~Symbol();
@@ -40,9 +33,6 @@ namespace tails {
 
         bool isLiteral() const      {return std::holds_alternative<Value>(_value);}
         Value literalValue() const  {return std::get<Value>(_value);}
-
-        bool isParameter() const    {return std::holds_alternative<FnParam>(_value);}
-        FnParam parameter() const   {return std::get<FnParam>(_value);}
 
         bool isWord() const         {return std::holds_alternative<Word const*>(_value);}
         Word const& word() const    {return *std::get<Word const*>(_value);}
@@ -76,7 +66,7 @@ namespace tails {
         virtual StackEffect parsePostfix(StackEffect const&, Parser&) const;
 
     private:
-        std::variant<nullptr_t,Word const*,Value,FnParam> _value;
+        std::variant<nullptr_t,Word const*,Value> _value;
         Word const*     _prefixWord = nullptr;          // in case Word is different when prefix
         ParsePrefixFn   _customParsePrefix;
         ParseInfixFn    _customParseInfix;
@@ -84,17 +74,32 @@ namespace tails {
     };
 
 
+    class FnParam : public Symbol {
+    public:
+        explicit FnParam(const char* paramName, TypeSet type, int stackPos);
+        StackEffect parsePrefix(Parser&) const override;
+    private:
+        TypeSet _type;
+        int _stackPos;  // offset from top of stack at fn entry: 0 = last arg, -1 = prev arg,...
+    };
+
+
     class SymbolRegistry {
     public:
         explicit SymbolRegistry(SymbolRegistry* parent =nullptr) :_parent(parent) { }
 
-        void add(Symbol&&);
+        void addPtr(std::unique_ptr<Symbol>);
+
+        template <class SYM>
+        void add(SYM&& symbol) {
+            addPtr(std::make_unique<SYM>(std::move(symbol)));
+        }
 
         Symbol const* get(std::string_view) const;
 
     private:
         SymbolRegistry* _parent;
-        std::unordered_map<std::string, Symbol> _registry;
+        std::unordered_map<std::string_view, unique_ptr<Symbol>> _registry;
     };
 
 
@@ -110,6 +115,7 @@ namespace tails {
         StackEffect nextExpression(priority_t minPriority);
 
         Tokenizer& tokens()     {return _tokens;}
+        Compiler& compiler()    {return *_compiler;}
 
         // Consumes the next token if its literal value matches; else fails.
         void requireToken(std::string_view);
@@ -118,7 +124,8 @@ namespace tails {
         bool ifToken(std::string_view);
 
         void add(Word const&);
-        StackEffect addParameter(FnParam);
+        StackEffect addGetArg(TypeSet type, int stackPos);
+        StackEffect addSetArg(TypeSet type, int stackPos);
 
         [[noreturn]] void fail(std::string&& message);
 

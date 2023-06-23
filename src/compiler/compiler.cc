@@ -159,15 +159,18 @@ namespace tails {
     }
 
 
-    Compiler::InstructionPos Compiler::addFnParam(unsigned stackOffset, const char *sourcePos) {
-        return add({_PARAM, stackOffset}, sourcePos);
+    Compiler::InstructionPos Compiler::addGetArg(int stackOffset, const char *sourcePos) {
+        return add({_GETARG, stackOffset}, sourcePos);
     }
 
+    Compiler::InstructionPos Compiler::addSetArg(int stackOffset, const char *sourcePos) {
+        return add({_SETARG, stackOffset}, sourcePos);
+    }
 
-    void Compiler::popParams() {
+    void Compiler::addDropArgs() {
         unsigned n = _effect.inputCount() | (_effect.outputCount() << 16);
         if (n != 0)
-            add({_POP_PARAMS, n}, nullptr);
+            add({_DROPARGS, n}, nullptr);
     }
 
 
