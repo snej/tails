@@ -104,8 +104,27 @@ namespace tails {
         constexpr TypeSet operator& (TypeSet s) const {return (_flags & s._flags) & kTypeFlags;}
         constexpr TypeSet operator- (TypeSet s) const {return (_flags & ~s._flags) & kTypeFlags;}
 
+        constexpr TypeSet& operator|= (TypeSet s) &              {*this = *this | s; return *this;}
+
         constexpr uint8_t typeFlags() const                      {return _flags & kTypeFlags;}
         constexpr uint8_t flags() const                          {return _flags;} // tests only
+
+        std::string description() const {
+            if (canBeAnyType())
+                return "any type";
+            else if (!exists())
+                return "no type";
+            else {
+                std::string s;
+                for (int i = 0; i < kNumTypes; ++i) {
+                    if (_flags & (1<<i)) {
+                        if (!s.empty()) s += "|";
+                        s += Value::typeName(Value::Type(i));
+                    }
+                }
+                return s;
+            }
+        }
 
     private:
         constexpr TypeSet(int flags) :_flags(uint8_t(flags)) { }

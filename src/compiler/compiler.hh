@@ -102,6 +102,7 @@ namespace tails {
             _effect = effect;
             _effectCanAddInputs = canAddInputs;
             _effectCanAddOutputs = canAddOutputs;
+            _effectCanAddOutputTypes = canAddOutputs;
         }
 
         /// Sets the word's input stack effect from the given actual stack. The output effect is TBD.
@@ -196,6 +197,7 @@ namespace tails {
         StackEffect                 _effect;
         bool                        _effectCanAddInputs = true;
         bool                        _effectCanAddOutputs = true;
+        bool                        _effectCanAddOutputTypes = true;
         std::string_view            _curToken;
         std::vector<BranchTarget>   _controlStack;
     };

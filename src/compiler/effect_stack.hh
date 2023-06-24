@@ -139,20 +139,27 @@ namespace tails {
 
         /// Checks whether the current stack matches a StackEffect's outputs.
         /// if `canAddOutputs` is true, extra items on the stack will be added to the effect.
-        void checkOutputs(StackEffect &effect, bool canAddOutputs) const {
+        void checkOutputs(StackEffect &effect, bool canAddOutputs, bool canAddOutputTypes) const {
             const auto nOutputs = effect.outputCount();
             const auto myDepth = depth();
             if (nOutputs > myDepth)
                 throw compile_error(format("Insufficient outputs: have %zu, declared %zu",
                                            myDepth, nOutputs), nullptr);
             // Check effect outputs against stack:
-            int i;
-            if (auto badType = typeCheck(effect.outputs(), &i); badType)
-                throw compile_error(format("Output type mismatch: can't be %s (depth %d)",
-                                           Value::typeName(*badType), i), nullptr);
+            if (canAddOutputTypes) {
+                for (int i = 0; i < nOutputs; ++i)
+                    effect.outputs()[i] |= itemTypes(at(i));
+            } else {
+                int i;
+                if (auto badType = typeCheck(effect.outputs(), &i); badType)
+                    throw compile_error(format("Output type mismatch: can't return %s as %s (depth %d)",
+                                               itemTypes(at(i)).description().c_str(),
+                                               effect.outputs()[i].description().c_str(), i),
+                                        nullptr);
+            }
 
             // Add extra stack items to effect, if allowed:
-            for (i = nOutputs; i < myDepth; ++i) {
+            for (int i = nOutputs; i < myDepth; ++i) {
                 if (!canAddOutputs)
                     throw compile_error(format("Too many outputs: have %zu, declared %zu",
                                                myDepth, nOutputs), nullptr);

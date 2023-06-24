@@ -231,6 +231,7 @@ int main(int argc, char *argv[]) {
     TEST_PARSER(2  ,  "2 ABS ABS ABS");                 // testing INTERP2/3/4
     TEST_PARSER(123,  "1 IF 123 ELSE 666 THEN");
     TEST_PARSER(666,  "0 IF 123 ELSE 666 THEN");
+    TEST_PARSER(666,  "0 IF \"x\" ELSE 666 THEN");
 
     TEST_PARSER(120,  "1 5 begin  dup  while  swap over * swap 1 -  repeat  drop");
 

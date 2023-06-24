@@ -138,7 +138,7 @@ namespace tails {
 
             if (i->word == &_RETURN) {
                 // The stack when RETURN is reached determines the word's output effect.
-                curStack.checkOutputs(_effect, _effectCanAddOutputs);
+                curStack.checkOutputs(_effect, _effectCanAddOutputs, _effectCanAddOutputTypes);
                 _effectCanAddOutputs = false;
                 if (curStack.maxGrowth() > _effect.max())
                     _effect = _effect.withMax(int(curStack.maxGrowth()));
