@@ -79,15 +79,25 @@ void testPrattParser() {
             .makeInfix(5_pri, 6_pri, [](StackEffect const& lhs, Parser &parser) {
         if (lhs.outputCount() != 1)
             parser.fail("LHS of 'if:' must have a value");
+        auto instrPos = parser.compiler().add({core_words::_ZBRANCH, intptr_t(-1)},
+                                              parser.tokens().position());
         auto ifEffect = parser.nextExpression(6_pri);
         if (parser.ifToken("else:")) {
+            auto elsePos = parser.compiler().add({core_words::_BRANCH, intptr_t(-1)},
+                                                 parser.tokens().position());
+            parser.compiler().fixBranch(instrPos);
+            instrPos = elsePos;
             auto elseEffect = parser.nextExpression(6_pri);
-            if (elseEffect.outputs() != ifEffect.outputs())
-                parser.fail("`if` and `else` clauses must return same type");
+            auto outs = elseEffect.outputCount();
+            if (outs != ifEffect.outputCount())
+                parser.fail("`if` and `else` clauses must return same number of values");
+            for (unsigned i = 0; i < outs; ++i)
+                ifEffect.outputs()[i] |= elseEffect.outputs()[i];
         } else {
             if (ifEffect.outputCount() != 0)
                 parser.fail("`if` without `else` cannot return a value");
         }
+        parser.compiler().fixBranch(instrPos);
         return StackEffect(lhs.inputs(), ifEffect.outputs());
     }));
 
@@ -145,15 +155,16 @@ void testPrattParser() {
     testParser(p, "3*(4+5)",        "_LITERAL:<3> _LITERAL:<4> _LITERAL:<5> + * _DROPARGS<2,1> _RETURN");
     testParser(p, "3*4 == 5",       "_LITERAL:<3> _LITERAL:<4> * _LITERAL:<5> = _DROPARGS<2,1> _RETURN");
     
-    testParser(p, "3+x",            "_LITERAL:<3> _GETARG+<-2> + _DROPARGS<2,1> _RETURN");
-    testParser(p, "x+y",            "_GETARG+<-1> _GETARG+<-1> + _DROPARGS<2,1> _RETURN");
-    testParser(p, "12; x",          "_LITERAL:<12> DROP _GETARG+<-1> _DROPARGS<2,1> _RETURN");
-    testParser(p, "12; x;",         "_LITERAL:<12> DROP _GETARG+<-1> _DROPARGS<2,1> _RETURN");
-    testParser(p, "x := 5; y",      "_LITERAL:<5> _SETARG+<-2> _GETARG+<0> _DROPARGS<2,1> _RETURN");
+    testParser(p, "3+x",            "_LITERAL:<3> _GETARG<-2> + _DROPARGS<2,1> _RETURN");
+    testParser(p, "x+y",            "_GETARG<-1> _GETARG<-1> + _DROPARGS<2,1> _RETURN");
+    testParser(p, "12; x",          "_LITERAL:<12> DROP _GETARG<-1> _DROPARGS<2,1> _RETURN");
+    testParser(p, "12; x;",         "_LITERAL:<12> DROP _GETARG<-1> _DROPARGS<2,1> _RETURN");
+    testParser(p, "x := 5; y",      "_LITERAL:<5> _SETARG<-2> _GETARG<0> _DROPARGS<2,1> _RETURN");
+    testParser(p, "x if: 1+2 else: 0", "_GETARG<-1> 0BRANCH<7> _LITERAL:<1> _LITERAL:<2> + "
+                                       "BRANCH<2> _LITERAL:<0> _DROPARGS<2,1> _RETURN");
 #if 0
     testParser(p, "x = 3/4",        ":=(x, /(3, 4))");
     testParser(p, "17 if: 1",           "if(17, 1)");
-    testParser(p, "17 if: 1+2 else: 0", "if(17, +(1, 2), 0)");
     testParser(p, "[3+4]",              "block(+(3, 4))");
     testParser(p, "[|x| 3+4]",          "block(x, +(3, 4))");
     testParser(p, "[|x foo| 3+4]",      "block(x, foo, +(3, 4))");

@@ -181,6 +181,15 @@ namespace tails::core_words {
 #pragma mark Named Function Arguments & Locals:
 
 
+    // Pushes null values on the stack to serve as local variables. Param is number to push.
+    NATIVE_WORD(_LOCALS, "_LOCALS", StackEffect::weird(),
+                Word::MagicIntParam, 1)
+    {
+        for (auto n = (pc++)->offset; n > 0; --n)
+            *++sp = Value();
+        NEXT();
+    }
+
     // Pushes an arg/local on the stack. Param is its current stack offset (negative!)
     NATIVE_WORD(_GETARG, "_GETARG", StackEffect::weird(),  // or, StackEffect({}, {Any})
                 Word::MagicIntParam, 1)
@@ -204,9 +213,9 @@ namespace tails::core_words {
         NEXT();
     }
 
-    // Removes unconsumed function args from the stack at the end of a function.
-    // The lower 16 bits of the param is the number of function args to remove;
-    // The upper bits of the param is the number of function results to preserve.
+    // Removes unconsumed function args and local variables from the stack at the end of a function.
+    // The lower 16 bits of the param is the number of function args & locals to remove;
+    // The upper bits of the param is the number of function results on top to preserve.
     NATIVE_WORD(_DROPARGS, "_DROPARGS", StackEffect::weird(),
                 Word::MagicIntParam, 1)
     {
@@ -394,7 +403,7 @@ namespace tails::core_words {
         &LENGTH,
         &IFELSE,
         &DEFINE,
-        &_GETARG, &_SETARG, &_DROPARGS,
+        &_GETARG, &_SETARG, &_LOCALS, &_DROPARGS,
         nullptr
     };
 

@@ -94,7 +94,6 @@ namespace tails {
         ///         deeper into the stack) and the effect will be updated accordingly.
         /// @param canAddOutputs  If true, additional outputs are allowed (more values may be left
         ///         on the stack) and the effect will be updated accordingly.
-
         void setStackEffect(const StackEffect &effect,
                             bool canAddInputs = false,
                             bool canAddOutputs = false)
@@ -108,6 +107,7 @@ namespace tails {
         /// Sets the word's input stack effect from the given actual stack. The output effect is TBD.
         void setInputStack(const Value *bottom, const Value *top);
 
+        /// Makes the resulting Word inline.
         void setInline()                            {_flags = Word::Flags(_flags | Word::Inline);}
 
         /// Breaks the input string into words and adds them.
@@ -139,9 +139,15 @@ namespace tails {
         /// @param stackOffset  Stack offset of the arg, at the time the function is called.
         ///                     0 = last (top) arg, -1 is previous, etc.
         InstructionPos addGetArg(int stackOffset, const char *sourcePos);
+
         InstructionPos addSetArg(int stackOffset, const char *sourcePos);
 
-        void addDropArgs();
+        void preservesArgs()                {_usesArgs = true;}
+
+        /// Reserves stack space at the start of the function for another local variable.
+        /// Returns the stack offset of the variable at the start of the function, >= 1.
+        /// This is the `stackOffset` arg to pass to addGetArg/addSetArg to access that variable.
+        int reserveLocalVariable();
 
         /// Adds a word by inlining its definition, if it's interpreted. Native words added normally.
         InstructionPos addInline(const Word&, const char *source);
@@ -200,6 +206,8 @@ namespace tails {
         bool                        _effectCanAddOutputTypes = true;
         std::string_view            _curToken;
         std::vector<BranchTarget>   _controlStack;
+        bool                        _usesArgs = false;
+        int                         _localsCount = 0;
     };
 
 }

@@ -160,6 +160,9 @@ namespace tails {
 
 
     Compiler::InstructionPos Compiler::addGetArg(int stackOffset, const char *sourcePos) {
+        assert(stackOffset >= 1 - _effect.inputCount());
+        assert(stackOffset <= _localsCount);
+        _usesArgs = true;
         return add({_GETARG, stackOffset}, sourcePos);
     }
 
@@ -167,10 +170,16 @@ namespace tails {
         return add({_SETARG, stackOffset}, sourcePos);
     }
 
-    void Compiler::addDropArgs() {
-        unsigned n = _effect.inputCount() | (_effect.outputCount() << 16);
-        if (n != 0)
-            add({_DROPARGS, n}, nullptr);
+
+    int Compiler::reserveLocalVariable() {
+        // First find the _LOCALS instruction at the start, or add one:
+        InstructionPos iLocals;
+        if (!_words.empty() && _words.begin()->word == &_LOCALS)
+            iLocals = _words.begin();
+        else
+            iLocals = _words.insert(_words.begin(), SourceWord({_LOCALS, 0}, nullptr));
+        iLocals->param.offset = ++_localsCount;
+        return _localsCount;
     }
 
 
@@ -226,6 +235,12 @@ namespace tails {
     vector<Instruction> Compiler::generateInstructions() {
         if (!_controlStack.empty())
             throw compile_error("Unfinished IF-ELSE-THEN or BEGIN-WHILE-REPEAT)", nullptr);
+
+        // If the word preserves its args or has locals, clean up the stack:
+        if (_usesArgs || _localsCount > 0) {
+            unsigned n = (_effect.inputCount() + _localsCount) | (_effect.outputCount() << 16);
+            add({_DROPARGS, n}, nullptr);
+        }
 
         // Add a RETURN, replacing the "next word" placeholder:
         assert(_words.back().word == &NOP);

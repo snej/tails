@@ -58,7 +58,7 @@ namespace tails {
                 out << "<" << (wordRef.param.offset & 0xFFFF) << ","
                     << (wordRef.param.offset >> 16) << ">";
             else if (wordRef.word->hasIntParams())
-                out << "+<" << (int)wordRef.param.offset << '>';
+                out << "<" << (int)wordRef.param.offset << '>';
             else if (wordRef.word->hasValParams())
                 out << ":<" << wordRef.param.literal << '>';
             else if (wordRef.word->hasWordParams())

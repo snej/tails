@@ -93,6 +93,10 @@ namespace tails {
                 TypeSet paramType = _effect.inputs()[-i->param.offset];
                 i->param.offset -= curStack.depth() - _effect.inputCount();
                 curStack.add(*i->word, StackEffect({paramType}, {}), i->sourceCode);
+            } else if (i->word == &_LOCALS) {
+                // Reserving space for local variables:
+                for (auto n = i->param.offset; n > 0; --n)
+                    curStack.add(Value());
             } else if (i->word == &_DROPARGS) {
                 // Popping the parameters:
                 auto nParams = i->param.offset & 0xFFFF;

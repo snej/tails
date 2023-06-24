@@ -89,16 +89,7 @@ static void printStackEffect(StackEffect f) {
 
 
 static void printDisassembly(const Word *word) {
-    auto dis = Disassembler::disassembleWord(word->instruction().word, true);
-    for (auto &wordRef : dis) {
-        cout << ' ' << (wordRef.word->name() ? wordRef.word->name() : "???");
-        if (wordRef.word->hasIntParams())
-            cout << "+<" << (int)wordRef.param.offset << '>';
-        else if (wordRef.word->hasValParams())
-            cout << ":<" << wordRef.param.literal << '>';
-        else if (wordRef.word->hasWordParams())
-            cout << ":<" << Compiler::activeVocabularies.lookup(wordRef.param.word)->name() << '>';
-    }
+    disassemble(cout, *word);
 }
 
 

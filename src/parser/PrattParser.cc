@@ -144,9 +144,8 @@ namespace tails {
     }
 
     StackEffect FnParam::parsePrefix(Parser& parser) const {
-        if (auto next = parser.tokens().peek().literal; next == "=" || next == ":=" ) {
-            // Following token is `=` or `:=`, so this is a set:
-            parser.tokens().consumePeeked();
+        if (parser.ifToken(":=")) {
+            // Following token is `:=`, so this is a set:
             StackEffect rhsEffect = parser.nextExpression(10_pri);  //TODO: Don't hardcode
             if (rhsEffect.inputCount() != 0 || rhsEffect.outputCount() != 1)
                 parser.fail("Right-hand side of assignment must have a (single) value");
@@ -185,13 +184,13 @@ namespace tails {
         _tokens.reset(sourceCode);
         _compiler = make_unique<Compiler>();
         _compiler->setStackEffect(effect);
+        _compiler->preservesArgs();
         _stack = EffectStack();
 
         __unused auto exprEffect = nextExpression(priority_t::None); // Parse it all!
 //        cout << "Final effect is " << exprEffect << endl;//TEMP
         if (!_tokens.atEnd())
             fail("Expected input to end here");
-        _compiler->addDropArgs();
         return std::move(*_compiler).finish();
     }
 
