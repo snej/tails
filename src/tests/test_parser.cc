@@ -31,7 +31,6 @@ static void testParser(string source, string_view expectedStr) {
 //    p.addParam(FnParam("y", TypeSet(Value::ANumber), 0));
     source = "(#x y# -- #) " + source;
     try {
-        p.setStackEffect(StackEffect({Value::ANumber, Value::ANumber}, {Value::ANumber}));
         CompiledWord result = p.parse(source);
         string str = disassemble(result);
         cout << source << " \tbecomes:  " << str << endl;

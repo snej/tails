@@ -99,7 +99,7 @@ namespace tails {
 
         auto &word = _prefixWord ? *_prefixWord : this->word();
         assert(word.stackEffect().inputCount() == lhsEffect.outputCount());
-        parser.add(word);
+        parser.compileCall(word);
         return lhsEffect | word.stackEffect();
     }
 
@@ -113,7 +113,7 @@ namespace tails {
 //        cout << "Infix 1: combined " << lhsEffect << " | " << rhsEffect << " --> " << inputEffect << endl;
         auto &word = this->word();
         assert(word.stackEffect().inputCount() == inputEffect.outputCount());
-        parser.add(word);
+        parser.compileCall(word);
         auto result = inputEffect | word.stackEffect();
 //        cout << "Infix 2: combined " << inputEffect << " | " << word.stackEffect() << " --> " << result << endl;
 //        cout << "Infix effect is " << result << endl;//TEMP
@@ -127,36 +127,8 @@ namespace tails {
         // same as parsePrefix but without the call to nextExpression since the LHS has been parsed.
         auto &word = this->word();
         assert(word.stackEffect().inputCount() == lhsEffect.outputCount());
-        parser.add(word);
+        parser.compileCall(word);
         return lhsEffect | word.stackEffect();
-    }
-
-
-#pragma mark - FN PARAM:
-
-
-    FnParam::FnParam(const string& paramName, TypeSet type, int stackPos)
-    :Symbol(paramName)
-    ,_type(type)
-    ,_stackPos(stackPos)
-    {
-        prefixPriority = 99_pri;
-    }
-
-    StackEffect FnParam::parsePrefix(Parser& parser) const {
-        if (parser.ifToken(":=")) {
-            // Following token is `:=`, so this is a set:
-            StackEffect rhsEffect = parser.nextExpression(10_pri);  //TODO: Don't hardcode
-            if (rhsEffect.inputCount() != 0 || rhsEffect.outputCount() != 1)
-                parser.fail("Right-hand side of assignment must have a (single) value");
-            else if (rhsEffect.outputs()[0] > _type)
-                parser.fail("Type mismatch assigning to " + token);
-            parser.addSetArg(_type, _stackPos);
-            return StackEffect();
-        } else {
-            // Get arg:
-            return parser.addGetArg(_type, _stackPos);
-        }
     }
 
 
@@ -193,59 +165,41 @@ namespace tails {
         _compiler->preservesArgs();
 
         __unused auto exprEffect = parseTopLevel(); // Parse it all!
-//        cout << "Final effect is " << exprEffect << endl;//TEMP
         if (!_tokens.atEnd())
             fail("Expected input to end here");
+
         return std::move(*_compiler).finish();
     }
 
-    StackEffect Parser::literal(Value literal) {
-        _compiler->add(literal);
-        _stack.add(literal);
-        return StackEffect({}, {literal.type()});
-    }
 
-    void Parser::add(Word const& word) {
-        _compiler->add(word);
-        _stack.add(word, word.stackEffect(), _tokens.position());
-    }
-
-    StackEffect Parser::addGetArg(TypeSet type, int stackPos) {
-        _compiler->addGetArg(stackPos, _tokens.position());
-        StackEffect effect({}, {type});
-        _stack.add(core_words::_GETARG, effect, _tokens.position());
-        return effect;
-    }
-
-    StackEffect Parser::addSetArg(TypeSet type, int stackPos) {
-        _compiler->addSetArg(stackPos, _tokens.position());
-        StackEffect effect({type}, {});
-        _stack.add(core_words::_SETARG, effect, _tokens.position());
-        return effect;
+    void Parser::setStackEffect(StackEffect const& e) {
+        _effect = e;
+        if (_compiler)
+            _compiler->setStackEffect(e);
     }
 
 
     // This is the core Pratt parser algorithm.
     StackEffect Parser::nextExpression(priority_t minPriority) {
-        StackEffect lhs;
+        StackEffect effect;
         switch (Token firstTok = _tokens.next(); firstTok.type) {
             case Token::End:
                 fail("Unexpected end of input");
             case Token::Number:
-                lhs = literal(Value(firstTok.numberValue));
+                effect = compileLiteral(Value(firstTok.numberValue));
                 break;
             case Token::String:
-                lhs = literal(Value(firstTok.stringValue.c_str()));
+                effect = compileLiteral(Value(firstTok.stringValue.c_str()));
                 break;
             case Token::Identifier:
             case Token::Operator: {
                 Symbol const* symbol = _symbols.get(firstTok.literal);
                 if (!symbol) {
-                    fail("Unknown symbol " + string(firstTok.literal));
+                    fail("Unknown symbol “" + string(firstTok.literal) + "”");
                 } else if (symbol->isLiteral()) {
-                    lhs = literal(symbol->literalValue());
+                    effect = compileLiteral(symbol->literalValue());
                 } else if (symbol->isPrefix()) {
-                    lhs = symbol->parsePrefix(*this);
+                    effect = symbol->parsePrefix(*this);
                 } else {
                     fail(symbol->token + " cannot begin an expression");
                 }
@@ -269,22 +223,22 @@ namespace tails {
                         if (symbol->postfixPriority < minPriority)
                             goto exit;
                         _tokens.consumePeeked();
-                        lhs = symbol->parsePostfix(lhs, *this);
+                        effect = symbol->parsePostfix(effect, *this);
                     } else if (symbol->isInfix()) {
                         if (symbol->leftPriority < minPriority)
                             goto exit;
                         _tokens.consumePeeked();
-                        lhs = symbol->parseInfix(lhs, *this);
+                        effect = symbol->parseInfix(effect, *this);
                     } else {
                         goto exit;
                     }
                 }
             }
         }
-        exit:
-//        cout << "nextExpression: effect is " << lhs << endl;//TEMP
-        return lhs;
+    exit:
+        return effect;
     }
+
 
     bool Parser::ifToken(std::string_view literal) {
         if (_tokens.peek().literal != literal)
@@ -304,5 +258,30 @@ namespace tails {
         throw compile_error(std::move(message), _tokens.position());
     }
 
+
+    StackEffect Parser::compileLiteral(Value literal) {
+        _compiler->add(literal);
+        _stack.add(literal);
+        return StackEffect({}, {literal.type()});
+    }
+
+    void Parser::compileCall(Word const& word) {
+        _compiler->add(word);
+        _stack.add(word, word.stackEffect(), _tokens.position());
+    }
+
+    StackEffect Parser::compileGetArg(TypeSet type, int stackPos) {
+        _compiler->addGetArg(stackPos, _tokens.position());
+        StackEffect effect({}, {type});
+        _stack.add(core_words::_GETARG, effect, _tokens.position());
+        return effect;
+    }
+
+    StackEffect Parser::compileSetArg(TypeSet type, int stackPos) {
+        _compiler->addSetArg(stackPos, _tokens.position());
+        StackEffect effect({type}, {});
+        _stack.add(core_words::_SETARG, effect, _tokens.position());
+        return effect;
+    }
 
 }

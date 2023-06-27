@@ -13,15 +13,15 @@ namespace tails {
 
     struct Token {
         enum Type {
-            Number,
-            String,
-            Identifier,
-            Operator,
-            End,
+            Number,         // Numeric literal. Typical C syntax (uses strtod)
+            String,         // Double-quoted string literal
+            Identifier,     // Alphanumeric identifier; `_` allowed
+            Operator,       // Anything else if it's in the SymbolTable. Chooses longest match
+            End,            // End of input
         };
 
-        Type                type;
-        std::string_view    literal;
+        Type                type;           // type of token
+        std::string_view    literal;        // literal value of token; points into input string
         std::string         stringValue;    // only for type String
         double              numberValue;    // only for type Number
 
@@ -29,6 +29,9 @@ namespace tails {
     };
 
 
+    /// A pretty typical C-like tokenizer. See Token::Type for details.
+    /// The SymbolTable determines which punctuation characters, and even sequences thereof,
+    /// are valid.
     class Tokenizer {
     public:
         Tokenizer() = default;
@@ -36,18 +39,19 @@ namespace tails {
         
         void reset(std::string const& sourceCode);
 
+        /// Returns the next token but does not consume it. Idempotent.
         Token const& peek()             {if (!_hasToken) readToken(); return _cur;}
+
+        /// Consumes the peeked token. Next call to peek or next will read a new token.
         void consumePeeked()            {_hasToken = false; _curPos = _next;}
 
-        Token next() {
-            if (!_hasToken)
-                readToken();
-            _hasToken = false;
-            return std::move(_cur);
-        }
-
+        /// True if all the tokens have been read.
         bool atEnd()                    {return peek().type == Token::End;}
 
+        /// Returns the next token (possibly already peeked) and advances past it.
+        Token next();
+
+        /// Points to the start of the latest token.
         const char* position() const    {return _curPos;}
 
         /// Skips ahead through the next occurrence of `c`, and returns a pointer to the next
@@ -59,11 +63,11 @@ namespace tails {
         void skipWhitespace();
         char peekChar();
 
-        SymbolTable const* _symbols = nullptr;
-        Token       _cur;       // Current token
-        const char* _curPos;    // Start of current token, if parsed
-        const char* _next;      // Start of next token, not yet parsed
-        bool        _hasToken;
+        SymbolTable const*  _symbols = nullptr; // Defines identifiers and operators
+        Token               _cur;               // Current token (if _hasToken is true)
+        const char*         _curPos = nullptr;  // Start of current token
+        const char*         _next = nullptr;    // Next character to be lexed
+        bool                _hasToken = false;  // True if current token has been read
     };
 
 

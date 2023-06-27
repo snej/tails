@@ -52,6 +52,14 @@ namespace tails {
     }
 
 
+    Token Tokenizer::next() {
+        if (!_hasToken)
+            readToken();
+        _hasToken = false;
+        return std::move(_cur);
+    }
+
+
     void Tokenizer::readToken() {
         skipWhitespace();
         auto start = _next;
