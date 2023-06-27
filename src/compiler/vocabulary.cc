@@ -66,6 +66,13 @@ namespace tails {
         _active.push_back(&v);
     }
 
+    bool VocabularyStack::use(const Vocabulary &v)  {
+        if (std::find(_active.begin(), _active.end(), &v) != _active.end())
+            return false;
+        _active.push_back(&v);
+        return true;
+    }
+
     void VocabularyStack::pop() {
         assert(_active.size() > 1);
         _active.pop_back();

@@ -17,7 +17,7 @@
 //
 
 #include "tokenizer.hh"
-#include "PrattParser.hh"
+#include "parser.hh"
 #include "compiler.hh"
 
 namespace tails {
@@ -25,8 +25,8 @@ namespace tails {
 
 
     void Tokenizer::reset(std::string const& sourceCode) {
-        _next = &sourceCode[0];
-        readToken(); // populates _cur
+        _hasToken = false;
+        _curPos = _next = &sourceCode[0];
     }
 
 
@@ -39,6 +39,16 @@ namespace tails {
     char Tokenizer::peekChar() {
         skipWhitespace();
         return *_next;
+    }
+
+
+    const char* Tokenizer::skipThrough(char c) {
+        const char* end = strchr(_next, c);
+        if (!end)
+            return nullptr;
+        _next = ++end;
+        _hasToken = false;
+        return end;
     }
 
 
@@ -107,6 +117,7 @@ namespace tails {
             };
         }
         _cur.literal = string_view(start, _next-start);
+        _hasToken = true;
     }
 
 

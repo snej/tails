@@ -1,5 +1,5 @@
 //
-// PrattParser.hh
+// parser.hh
 //
 // 
 //
@@ -76,7 +76,7 @@ namespace tails {
 
     class FnParam : public Symbol {
     public:
-        explicit FnParam(const char* paramName, TypeSet type, int stackPos);
+        explicit FnParam(const std::string& paramName, TypeSet type, int stackPos);
         StackEffect parsePrefix(Parser&) const override;
     private:
         TypeSet _type;
@@ -84,9 +84,9 @@ namespace tails {
     };
 
 
-    class SymbolRegistry {
+    class SymbolTable {
     public:
-        explicit SymbolRegistry(SymbolRegistry* parent =nullptr) :_parent(parent) { }
+        explicit SymbolTable(SymbolTable const* parent =nullptr) :_parent(parent) { }
 
         void addPtr(std::unique_ptr<Symbol>);
 
@@ -95,27 +95,37 @@ namespace tails {
             addPtr(std::make_unique<SYM>(std::move(symbol)));
         }
 
+        void reset()                            {_registry.clear();}
+
         Symbol const* get(std::string_view) const;
+        bool has(std::string_view name) const    {return get(name) != nullptr;}
+        bool itselfHas(std::string_view) const;
 
     private:
-        SymbolRegistry* _parent;
+        SymbolTable const* _parent;
         std::unordered_map<std::string_view, unique_ptr<Symbol>> _registry;
     };
 
 
     class Parser {
     public:
-        explicit Parser(SymbolRegistry const& reg)
-        :_registry(reg)
-        ,_tokens(_registry)
+        explicit Parser(SymbolTable const& symbols)
+        :_symbols(&symbols)
+        ,_tokens(_symbols)
         { }
 
-        CompiledWord parse(std::string const& sourceCode, StackEffect const& effect);
+        void addParam(FnParam p)    {_symbols.add(std::move(p));}
+        void setStackEffect(StackEffect const& e)   {_effect = e;}
+
+        /// Parses the source code.
+        /// \note Only call this once. Use a new Parser instance every time.
+        CompiledWord parse(std::string const& sourceCode);
 
         StackEffect nextExpression(priority_t minPriority);
 
         Tokenizer& tokens()     {return _tokens;}
         Compiler& compiler()    {return *_compiler;}
+        SymbolTable& symbols() {return _symbols;}
 
         // Consumes the next token if its literal value matches; else fails.
         void requireToken(std::string_view);
@@ -129,10 +139,15 @@ namespace tails {
 
         [[noreturn]] void fail(std::string&& message);
 
-    private:
+    protected:
+        virtual StackEffect parseTopLevel() {
+            return nextExpression(priority_t::None);
+        }
+
         StackEffect literal(Value);
         
-        SymbolRegistry const& _registry;
+        SymbolTable _symbols;
+        StackEffect _effect;
         Tokenizer _tokens;
         std::unique_ptr<Compiler> _compiler;
         EffectStack _stack;

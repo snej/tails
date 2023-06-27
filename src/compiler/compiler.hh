@@ -147,7 +147,7 @@ namespace tails {
         /// Reserves stack space at the start of the function for another local variable.
         /// Returns the stack offset of the variable at the start of the function, >= 1.
         /// This is the `stackOffset` arg to pass to addGetArg/addSetArg to access that variable.
-        int reserveLocalVariable();
+        int reserveLocalVariable(TypeSet types);
 
         /// Adds a word by inlining its definition, if it's interpreted. Native words added normally.
         InstructionPos addInline(const Word&, const char *source);
@@ -207,7 +207,7 @@ namespace tails {
         std::string_view            _curToken;
         std::vector<BranchTarget>   _controlStack;
         bool                        _usesArgs = false;
-        int                         _localsCount = 0;
+        std::vector<TypeSet>        _localsTypes;
     };
 
 }

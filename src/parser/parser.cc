@@ -16,7 +16,7 @@
 // limitations under the License.
 //
 
-#include "PrattParser.hh"
+#include "parser.hh"
 #include "compiler.hh"
 #include "value.hh"
 #include "io.hh"
@@ -135,7 +135,7 @@ namespace tails {
 #pragma mark - FN PARAM:
 
 
-    FnParam::FnParam(const char* paramName, TypeSet type, int stackPos)
+    FnParam::FnParam(const string& paramName, TypeSet type, int stackPos)
     :Symbol(paramName)
     ,_type(type)
     ,_stackPos(stackPos)
@@ -163,11 +163,11 @@ namespace tails {
 #pragma mark - SYMBOL REGISTRY:
 
 
-    void SymbolRegistry::addPtr(unique_ptr<Symbol> symbol) {
+    void SymbolTable::addPtr(unique_ptr<Symbol> symbol) {
         _registry.emplace(symbol->token, move(symbol));
     }
 
-    Symbol const* SymbolRegistry::get(string_view literal) const {
+    Symbol const* SymbolTable::get(string_view literal) const {
         if (auto i = _registry.find(literal); i != _registry.end())
             return i->second.get();
         else if (_parent)
@@ -176,18 +176,23 @@ namespace tails {
             return nullptr;
     }
 
+    bool SymbolTable::itselfHas(std::string_view name) const {
+        return _registry.find(name) != _registry.end();
+    }
+
+
 
 #pragma mark - PARSER:
 
 
-    CompiledWord Parser::parse(string const& sourceCode, StackEffect const& effect) {
+    CompiledWord Parser::parse(string const& sourceCode) {
         _tokens.reset(sourceCode);
+        assert(!_compiler);
         _compiler = make_unique<Compiler>();
-        _compiler->setStackEffect(effect);
+        _compiler->setStackEffect(_effect);
         _compiler->preservesArgs();
-        _stack = EffectStack();
 
-        __unused auto exprEffect = nextExpression(priority_t::None); // Parse it all!
+        __unused auto exprEffect = parseTopLevel(); // Parse it all!
 //        cout << "Final effect is " << exprEffect << endl;//TEMP
         if (!_tokens.atEnd())
             fail("Expected input to end here");
@@ -219,6 +224,8 @@ namespace tails {
         return effect;
     }
 
+
+    // This is the core Pratt parser algorithm.
     StackEffect Parser::nextExpression(priority_t minPriority) {
         StackEffect lhs;
         switch (Token firstTok = _tokens.next(); firstTok.type) {
@@ -232,7 +239,7 @@ namespace tails {
                 break;
             case Token::Identifier:
             case Token::Operator: {
-                Symbol const* symbol = _registry.get(firstTok.literal);
+                Symbol const* symbol = _symbols.get(firstTok.literal);
                 if (!symbol) {
                     fail("Unknown symbol " + string(firstTok.literal));
                 } else if (symbol->isLiteral()) {
@@ -255,7 +262,7 @@ namespace tails {
                     fail("Expected an operator");
                 case Token::Identifier:
                 case Token::Operator: {
-                    Symbol const* symbol = _registry.get(op.literal);
+                    Symbol const* symbol = _symbols.get(op.literal);
                     if (!symbol)
                         fail("Unknown symbol “" + string(op.literal) + "”");
                     else if (symbol->isPostfix()) {

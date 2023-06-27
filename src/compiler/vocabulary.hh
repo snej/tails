@@ -54,13 +54,16 @@ namespace tails {
     };
 
 
-    /// A stack of Vocabulary objects to look up Words in. Used by the Compiler.
+    /// A stack of (references to) Vocabulary objects to look up Words in. Used by the Compiler.
     class VocabularyStack {
     public:
         VocabularyStack()               :_active{&Vocabulary::core} { }
 
         void push(const Vocabulary &v);
         void pop();
+
+        /// Pushes v if it's not on the stack already. Returns true if it pushed it.
+        bool use(const Vocabulary &v);
 
         const Word* lookup(std::string_view name) const;
         const Word* lookup(Instruction) const;
@@ -83,17 +86,20 @@ namespace tails {
 
         private:
             friend class VocabularyStack;
-            iterator(const std::vector<const Vocabulary*> &active,
-                     Vocabulary::iterator beginWords, Vocabulary::iterator endWords)
-            :_iVoc(active.begin()), _endVoc(active.end()), _iWord(beginWords), _endWords(endWords)
+            iterator(std::vector<const Vocabulary*>::const_iterator beginVoc,
+                     std::vector<const Vocabulary*>::const_iterator endVoc,
+                     Vocabulary::iterator beginWords,
+                     Vocabulary::iterator endWords)
+            :_iVoc(beginVoc), _endVoc(endVoc), _iWord(beginWords), _endWords(endWords)
             { }
 
             std::vector<const Vocabulary*>::const_iterator  _iVoc, _endVoc;
             Vocabulary::iterator                            _iWord, _endWords;
         };
 
-        iterator begin() const {return iterator(_active, _active.front()->begin(), _active.front()->end());}
-        iterator end() const   {return iterator(_active, _active.front()->end(),   _active.front()->end());}
+        iterator begin() const {return iterator(_active.begin(), _active.end(),
+                                                _active.front()->begin(), _active.front()->end());}
+        iterator end() const   {return iterator(_active.end(), _active.end(), _active.front()->end(),   _active.front()->end());}
 
     private:
         std::vector<const Vocabulary*>  _active;

@@ -161,7 +161,7 @@ namespace tails {
 
     Compiler::InstructionPos Compiler::addGetArg(int stackOffset, const char *sourcePos) {
         assert(stackOffset >= 1 - _effect.inputCount());
-        assert(stackOffset <= _localsCount);
+        assert(stackOffset <= int(_localsTypes.size()));
         _usesArgs = true;
         return add({_GETARG, stackOffset}, sourcePos);
     }
@@ -171,15 +171,17 @@ namespace tails {
     }
 
 
-    int Compiler::reserveLocalVariable() {
+    int Compiler::reserveLocalVariable(TypeSet type) {
         // First find the _LOCALS instruction at the start, or add one:
         InstructionPos iLocals;
         if (!_words.empty() && _words.begin()->word == &_LOCALS)
             iLocals = _words.begin();
         else
             iLocals = _words.insert(_words.begin(), SourceWord({_LOCALS, 0}, nullptr));
-        iLocals->param.offset = ++_localsCount;
-        return _localsCount;
+        _localsTypes.push_back(type);
+        int offset = int(_localsTypes.size());
+        iLocals->param.offset = offset;
+        return offset;
     }
 
 
@@ -237,8 +239,9 @@ namespace tails {
             throw compile_error("Unfinished IF-ELSE-THEN or BEGIN-WHILE-REPEAT)", nullptr);
 
         // If the word preserves its args or has locals, clean up the stack:
-        if (_usesArgs || _localsCount > 0) {
-            unsigned n = (_effect.inputCount() + _localsCount) | (_effect.outputCount() << 16);
+        if (_usesArgs || !_localsTypes.empty()) {
+            intptr_t n((_effect.inputCount() + _localsTypes.size())
+                            | (_effect.outputCount() << 16));
             add({_DROPARGS, n}, nullptr);
         }
 

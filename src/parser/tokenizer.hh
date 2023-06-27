@@ -9,7 +9,7 @@
 #include <string_view>
 
 namespace tails {
-    class SymbolRegistry;
+    class SymbolTable;
 
     struct Token {
         enum Type {
@@ -32,28 +32,38 @@ namespace tails {
     class Tokenizer {
     public:
         Tokenizer() = default;
-        Tokenizer(SymbolRegistry const& reg)    :_symbols(&reg) { }
+        Tokenizer(SymbolTable const& reg)    :_symbols(&reg) { }
         
         void reset(std::string const& sourceCode);
 
-        Token const& peek() const       {return _cur;}
-        void consumePeeked()            {readToken();}
+        Token const& peek()             {if (!_hasToken) readToken(); return _cur;}
+        void consumePeeked()            {_hasToken = false; _curPos = _next;}
 
-        Token next()                    {Token cur = std::move(_cur); readToken(); return cur;}
+        Token next() {
+            if (!_hasToken)
+                readToken();
+            _hasToken = false;
+            return std::move(_cur);
+        }
 
-        bool atEnd() const              {return _cur.type == Token::End;}
+        bool atEnd()                    {return peek().type == Token::End;}
 
         const char* position() const    {return _curPos;}
+
+        /// Skips ahead through the next occurrence of `c`, and returns a pointer to the next
+        /// character after it. If `c` is not found, returns nullptr.
+        const char* skipThrough(char c);
 
     private:
         void readToken();
         void skipWhitespace();
         char peekChar();
 
-        SymbolRegistry const* _symbols = nullptr;
-        const char* _next;
-        Token       _cur;
-        const char* _curPos;
+        SymbolTable const* _symbols = nullptr;
+        Token       _cur;       // Current token
+        const char* _curPos;    // Start of current token, if parsed
+        const char* _next;      // Start of next token, not yet parsed
+        bool        _hasToken;
     };
 
 

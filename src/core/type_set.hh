@@ -71,9 +71,9 @@ namespace tails {
         constexpr int inputMatch() const                    {return (_flags >> kNumTypes) - 1;}
 
         /// Declares that this TypeSet matches an input's type.
-        constexpr void setInputMatch(TypeSet inputEntry, unsigned inputNo) {
+        constexpr void setInputMatch(TypeSet inputType, unsigned inputNo) {
             assert(inputNo <= 6);
-            _flags = ((inputNo+1) << kNumTypes) | (inputEntry._flags & kTypeFlags);
+            _flags = ((inputNo+1) << kNumTypes) | (inputType._flags & kTypeFlags);
         }
 
         /// Adds an input index without changing my declared type.

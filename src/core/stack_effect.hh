@@ -178,7 +178,7 @@ namespace tails {
         }
 
     private:
-        friend constexpr void _parseStackEffect(StackEffect&, const char *str, const char *end);
+        friend class StackEffectParser;
 
         constexpr void checkNotFull() const {
             if (_ins + _outs >= kMaxEntries)

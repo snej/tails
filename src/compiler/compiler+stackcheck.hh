@@ -83,16 +83,19 @@ namespace tails {
             if (i->word == &_LITERAL) {
                 // A literal, just push it
                 curStack.add(i->param.literal);
-            } else if (i->word == &_GETARG) {
-                // Get a function argument. Adjust the offset for the current stack:
-                TypeSet paramType = _effect.inputs()[-i->param.offset];
+            } else if (i->word == &_GETARG || i->word == &_SETARG) {
+                // Get/set a function argument. Adjust the offset for the current stack:
+                auto offset = i->param.offset;
+                TypeSet paramType;
+                if (offset <= 0)
+                    paramType = _effect.inputs()[-offset];
+                else
+                    paramType = _localsTypes[offset - 1];
                 i->param.offset -= curStack.depth() - _effect.inputCount();
-                curStack.add(paramType);
-            } else if (i->word == &_SETARG) {
-                // Setting a function argument. Adjust the offset for the current stack:
-                TypeSet paramType = _effect.inputs()[-i->param.offset];
-                i->param.offset -= curStack.depth() - _effect.inputCount();
-                curStack.add(*i->word, StackEffect({paramType}, {}), i->sourceCode);
+                if (i->word == &_GETARG)
+                    curStack.add(paramType);
+                else
+                    curStack.add(*i->word, StackEffect({paramType}, {}), i->sourceCode);
             } else if (i->word == &_LOCALS) {
                 // Reserving space for local variables:
                 for (auto n = i->param.offset; n > 0; --n)

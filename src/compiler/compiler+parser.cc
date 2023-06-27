@@ -229,7 +229,7 @@ namespace tails {
                 if (*input == 0)
                     throw compile_error("Missing ') to end quotation stack effect'", input);
             } while (*input != ')');
-            quoteCompiler.setStackEffect(parseStackEffect(start, input));
+            quoteCompiler.setStackEffect(StackEffectParser().parse(start, input));
             ++input;
         }
 
