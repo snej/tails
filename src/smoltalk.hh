@@ -52,7 +52,39 @@ namespace tails {
     };
 
 
-    
+
+    class FunctionName : public Symbol {
+    public:
+        explicit FunctionName(Word const& word)
+        :Symbol(word)
+        {
+            prefixPriority = 80_pri;
+        }
+
+        StackEffect parsePrefix(Parser& parser) const override {
+            parser.requireToken("(");
+            unsigned nArgs = 0, paramCount = word().stackEffect().inputCount();
+            while (!parser.ifToken(")")) {
+                if (nArgs > paramCount)
+                    parser.fail(format("Too many arguments; %s expects %d",
+                                       token.c_str(), paramCount));
+                if (nArgs++ > 0)
+                    parser.requireToken(",");
+                auto argEffect = parser.nextExpression(10_pri);
+                if (argEffect.inputCount() != 0 || argEffect.outputCount() == 0)
+                    parser.fail("Invalid function argument");
+                else if (argEffect.outputCount() > 1)
+                    parser.fail("Invalid function argument: multi-valued expression");
+            }
+            if (nArgs < paramCount)
+                parser.fail(format("Too few arguments; %s expects %d", token.c_str(), paramCount));
+            parser.compileCall(word());
+            return StackEffect{{}, word().stackEffect().outputs()};
+        }
+    };
+
+
+
     /// Parser for a simple language with infix grammar.
     class SmolParser : public Parser {
     public:
@@ -61,6 +93,7 @@ namespace tails {
     private:
         virtual StackEffect parseTopLevel() {
             if (ifToken("(")) {
+                // A '(' at the start of the code delimits the stack effect / parameter list:
                 const char* begin = _tokens.position();
                 const char *end = _tokens.skipThrough(')');
                 if (!end)
@@ -89,15 +122,7 @@ namespace tails {
             sSymbols.add(Symbol(core_words::DIV)  .makeInfix(60_pri, 61_pri));
             sSymbols.add(Symbol(core_words::PLUS) .makeInfix(50_pri, 51_pri));
             sSymbols.add(Symbol(core_words::MINUS).makeInfix(50_pri, 51_pri)
-                    .makePrefix(50_pri, [](Parser &parser) {
-                        // implementation of unary `-`:
-                        parser.compileCall(core_words::ZERO);
-                        auto effect = parser.nextExpression(50_pri);
-                        if (effect.inputCount() != 0 || effect.outputCount() != 1)
-                            parser.fail("Invalid operand for prefix `-`");
-                        parser.compileCall(core_words::MINUS);
-                        return core_words::ZERO.stackEffect() | effect | core_words::MINUS.stackEffect();
-                    }));
+                                                  .makePrefix(50_pri, &parseUnaryMinus));
 
             sSymbols.add(Symbol(core_words::LT) .makeInfix(40_pri, 41_pri));
             sSymbols.add(Symbol(core_words::LE) .makeInfix(40_pri, 41_pri));
@@ -185,6 +210,22 @@ namespace tails {
             sSymbols.add(Symbol(":=")  .makeInfix(11_pri, 10_pri));
             sSymbols.add(Symbol("=")  .makeInfix(21_pri, 20_pri));
 
+            // Register some functions:
+            sSymbols.add(Symbol(","));
+            sSymbols.add(FunctionName(core_words::ABS));
+            sSymbols.add(FunctionName(core_words::MAX));
+            sSymbols.add(FunctionName(core_words::MIN));
+        }
+
+
+        // implementation of unary `-`:
+        static StackEffect parseUnaryMinus(Parser &parser) {
+            parser.compileCall(core_words::ZERO);
+            auto effect = parser.nextExpression(50_pri);
+            if (effect.inputCount() != 0 || effect.outputCount() != 1)
+                parser.fail("Invalid operand for prefix `-`");
+            parser.compileCall(core_words::MINUS);
+            return core_words::ZERO.stackEffect() | effect | core_words::MINUS.stackEffect();
         }
 
     private:

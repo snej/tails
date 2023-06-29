@@ -361,7 +361,7 @@ namespace tails::core_words {
         MINUS
     );
 
-    INTERP_WORD(MAX, "MAX", StackEffect({Any, Any}, {Any}).withMax(2),
+    INTERP_WORD(MAX, "MAX", StackEffect({Any, Any}, {Any/0}).withMax(2),
         OVER,
         OVER,
         LT,
@@ -371,7 +371,7 @@ namespace tails::core_words {
     );
 
 
-    INTERP_WORD (MIN, "MIN", StackEffect({Any, Any}, {Any}).withMax(2),
+    INTERP_WORD (MIN, "MIN", StackEffect({Any, Any}, {Any/0}).withMax(2),
         OVER,
         OVER,
         GT,

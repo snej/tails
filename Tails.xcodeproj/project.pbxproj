@@ -36,6 +36,8 @@
 		27AC39302A40FBA500C9A8E6 /* tokenizer.cc in Sources */ = {isa = PBXBuildFile; fileRef = 27AC39292A40D32A00C9A8E6 /* tokenizer.cc */; };
 		27AC39312A40FBA500C9A8E6 /* parser.cc in Sources */ = {isa = PBXBuildFile; fileRef = 27AC392C2A40E57E00C9A8E6 /* parser.cc */; };
 		27D7D9D62A49F9AE0058B3BF /* TestsMain.cc in Sources */ = {isa = PBXBuildFile; fileRef = 27D7D9D52A49F9AE0058B3BF /* TestsMain.cc */; };
+		27D7D9DC2A4DEDED0058B3BF /* symbol.cc in Sources */ = {isa = PBXBuildFile; fileRef = 27D7D9DB2A4DEDED0058B3BF /* symbol.cc */; };
+		27D7D9DD2A4DEDED0058B3BF /* symbol.cc in Sources */ = {isa = PBXBuildFile; fileRef = 27D7D9DB2A4DEDED0058B3BF /* symbol.cc */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -140,6 +142,8 @@
 		27D7D9D52A49F9AE0058B3BF /* TestsMain.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = TestsMain.cc; sourceTree = "<group>"; };
 		27D7D9D82A49FA200058B3BF /* tests.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = tests.hh; sourceTree = "<group>"; };
 		27D7D9D92A4A067B0058B3BF /* smoltalk.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = smoltalk.hh; sourceTree = "<group>"; };
+		27D7D9DA2A4DED4C0058B3BF /* symbol.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = symbol.hh; sourceTree = "<group>"; };
+		27D7D9DB2A4DEDED0058B3BF /* symbol.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = symbol.cc; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -293,10 +297,12 @@
 		27AC39272A40D2FB00C9A8E6 /* parser */ = {
 			isa = PBXGroup;
 			children = (
-				27AC39282A40D32A00C9A8E6 /* tokenizer.hh */,
-				27AC39292A40D32A00C9A8E6 /* tokenizer.cc */,
 				27AC392B2A40E57E00C9A8E6 /* parser.hh */,
 				27AC392C2A40E57E00C9A8E6 /* parser.cc */,
+				27D7D9DA2A4DED4C0058B3BF /* symbol.hh */,
+				27D7D9DB2A4DEDED0058B3BF /* symbol.cc */,
+				27AC39282A40D32A00C9A8E6 /* tokenizer.hh */,
+				27AC39292A40D32A00C9A8E6 /* tokenizer.cc */,
 			);
 			path = parser;
 			sourceTree = "<group>";
@@ -474,6 +480,7 @@
 				2732FA2C2655E8DB0013063A /* compiler+parser.cc in Sources */,
 				2732F9ED2652DE510013063A /* compiler.cc in Sources */,
 				2753DAD42667EAFE008EBCE0 /* more_words.cc in Sources */,
+				27D7D9DD2A4DEDED0058B3BF /* symbol.cc in Sources */,
 				27AC39302A40FBA500C9A8E6 /* tokenizer.cc in Sources */,
 				27AC39312A40FBA500C9A8E6 /* parser.cc in Sources */,
 				2732F9EC2652DE510013063A /* value.cc in Sources */,
@@ -492,6 +499,7 @@
 				2753DAD32667EAFE008EBCE0 /* more_words.cc in Sources */,
 				2753DADA26682769008EBCE0 /* gc.cc in Sources */,
 				2732F9C3264F0FE10013063A /* value.cc in Sources */,
+				27D7D9DC2A4DEDED0058B3BF /* symbol.cc in Sources */,
 				273B20B12645D67000A14EC4 /* compiler.cc in Sources */,
 				2753DACF2666E1BD008EBCE0 /* stack_effect_parser.hh in Sources */,
 				2732F9C72652DB940013063A /* repl.cc in Sources */,

@@ -69,12 +69,8 @@ TEST_CASE("Pratt Parser") {
     testParser("x if: 1+2 else: 0", "_GETARG<-1> 0BRANCH<7> _LITERAL:<1> _LITERAL:<2> + "
                                        "BRANCH<2> _LITERAL:<0> _DROPARGS<2,1> _RETURN");
     testParser("let z = 3+4; z", "_LOCALS<1> _LITERAL:<3> _LITERAL:<4> + _SETARG<-1> _GETARG<0> _DROPARGS<3,1> _RETURN");
-#if 0
-    testParser("x = 3/4",        ":=(x, /(3, 4))");
-    testParser("17 if: 1",           "if(17, 1)");
-    testParser("[3+4]",              "block(+(3, 4))");
-    testParser("[|x| 3+4]",          "block(x, +(3, 4))");
-    testParser("[|x foo| 3+4]",      "block(x, foo, +(3, 4))");
-    testParser(R"("foo"+2)",         R"(+("foo", 2))");
-#endif
+
+    testParser("abs(3)",        "_LITERAL:<3> _INTERP:<ABS> _DROPARGS<2,1> _RETURN");
+    testParser("Max(x,y)",      "_GETARG<-1> _GETARG<-1> _INTERP:<MAX> _DROPARGS<2,1> _RETURN");
+    testParser("abs(MAX(x,y))", "_GETARG<-1> _GETARG<-1> _INTERP2:<MAX> ABS _DROPARGS<2,1> _RETURN");
 }

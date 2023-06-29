@@ -30,6 +30,10 @@ namespace tails {
         return str;
     }
 
+    static inline std::string toupper(std::string_view str) {
+        return toupper(std::string(str));
+    }
+
 
     class compile_error : public std::runtime_error {
     public:

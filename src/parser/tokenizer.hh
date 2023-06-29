@@ -36,8 +36,13 @@ namespace tails {
     public:
         Tokenizer() = default;
         Tokenizer(SymbolTable const& reg)    :_symbols(&reg) { }
-        
+
+        /// Starts the tokenizer, at the beginning of the string.
+        /// \warning  The Tokenizer does not own the string's bytes; they must remain valid.
         void reset(std::string const& sourceCode);
+
+        /// Returns the next token (possibly already peeked) and advances past it.
+        Token next();
 
         /// Returns the next token but does not consume it. Idempotent.
         Token const& peek()             {if (!_hasToken) readToken(); return _cur;}
@@ -47,9 +52,6 @@ namespace tails {
 
         /// True if all the tokens have been read.
         bool atEnd()                    {return peek().type == Token::End;}
-
-        /// Returns the next token (possibly already peeked) and advances past it.
-        Token next();
 
         /// Points to the start of the latest token.
         const char* position() const    {return _curPos;}
