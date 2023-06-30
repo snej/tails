@@ -23,9 +23,10 @@ namespace tails {
     /// A grammar symbol representing an identifier or operator: defines how to parse it.
     class Symbol {
     public:
-        explicit Symbol(Word const&);
+        explicit Symbol(Word const& word);
+        explicit Symbol(Word const&, std::string token);
         explicit Symbol(Value);
-        explicit Symbol(std::string const& token);
+        explicit Symbol(std::string token);
         explicit Symbol(const char* token)              :Symbol(std::string(token)) { }
         virtual ~Symbol();
 

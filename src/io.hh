@@ -12,9 +12,11 @@
 
 namespace tails {
 
+    // Prints a Value
     std::ostream& operator<< (std::ostream&, Value);  // defined in value.cc
 
 
+    // Prints a TypeSet
     inline std::ostream& operator<< (std::ostream &out, TypeSet entry) {
         if (entry.canBeAnyType())
             out << "x";
@@ -34,6 +36,7 @@ namespace tails {
     }
 
 
+    // Prints a TypesView
     inline std::ostream& operator<< (std::ostream &out, TypesView types) {
         for (auto i = types.rbegin(); i != types.rend(); ++i) {
             if (i != types.rbegin()) out << ' ';
@@ -43,27 +46,37 @@ namespace tails {
     }
 
 
+    // Prints a StackEffect
     inline std::ostream& operator<< (std::ostream &out, const StackEffect &effect) {
         return out << effect.inputs() << " -- " << effect.outputs();
     }
 
 
+    static inline void disassemble(std::ostream& out, Compiler::WordRef const& wordRef) {
+        out << (wordRef.word->name() ? wordRef.word->name() : "???");
+        if (wordRef.word == &core_words::_DROPARGS)
+            out << "<" << (wordRef.param.offset & 0xFFFF) << ","
+            << (wordRef.param.offset >> 16) << ">";
+        else if (wordRef.word->hasIntParams())
+            out << "<" << (int)wordRef.param.offset << '>';
+        else if (wordRef.word->hasValParams())
+            out << ":<" << wordRef.param.literal << '>';
+        else if (wordRef.word->hasWordParams())
+            out << ":<" << Compiler::activeVocabularies.lookup(wordRef.param.word)->name() << '>';
+    }
+
     static inline void disassemble(std::ostream& out, const Word &word) {
-        auto dis = Disassembler::disassembleWord(word.instruction().word, true);
         int n = 0;
-        for (auto &wordRef : dis) {
+        for (auto &wordRef : Disassembler::disassembleWord(word.instruction().word, true)) {
             if (n++) out << ' ';
-            out << (wordRef.word->name() ? wordRef.word->name() : "???");
-            if (wordRef.word == &core_words::_DROPARGS)
-                out << "<" << (wordRef.param.offset & 0xFFFF) << ","
-                    << (wordRef.param.offset >> 16) << ">";
-            else if (wordRef.word->hasIntParams())
-                out << "<" << (int)wordRef.param.offset << '>';
-            else if (wordRef.word->hasValParams())
-                out << ":<" << wordRef.param.literal << '>';
-            else if (wordRef.word->hasWordParams())
-                out << ":<" << Compiler::activeVocabularies.lookup(wordRef.param.word)->name() << '>';
+            disassemble(out, wordRef);
         }
+    }
+
+    static inline std::string disassemble(const Compiler::WordRef &wordRef) {
+        std::stringstream out;
+        disassemble(out, wordRef);
+        return out.str();
     }
 
     static inline std::string disassemble(const Word &word) {

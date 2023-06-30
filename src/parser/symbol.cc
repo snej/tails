@@ -25,18 +25,23 @@ namespace tails {
     using namespace std;
     
     
-    Symbol::Symbol(Word const& word)
-    :token(word.name())
+    Symbol::Symbol(Word const& word, string name)
+    :token(std::move(name))
     ,_value(&word)
     { }
-    
+
+    Symbol::Symbol(Word const& word)
+    :Symbol(word, word.name())
+    { }
+
+
     Symbol::Symbol(Value val)
     :token("")
     ,_value(val)
     { }
     
-    Symbol::Symbol(string const& token)
-    :token(token)
+    Symbol::Symbol(string token)
+    :token(std::move(token))
     { }
     
     Symbol::~Symbol() = default;

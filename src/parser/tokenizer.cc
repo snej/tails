@@ -24,6 +24,16 @@ namespace tails {
     using namespace std;
 
 
+    /// Returns a pointer to the next UTF-8 character after 'pos'.
+    static inline const char* nextChar(const char* pos) {
+        if (*pos++ & 0x80) {
+            while (*pos & 0x80)
+                ++pos;
+        }
+        return pos;
+    }
+
+
     void Tokenizer::reset(std::string const& sourceCode) {
         _hasToken = false;
         _curPos = _next = &sourceCode[0];
@@ -109,24 +119,33 @@ namespace tails {
             };
         } else {
             // Other symbol -- look for one that's registered:
-            ++_next;
-            if (_symbols) {
-                const char* end = nullptr;
-                for (int len = 1; len <= 3; ++len) {
-                    if (_symbols->get(string_view(start, len)))
-                        end = start + len;
-                }
-                if (!end)
-                    throw compile_error("Unknown token “" + string(start, 1) + "”", start);
-                _next = end;
-            }
+            _next = readSymbolAt(_next);
+            if (!_next)
+                throw compile_error("Unknown token “" + string(start, _next) + "”", start);
             _cur = Token{
                 .type = Token::Operator,
             };
         }
-        _cur.literal = string_view(start, _next-start);
+        _cur.literal = string_view(start, _next);
         _hasToken = true;
     }
 
+
+    const char* Tokenizer::readSymbolAt(const char *start) {
+        if (_symbols) {
+            // Look for the longest matching registered symbol, up to 3 UTF-8 code points long:
+            const char* pos = start;
+            const char* end = nullptr;
+            for (int len = 1; len <= 3 && *pos; ++len) {
+                pos = nextChar(pos);
+                if (_symbols->get(string_view(start, pos)))
+                    end = pos;
+            }
+            return end;
+        } else {
+            // Without a symbol table, just return a single UTF-8 character:
+            return nextChar(start);
+        }
+    }
 
 }

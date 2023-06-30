@@ -19,6 +19,7 @@
 #pragma once
 #include "platform.hh"
 #include "nan_tagged.hh"
+#include <concepts>
 #include <stddef.h>
 #include <stdint.h>
 #include <string_view>
@@ -40,9 +41,8 @@ namespace tails {
         constexpr Value()          :NanTagged(nullptr) { }
         constexpr Value(nullptr_t) :Value() { }
 
-        constexpr Value(double n)  :NanTagged(n) { }
-        constexpr Value(int n)     :Value(double(n)) { }
-        constexpr Value(size_t n)  :Value(double(n)) { }
+        constexpr Value(std::floating_point auto n) :NanTagged(double(n)) { }
+        constexpr Value(std::integral auto n)       :Value(double(n)) { }
 
         Value(const char* str);
         Value(const char* str, size_t len);

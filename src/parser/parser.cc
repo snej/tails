@@ -135,8 +135,13 @@ namespace tails {
     }
 
     void Parser::compileCall(Word const& word) {
-        _compiler->add(word);
-        _stack.add(word, word.stackEffect(), _tokens.position());
+        if (word == core_words::_RECURSE) {
+            _compiler->addRecurse();
+            _stack.add(word, _effect, _tokens.position());
+        } else {
+            _compiler->add(word);
+            _stack.add(word, word.stackEffect(), _tokens.position());
+        }
     }
 
     StackEffect Parser::compileGetArg(TypeSet type, int stackPos) {

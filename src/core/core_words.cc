@@ -195,7 +195,7 @@ namespace tails::core_words {
                 Word::MagicIntParam, 1)
     {
         auto n = (pc++)->offset;
-        assert(n < 0);
+        assert(n <= 0);
         auto val = sp[n];
         *++sp = val;
         NEXT();
@@ -207,7 +207,7 @@ namespace tails::core_words {
                 Word::MagicIntParam, 1)
     {
         auto n = (pc++)->offset;
-        assert(n < 0);
+        assert(n <= 0);
         sp[n] = *sp;
         --sp;
         NEXT();
@@ -223,7 +223,7 @@ namespace tails::core_words {
         auto nParams = n & 0xFFFF;
         auto nResults = n >> 16;
         if (nResults > 0)
-            memmove(&sp[-nParams-nResults], &sp[-nResults], nResults * sizeof(*sp));
+            memmove(&sp[-nParams], &sp[1-nResults], nResults * sizeof(*sp));
         sp -= nParams;
         NEXT();
     }

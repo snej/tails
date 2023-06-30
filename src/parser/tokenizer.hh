@@ -64,6 +64,7 @@ namespace tails {
         void readToken();
         void skipWhitespace();
         char peekChar();
+        const char* readSymbolAt(const char *start);
 
         SymbolTable const*  _symbols = nullptr; // Defines identifiers and operators
         Token               _cur;               // Current token (if _hasToken is true)

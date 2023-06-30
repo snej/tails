@@ -39,19 +39,22 @@ inline Value * StackBase;
 
 /// Top-level function to run a Word.
 /// @return  The top value left on the stack.
-static inline Value run(const Word &word) {
+static inline Value run(const Word &word, std::initializer_list<Value> inputs = {}) {
+    auto nInputs = word.stackEffect().inputCount();
+    auto nOutputs = word.stackEffect().outputCount();
     CHECK(!word.isNative());           // must be interpreted
-    CHECK(word.stackEffect().inputCount() == 0);  // must not require any inputs
-    CHECK(word.stackEffect().outputCount() > 0);  // must produce results
-    size_t stackSize = word.stackEffect().max();
+    CHECK(nInputs == inputs.size());
+    CHECK(nOutputs > 0);  // must produce results
+    size_t stackSize = nInputs + word.stackEffect().max();
     CHECK(stackSize >= word.stackEffect().outputCount());
-    std::vector<Value> stack;
+    std::vector<Value> stack(inputs);
     stack.resize(stackSize);
-    auto stackBase = &stack.front();
 #ifdef ENABLE_TRACING
-    StackBase = stackBase;
+    StackBase = &stack[0];
 #endif
-    return * call(stackBase - 1, word.instruction().word);
+    Value *sp = call(&stack[inputs.size()] - 1, word.instruction().word);
+    CHECK(sp == &stack[nOutputs - 1]);
+    return *sp;
 }
 
 
@@ -71,7 +74,7 @@ static inline void garbageCollect() {
         inline void TRACE(Value *sp, const Instruction *pc) {
             cout << "\tbefore " << setw(14) << pc;
             auto dis = Disassembler::wordOrParamAt(pc);
-            cout << " " << setw(12) << std::left << dis.word->name();
+            cout << " " << setw(15) << std::left << disassemble(dis);
             cout << ": ";
             for (auto i = StackBase; i <= sp; ++i)
                 cout << ' ' << *i;

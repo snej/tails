@@ -104,6 +104,9 @@ namespace tails {
             _effectCanAddOutputTypes = canAddOutputs;
         }
 
+        /// The word's stack effect (empty if it hasn't been set or computed yet.)
+        StackEffect const& stackEffect() const      {return _effect;}
+
         /// Sets the word's input stack effect from the given actual stack. The output effect is TBD.
         void setInputStack(const Value *bottom, const Value *top);
 

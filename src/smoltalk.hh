@@ -55,15 +55,20 @@ namespace tails {
 
     class FunctionName : public Symbol {
     public:
-        explicit FunctionName(Word const& word)
-        :Symbol(word)
-        {
-            prefixPriority = 80_pri;
-        }
+        explicit FunctionName(Word const& word, std::string name)
+                                                :Symbol(word,name) {prefixPriority = 80_pri;}
+        explicit FunctionName(Word const& word) :FunctionName(word, word.name()) { }
 
         StackEffect parsePrefix(Parser& parser) const override {
+            StackEffect wordEffect;
+            if (word() == core_words::_RECURSE) {
+                wordEffect = parser.compiler().stackEffect();
+            } else {
+                wordEffect = word().stackEffect();
+            }
+
             parser.requireToken("(");
-            unsigned nArgs = 0, paramCount = word().stackEffect().inputCount();
+            unsigned nArgs = 0, paramCount = wordEffect.inputCount();
             while (!parser.ifToken(")")) {
                 if (nArgs > paramCount)
                     parser.fail(format("Too many arguments; %s expects %d",
@@ -78,8 +83,9 @@ namespace tails {
             }
             if (nArgs < paramCount)
                 parser.fail(format("Too few arguments; %s expects %d", token.c_str(), paramCount));
+            
             parser.compileCall(word());
-            return StackEffect{{}, word().stackEffect().outputs()};
+            return StackEffect{{}, wordEffect.outputs()};
         }
     };
 
@@ -130,6 +136,8 @@ namespace tails {
             sSymbols.add(Symbol(core_words::GE) .makeInfix(40_pri, 41_pri));
 
             sSymbols.add(Symbol("==").makeInfix(30_pri, 31_pri, core_words::EQ));
+            sSymbols.add(Symbol("!=").makeInfix(30_pri, 31_pri, core_words::NE));
+            sSymbols.add(Symbol("≠").makeInfix(30_pri, 31_pri, core_words::NE));
 
             // Parentheses:
             sSymbols.add(Symbol(")"));
@@ -210,6 +218,9 @@ namespace tails {
             sSymbols.add(Symbol(":=")  .makeInfix(11_pri, 10_pri));
             sSymbols.add(Symbol("=")  .makeInfix(21_pri, 20_pri));
 
+            // RECURSE calls this function recursively
+            sSymbols.add(FunctionName(core_words::_RECURSE, "RECURSE"));
+
             // Register some functions:
             sSymbols.add(Symbol(","));
             sSymbols.add(FunctionName(core_words::ABS));
@@ -220,12 +231,18 @@ namespace tails {
 
         // implementation of unary `-`:
         static StackEffect parseUnaryMinus(Parser &parser) {
-            parser.compileCall(core_words::ZERO);
-            auto effect = parser.nextExpression(50_pri);
-            if (effect.inputCount() != 0 || effect.outputCount() != 1)
-                parser.fail("Invalid operand for prefix `-`");
-            parser.compileCall(core_words::MINUS);
-            return core_words::ZERO.stackEffect() | effect | core_words::MINUS.stackEffect();
+            if (auto arg = parser.tokens().peek(); arg.type == Token::Number) {
+                parser.tokens().consumePeeked();
+                parser.compileLiteral(-arg.numberValue);
+                return "-- #"_sfx;
+            } else {
+                parser.compileCall(core_words::ZERO);
+                auto effect = parser.nextExpression(50_pri);
+                if (effect.inputCount() != 0 || effect.outputCount() != 1)
+                    parser.fail("Invalid operand for prefix `-`");
+                parser.compileCall(core_words::MINUS);
+                return core_words::ZERO.stackEffect() | effect | core_words::MINUS.stackEffect();
+            }
         }
 
     private:
