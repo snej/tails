@@ -260,7 +260,7 @@ namespace tails::core_words {
     NATIVE_WORD(_RECURSE, "_RECURSE", StackEffect::weird(),
                 Word::MagicIntParam)
     {
-        call(sp, pc + 1 + pc->offset);
+        sp = call(sp, pc + 1 + pc->offset);
         ++pc;
         NEXT();
     }

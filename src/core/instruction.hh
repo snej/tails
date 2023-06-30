@@ -83,6 +83,7 @@ namespace tails {
     /// @param sp    Stack pointer
     /// @param start The first instruction of the word to run
     /// @return      The stack pointer on completion.
+    [[nodiscard]]
     ALWAYS_INLINE
     static inline Value* call(Value *sp, const Instruction *start) {
         TRACE(sp, start);
