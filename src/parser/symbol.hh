@@ -7,7 +7,6 @@
 #pragma once
 #include "stack_effect.hh"
 #include "value.hh"
-#include <functional>
 #include <unordered_map>
 #include <variant>
 
@@ -41,8 +40,8 @@ namespace tails {
         bool isWord() const         {return std::holds_alternative<Word const*>(_value);}
         Word const& word() const    {return *std::get<Word const*>(_value);}
 
-        using ParsePrefixFn  = std::function<StackEffect(Parser&)>;
-        using ParseInfixFn   = std::function<StackEffect(StackEffect const&, Parser&)>;
+        using ParsePrefixFn  = StackEffect(*)(Parser&);
+        using ParseInfixFn   = StackEffect(*)(StackEffect const&, Parser&);
         using ParsePostfixFn = ParseInfixFn;
 
         /// Makes the Symbol a prefix operator in the grammar.

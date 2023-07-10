@@ -32,6 +32,7 @@ static void testParser(string source,
 {
     SmolParser p;
     try {
+        cout << "\n## Compiling: " << source << endl;
         INFO("Compiling: " << source);
         CompiledWord result = p.parse(source);
         string str = disassemble(result);
@@ -126,4 +127,9 @@ TEST_CASE("Pratt Parser") {
                {1, 3},
                Value(6));
     //TODO: Make tail recursion work! The _DROPARGS is preventing it
+
+    testParser("( -- #) let q = {3+4}; q()",
+               "_LITERAL:<{( -- #)}> _RETURN",
+               {},
+               0);
 }

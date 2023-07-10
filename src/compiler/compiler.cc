@@ -240,9 +240,11 @@ namespace tails {
 
         // If the word preserves its args or has locals, clean up the stack:
         if (_usesArgs || !_localsTypes.empty()) {
-            intptr_t n((_effect.inputCount() + _localsTypes.size())
-                            | (_effect.outputCount() << 16));
-            add({_DROPARGS, n}, nullptr);
+            auto dropCount = _effect.inputCount() + _localsTypes.size();
+            if (dropCount > 0) {
+                intptr_t n(dropCount | (_effect.outputCount() << 16));
+                add({_DROPARGS, n}, nullptr);
+            }
         }
 
         // Add a RETURN, replacing the "next word" placeholder:

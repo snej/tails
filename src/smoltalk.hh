@@ -52,7 +52,28 @@ namespace tails {
     };
 
 
+    static void parseParameterList(Parser &parser,
+                                   const char *fnName,
+                                   unsigned paramCount = UINT_MAX)
+    {
+        unsigned nArgs = 0;
+        while (!parser.ifToken(")")) {
+            if (nArgs > paramCount)
+                parser.fail(format("Too many arguments; %s expects %d", fnName, paramCount));
+            if (nArgs++ > 0)
+                parser.requireToken(",");
+            auto argEffect = parser.nextExpression(10_pri);
+            if (argEffect.inputCount() != 0 || argEffect.outputCount() == 0)
+                parser.fail("Invalid function argument");
+            else if (argEffect.outputCount() > 1)
+                parser.fail("Invalid function argument: multi-valued expression");
+        }
+        if (nArgs < paramCount && paramCount < UINT_MAX)
+            parser.fail(format("Too few arguments; %s expects %d", fnName, paramCount));
+    }
 
+
+    /// A Symbol bound to a function; as a prefix operator it's a function call.
     class FunctionName : public Symbol {
     public:
         explicit FunctionName(Word const& word, std::string name)
@@ -66,24 +87,8 @@ namespace tails {
             } else {
                 wordEffect = word().stackEffect();
             }
-
             parser.requireToken("(");
-            unsigned nArgs = 0, paramCount = wordEffect.inputCount();
-            while (!parser.ifToken(")")) {
-                if (nArgs > paramCount)
-                    parser.fail(format("Too many arguments; %s expects %d",
-                                       token.c_str(), paramCount));
-                if (nArgs++ > 0)
-                    parser.requireToken(",");
-                auto argEffect = parser.nextExpression(10_pri);
-                if (argEffect.inputCount() != 0 || argEffect.outputCount() == 0)
-                    parser.fail("Invalid function argument");
-                else if (argEffect.outputCount() > 1)
-                    parser.fail("Invalid function argument: multi-valued expression");
-            }
-            if (nArgs < paramCount)
-                parser.fail(format("Too few arguments; %s expects %d", token.c_str(), paramCount));
-            
+            parseParameterList(parser, token.c_str(), wordEffect.inputCount());
             parser.compileCall(word());
             return StackEffect{{}, wordEffect.outputs()};
         }
@@ -96,8 +101,38 @@ namespace tails {
     public:
         explicit SmolParser() :Parser(symbols()) { }
 
+        CompiledWord* compileRestOfQuote(SmolParser& topLevelParser) {
+            takeTokens(topLevelParser.giveTokens());
+            try {
+                _compiler = make_unique<Compiler>();
+                __unused auto exprEffect = parseTopLevel();
+                requireToken("}");
+            } catch (...) {
+                topLevelParser.takeTokens(giveTokens());
+                throw;
+            }
+            topLevelParser.takeTokens(giveTokens());
+            return new CompiledWord(std::move(*_compiler).finish());
+        }
+
     private:
-        virtual StackEffect parseTopLevel() {
+        virtual StackEffect parseTopLevel() override {
+//            if (ifToken("def")) {
+//                Token tok = tokens().next();
+//                if (tok.type != Token::Identifier)
+//                    fail("Expected the name of the function to define");
+//                string name(tok.literal);
+//                if (symbols().has(name))
+//                    fail(name + " is already defined");
+//                
+//                new CompiledWord(*quote, string(name));
+//
+//            } else {
+//                return nextExpression(priority_t::None);
+//            }
+//        }
+//
+//        StackEffect parseFunction() {
             if (ifToken("(")) {
                 // A '(' at the start of the code delimits the stack effect / parameter list:
                 const char* begin = _tokens.position();
@@ -107,6 +142,7 @@ namespace tails {
 
                 StackEffectParser sep;
                 setStackEffect(sep.parse(begin, end - 1));
+
                 int i = 0;
                 for (auto& name : sep.inputNames) {
                     if (name.empty()) fail("Unnamed parameter");
@@ -141,16 +177,32 @@ namespace tails {
 
             // Parentheses:
             sSymbols.add(Symbol(")"));
-            sSymbols.add(Symbol("(")
-                    .makePrefix(5_pri, [](Parser &parser) {
+            sSymbols.add(Symbol("(").makePrefix(5_pri, [](Parser &parser) {
+                // Prefix parentheses just group a nested expression:
                 auto x = parser.nextExpression(5_pri);
                 parser.requireToken(")");
                 return x;
+            }).makePostfix(60_pri, [](StackEffect const& lhs, Parser &parser) {
+                // Postfix parentheses are a function call:
+                if (lhs.outputCount() != 1 || lhs.outputs()[0] != TypeSet(Value::AQuote))
+                    parser.fail("This isn't callable");
+                parseParameterList(parser, "a quote");
+                parser.compileCall(core_words::CALL);
+                return " -- ?"_sfx; //FIXME: We don't know what the quote really returns
+            }));
+
+            // Curly braces define a quote/block:
+            sSymbols.add(Symbol("}"));
+            sSymbols.add(Symbol("{").makePrefix(2_pri, [](Parser &parser) {
+                SmolParser quoteParser;
+                CompiledWord* quote = quoteParser.compileRestOfQuote(dynamic_cast<SmolParser&>(parser));
+                parser.compileLiteral(Value(quote));
+                return "-- {}"_sfx;
             }));
 
             // ';' separates expressions. All but the last have their output values dropped.
             sSymbols.add(Symbol(";")
-                    .makeInfix(0_pri, 1_pri, [](StackEffect const& lhs, Parser &parser) {
+                    .makeInfix(3_pri, 4_pri, [](StackEffect const& lhs, Parser &parser) {
                 if (!parser.tokens().peek()) {
                     return lhs; // Allow a trailing `;` as a no-op
                 } else {
@@ -191,6 +243,10 @@ namespace tails {
                 return StackEffect(lhs.inputs(), ifEffect.outputs());
             }));
 
+            // Assignment
+            sSymbols.add(Symbol(":=")  .makeInfix(11_pri, 10_pri));
+            sSymbols.add(Symbol("=")  .makeInfix(21_pri, 20_pri));
+
             // `let <var> = <value>` -- defines a new local variable
             sSymbols.add(Symbol("let")
                     .makePrefix(5_pri, [](Parser &parser) {
@@ -204,7 +260,7 @@ namespace tails {
 
                         // Parse the RHS:
                         parser.requireToken("=");
-                        StackEffect rhsEffect = parser.nextExpression(1_pri);
+                        StackEffect rhsEffect = parser.nextExpression(5_pri);
                         if (rhsEffect.inputCount() != 0 || rhsEffect.outputCount() != 1)
                             parser.fail("No value to assign to " + name);
                         TypeSet type = rhsEffect.outputs()[0];
@@ -214,9 +270,6 @@ namespace tails {
                         parser.compileSetArg(type, offset);
                         return StackEffect();
             }));
-
-            sSymbols.add(Symbol(":=")  .makeInfix(11_pri, 10_pri));
-            sSymbols.add(Symbol("=")  .makeInfix(21_pri, 20_pri));
 
             // RECURSE calls this function recursively
             sSymbols.add(FunctionName(core_words::_RECURSE, "RECURSE"));

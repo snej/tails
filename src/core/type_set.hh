@@ -28,7 +28,7 @@
 namespace tails {
 
     /// A set of Value types. Describes one item, an input or output, in a word's stack effect.
-    /// If it's a StackEffect output, it can optionally declare that it matches the type of an input.
+    /// If it's a StackEffect output, it can optionally declare that it matches type of an input.
     class TypeSet {
     public:
         constexpr TypeSet() { }
@@ -45,7 +45,7 @@ namespace tails {
 
         constexpr bool exists() const                       {return _flags != 0;}
         constexpr bool canBeAnyType() const                 {return typeFlags() == kTypeFlags;}
-        constexpr bool canBeType(Value::Type type) const    {return (_flags & (1 << int(type))) != 0;}
+        constexpr bool canBeType(Value::Type type) const  {return (_flags & (1 << int(type))) != 0;}
 
         constexpr bool multiType() const {
             uint8_t t = typeFlags();
@@ -62,11 +62,12 @@ namespace tails {
         constexpr void addType(Value::Type type)            {_flags |= (1 << int(type));}
         constexpr void addAllTypes()                        {_flags = kTypeFlags;}
 
-        constexpr void setTypes(TypeSet t)                  {_flags = t.typeFlags() | (_flags & kInputMatchFlags);
+        constexpr void setTypes(TypeSet t) {
+            _flags = t.typeFlags() | (_flags & kInputMatchFlags);
         }
 
         /// True if the type matches the type of an input in a StackEffect.
-        constexpr bool isInputMatch() const                 {return (_flags & kInputMatchFlags) != 0;}
+        constexpr bool isInputMatch() const               {return (_flags & kInputMatchFlags) != 0;}
         /// The index of the StackEffect input that this matches.
         constexpr int inputMatch() const                    {return (_flags >> kNumTypes) - 1;}
 

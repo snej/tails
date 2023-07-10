@@ -69,6 +69,9 @@ namespace tails {
             return nextExpression(priority_t::None);
         }
 
+        Tokenizer&& giveTokens()       {return std::move(_tokens);}
+        void takeTokens(Tokenizer&& t) {_tokens = std::move(t);}
+
         SymbolTable                 _symbols;
         StackEffect                 _effect;
         Tokenizer                   _tokens;
