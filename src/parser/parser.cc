@@ -130,7 +130,7 @@ namespace tails {
 
     StackEffect Parser::compileLiteral(Value literal) {
         _compiler->add(literal);
-        _stack.add(literal);
+        _stack.push(literal);
         return StackEffect({}, {literal.type()});
     }
 

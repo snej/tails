@@ -197,7 +197,9 @@ namespace tails {
                 SmolParser quoteParser;
                 CompiledWord* quote = quoteParser.compileRestOfQuote(dynamic_cast<SmolParser&>(parser));
                 parser.compileLiteral(Value(quote));
-                return "-- {}"_sfx;
+                StackEffect effect;
+               // effect.addOutput(TypeSet::quoteWithEffect(quote->stackEffect()));
+                return effect;
             }));
 
             // ';' separates expressions. All but the last have their output values dropped.

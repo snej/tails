@@ -19,18 +19,43 @@
 #pragma once
 #include "utils.hh"
 #include "word.hh"
+#include <compare>
 #include <optional>
 #include <variant>
 
 namespace tails {
-    using namespace std;
+
+    // An EffectStack item can be either a TypeSet (set of types) or a literal Value.
+    class TypeItem {
+    public:
+        TypeItem()                              :_v(TypeSet{}) { }
+        explicit TypeItem(TypeSet s)            :_v(s) { }
+        explicit TypeItem(Value v)              :_v(v) { }
+
+        bool isLiteral() const                  {return std::holds_alternative<Value>(_v);}
+        Value literal() const                   {return std::get<Value>(_v);}
+        Value const* if_literal() const         {return std::get_if<Value>(&_v);}
+
+        TypeSet types() const {
+            return isLiteral() ? TypeSet(literal().type()) : std::get<TypeSet>(_v);
+        }
+
+        friend bool operator==(TypeItem const&, TypeItem const&) = default;
+
+        TypeItem operator| (TypeItem const& b) const {
+            return (*this == b) ? *this : TypeItem(this->types() | b.types());
+        }
+
+        TypeItem& operator |= (TypeItem const& b) {*this = *this | b; return *this;}
+
+    private:
+        std::variant<TypeSet,Value> _v;
+    };
 
 
     /// Simulates the runtime stack at compile time, while verifying stack effects.
     class EffectStack {
     public:
-        // A stack item can be either a TypeSet (set of types) or a literal Value.
-        using Item = variant<TypeSet,Value>;
 
         EffectStack() = default;
         
@@ -44,21 +69,39 @@ namespace tails {
         size_t depth() const        {return _stack.size();}
         size_t maxGrowth() const    {return _maxDepth - _initialDepth;}
 
-        const Item& at(size_t i) const {
+        const TypeItem& at(size_t i) const {
             assert(i < _stack.size());
             return _stack[_stack.size() - 1 - i];
         }
 
-        optional<Value> literalAt(size_t i) const {
+        std::optional<Value> literalAt(size_t i) const {
             if (i < depth()) {
-                if (auto valP = std::get_if<Value>(&at(i)); valP)
+                if (auto valP = at(i).if_literal())
                     return *valP;
             }
-            return nullopt;
+            return std::nullopt;
         }
 
         bool operator==(const EffectStack &other) const {
             return _stack == other._stack;
+        }
+
+        /// Pushes a type to the stack.
+        void push(TypeSet type) {
+            _stack.emplace_back(type);
+            _maxDepth = std::max(_maxDepth, depth());
+        }
+
+        /// Pushes a literal to the stack.
+        void push(Value value) {
+            _stack.emplace_back(value);
+            _maxDepth = std::max(_maxDepth, depth());
+        }
+
+        /// Inserts a type at the _bottom_ of the stack -- used if deducing the input effect.
+        void addAtBottom(TypeSet entry) {
+            _stack.insert(_stack.begin(), TypeItem(entry));
+            _maxDepth = std::max(_maxDepth, depth());
         }
 
         /// Adds the stack effect of calling a word. Throws an exception on failure.
@@ -73,17 +116,16 @@ namespace tails {
                 throw compile_error(format("Calling `%s` would underflow (%zu needed, %zu available)",
                                            wordName, nInputs, depth()),
                                     sourceCode);
-            int i;
-            if (auto badType = typeCheck(effect.inputs(), &i); badType)
+            if (auto [badTypes, i] = typeCheck(effect.inputs()); badTypes)
                 throw compile_error(format("Type mismatch passing %s to `%s` (depth %i)",
-                                           Value::typeName(*badType), wordName, i),
+                                           badTypes.description().c_str(), wordName, i),
                                     sourceCode);
 
-            Item inputs[max(nInputs, 1)];
-            for (i = 0; i < nInputs; ++i)
-                inputs[i] = at(i);
+            std::vector<TypeItem> inputs;
+            for (int i = 0; i < nInputs; ++i)
+                inputs.push_back(at(i));
 
-            _maxDepth = max(_maxDepth, depth() + effect.max());
+            _maxDepth = std::max(_maxDepth, depth() + effect.max());
 
             // Pop the inputs off the stack:
             _stack.resize(depth() - nInputs);
@@ -98,30 +140,11 @@ namespace tails {
             }
         }
 
-        /// Pushes a type to the stack.
-        void add(TypeSet type) {
-            _stack.emplace_back(type);
-            _maxDepth = max(_maxDepth, depth());
-        }
-
-        /// Pushes a literal to the stack.
-        void add(Value value) {
-            _stack.emplace_back(value);
-            _maxDepth = max(_maxDepth, depth());
-        }
-
-        /// Inserts a type at the _bottom_ of the stack -- used if deducing the input effect.
-        void addAtBottom(TypeSet entry) {
-            _stack.insert(_stack.begin(), entry);
-            _maxDepth = max(_maxDepth, depth());
-        }
-
-        void popParams(size_t nParams, size_t nResults) {
-            auto actualResults = _stack.size() - nParams;
-            if (actualResults != nResults)
-                throw compile_error(format("Should return %d values, not %d", nResults, actualResults), nullptr);
-            _stack.erase(_stack.end() - nParams - nResults,
-                         _stack.end() - nResults);
+        /// Erases stack items from begin to end (non-inclusive.) Top of stack is 0.
+        void erase(size_t begin, size_t end) {
+            assert(begin <= end);
+            assert(end <= _stack.size());
+            _stack.erase(_stack.end() - end, _stack.end() - begin);
         }
 
         /// Merges myself with another stack -- used when two flows of control join.
@@ -129,12 +152,8 @@ namespace tails {
             size_t d = depth();
             if (d != other.depth())
                 throw compile_error("Inconsistent stack depth", sourceCode);
-            for (size_t i = 0; i < d; ++i) {
-                Item &mine = _stack[_stack.size() - 1 - i];
-                const Item others = other.at(i);
-                if (others != mine)
-                    mine = itemTypes(mine) | itemTypes(others);
-            }
+            for (size_t i = 0; i < d; ++i)
+                at(i) |= other.at(i);
         }
 
         /// Checks whether the current stack matches a StackEffect's outputs.
@@ -148,12 +167,11 @@ namespace tails {
             // Check effect outputs against stack:
             if (canAddOutputTypes) {
                 for (int i = 0; i < nOutputs; ++i)
-                    effect.outputs()[i] |= itemTypes(at(i));
+                    effect.outputs()[i] |= at(i).types();
             } else {
-                int i;
-                if (auto badType = typeCheck(effect.outputs(), &i); badType)
+                if (auto [badTypes, i] = typeCheck(effect.outputs()); badTypes)
                     throw compile_error(format("Output type mismatch: can't return %s as %s (depth %d)",
-                                               itemTypes(at(i)).description().c_str(),
+                                               badTypes.description().c_str(),
                                                effect.outputs()[i].description().c_str(), i),
                                         nullptr);
             }
@@ -163,35 +181,26 @@ namespace tails {
                 if (!canAddOutputs)
                     throw compile_error(format("Too many outputs: have %zu, declared %zu",
                                                myDepth, nOutputs), nullptr);
-                auto entry = itemTypes(at(i));
-                effect.addOutputAtBottom(entry);
+                effect.addOutputAtBottom(at(i).types());
             }
         }
 
     private:
-        static TypeSet itemTypes(const Item &item) {
-            if (auto valP = std::get_if<Value>(&item); valP)
-                return TypeSet(valP->type());
-            else
-                return std::get<TypeSet>(item);
-        }
+        TypeItem& at(size_t i)  {return _stack[_stack.size() - 1 - i];}
 
         /// Checks if the stack items all match the allowed TypesView;
-        /// if not, returns one of the invalid types.
-        std::optional<Value::Type> typeCheck(TypesView types, int *outStackIndex) const {
+        /// if not, returns the invalid types and the stack position.
+        std::pair<TypeSet,int> typeCheck(TypesView types) const {
             for (int i = 0; i < types.size(); ++i) {
-                TypeSet badTypes = itemTypes(at(i)) - types[i];
-                if (auto badType = badTypes.firstType(); badType) {
-                    *outStackIndex = i;
-                    return badType;
-                }
+                if (TypeSet badTypes = at(i).types() - types[i])
+                    return {badTypes, i};
             }
-            return std::nullopt;
+            return {};
         }
 
-        std::vector<Item> _stack;
-        size_t            _initialDepth = 0;
-        size_t            _maxDepth = 0;
+        std::vector<TypeItem> _stack;
+        size_t                _initialDepth = 0;
+        size_t                _maxDepth = 0;
     };
 
 }

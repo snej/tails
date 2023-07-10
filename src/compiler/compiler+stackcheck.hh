@@ -82,7 +82,7 @@ namespace tails {
             // apply the instruction's effect:
             if (i->word == &_LITERAL) {
                 // A literal, just push it
-                curStack.add(i->param.literal);
+                curStack.push(i->param.literal);
             } else if (i->word == &_GETARG || i->word == &_SETARG) {
                 // Get/set a function argument. Adjust the offset for the current stack:
                 auto offset = i->param.offset;
@@ -93,19 +93,23 @@ namespace tails {
                     paramType = _localsTypes[offset - 1];
                 i->param.offset -= curStack.depth() - _effect.inputCount();
                 if (i->word == &_GETARG)
-                    curStack.add(paramType);
+                    curStack.push(paramType);
                 else
                     curStack.add(*i->word, StackEffect({paramType}, {}), i->sourceCode);
             } else if (i->word == &_LOCALS) {
                 // Reserving space for local variables:
                 for (auto n = i->param.offset; n > 0; --n)
-                    curStack.add(Value());
+                    curStack.push(Value());
             } else if (i->word == &_DROPARGS) {
                 // Popping the parameters:
                 auto nParams = i->param.offset & 0xFFFF;
                 auto nResults = i->param.offset >> 16;
-                curStack.popParams(nParams, nResults);
-            } else {
+                auto actualResults = curStack.depth() - nParams;
+                if (actualResults != nResults)
+                    throw compile_error(format("Should return %d values, not %d",
+                                               nResults, actualResults), nullptr);
+                curStack.erase(nResults, nResults + nParams);
+           } else {
                 // Determine the effect of a word:
                 StackEffect nextEffect = i->word->stackEffect();
                 if (nextEffect.isWeird()) {
