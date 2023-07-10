@@ -61,7 +61,7 @@ namespace tails {
 
         /// A reference to a word and its parameter (if any), used during compilation.
         struct WordRef {
-            WordRef(const Word &w)               :word(&w), param((Op)0) {assert(!w.parameters());}
+            WordRef(const Word &w)               :word(&w), param(nullptr) {assert(!w.parameters());}
             WordRef(const Word &w, Instruction p):word(&w), param(p) {assert(w.parameters() > 0);}
             WordRef(const Word &w, Value v)      :word(&w), param(v) {assert(w.parameters() > 0);}
             WordRef(const Word &w, intptr_t o)   :word(&w), param(o) {assert(w.parameters() > 0);}

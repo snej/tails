@@ -47,15 +47,36 @@ namespace tails {
     ///            instead of explicitly returning a value.)
     using Op = Value* (*)(Value *sp, const Instruction *pc);
 
+    extern const Op Opcodes[256];
+
+    enum class Opcode : uint8_t {
+        _INTERP, _INTERP2, _INTERP3, _INTERP4,
+        _TAILINTERP, _TAILINTERP2, _TAILINTERP3, _TAILINTERP4,
+        _LITERAL, _RETURN, _BRANCH, _ZBRANCH,
+        NOP, _RECURSE,
+        DROP, DUP, OVER, ROT, SWAP,
+        ZERO, ONE,
+        EQ, NE, EQ_ZERO, NE_ZERO,
+        GE, GT, GT_ZERO,
+        LE, LT, LT_ZERO,
+        DIV, MOD, MINUS, MULT, PLUS,
+        CALL,
+        NULL_,
+        LENGTH,
+        IFELSE,
+        DEFINE,
+        _GETARG, _SETARG, _LOCALS, _DROPARGS,
+        PRINT, SP, NL, NLQ,
+    };
 
     /// A Forth instruction. Interpreted code is a sequence of these.
     union Instruction {
-        Op                 native;  // Every instruction starts with a native op
+        Opcode             native;  // Every instruction starts with a native op
         const Instruction* word;    // Interpreted word to call; parameter to INTERP
         intptr_t           offset;  // PC offset; parameter to BRANCH and ZBRANCH
         Value              literal; // Value to push on stack; parameter to LITERAL
 
-        constexpr Instruction(Op o)                 :native(o) { }
+        constexpr Instruction(Opcode o)             :native(o) { }
         constexpr Instruction(const Instruction *w) :word(w) { }
         constexpr Instruction(Value v)              :literal(v) { }
         explicit constexpr Instruction(intptr_t o)  :offset(o) { }
@@ -76,7 +97,7 @@ namespace tails {
     // that jumps to the next op.
     // It uses tail-recursion, so (in an optimized build) it _literally does jump_,
     // without growing the call stack.
-    #define NEXT()    TRACE(sp, pc); MUSTTAIL return pc->native(sp, pc + 1)
+    #define NEXT()    TRACE(sp, pc); MUSTTAIL return Opcodes[uint8_t(pc->native)](sp, pc + 1)
 
 
     /// Calls an interpreted word pointed to by `fn`. Used by `INTERP` and `run`.
@@ -87,7 +108,7 @@ namespace tails {
     ALWAYS_INLINE
     static inline Value* call(Value *sp, const Instruction *start) {
         TRACE(sp, start);
-        return start->native(sp, start + 1);
+        return Opcodes[uint8_t(start->native)](sp, start + 1);
     }
 
 }

@@ -44,7 +44,7 @@ namespace tails {
         };
 
         constexpr Word(const char *name,
-                       Op native,
+                       Opcode native,
                        StackEffect effect,
                        Flags flags =NoFlags,
                        uint8_t nParams =0)
@@ -104,7 +104,7 @@ namespace tails {
     // Flags and parameter count may optionally follow, as per the Word constructor.
     #define NATIVE_WORD(NAME, FORTHNAME, EFFECT, ...) \
         extern "C" Value* f_##NAME(Value *sp, const Instruction *pc); \
-        constexpr Word NAME(FORTHNAME, f_##NAME, EFFECT, ## __VA_ARGS__); \
+        constexpr Word NAME(FORTHNAME, Opcode::NAME, EFFECT, ## __VA_ARGS__); \
         Value* f_##NAME(Value *sp, const Instruction *pc)
 
 
