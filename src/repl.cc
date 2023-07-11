@@ -35,7 +35,7 @@ using namespace std;
 
 #ifdef ENABLE_TRACING
 namespace tails {
-    void TRACE(Value *sp, const Instruction *pc) { }
+    void TRACE(Value *sp, const Instruction* pc) { }
 }
 #endif
 
@@ -90,7 +90,7 @@ namespace repl {
 #ifdef ENABLE_TRACING
         StackBase = stackBase;
 #endif
-        auto stackTop = call(&stack[depth] - 1, word.instruction().word);
+        auto stackTop = call(&stack[depth] - 1, word.instruction().param.word);
         stack.resize(stackTop - stackBase + 1);
         return stack;
     }

@@ -93,7 +93,7 @@ namespace tails {
         /// Adds a symbol. The Symbol object is copied.
         template <class SYM>
         void add(SYM&& symbol) {
-            addPtr(std::make_unique<SYM>(std::move(symbol)));
+            addPtr(std::make_unique<SYM>(std::forward<SYM>(symbol)));
         }
 
         /// Removes all symbols defined in this table (but not its parent.)

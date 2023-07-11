@@ -27,26 +27,34 @@ namespace tails {
 
     class Disassembler {
     public:
-        Disassembler(const Instruction *pc) :_pc(pc) { }
+        Disassembler(const Instruction* pc) :_pc(pc) { }
 
         void setLiteral(bool literal)   {_literal = literal;}
 
         explicit operator bool() const  {return _pc != nullptr;}
 
         std::optional<Compiler::WordRef> _next() {
+            std::optional<Compiler::WordRef> result;
             assert(_pc);
-            const Word *word = Compiler::activeVocabularies.lookup(*_pc++);
-            if (!_literal && word && word->hasWordParams())
-                word = Compiler::activeVocabularies.lookup(*_pc++);
+            const Word* word = _pc->nativeWord();
             if (!word)
-                return nullopt;
-            else if (word->parameters())
-                return Compiler::WordRef(*word, *_pc++);
+                return result;
+            if (!_literal && word->hasWordParams()) {
+                // Interpreted word:
+                assert(word->parameters() == 1); // TODO: Support _INTERP2 etc (?)
+                word = Compiler::activeVocabularies.lookup(Instruction(_pc->param.word));
+                if (word)
+                    result = Compiler::WordRef(*word);
+            } else if (word->parameters())
+                result = Compiler::WordRef(*word, _pc->carefulCopy());
             else {
                 if (word == &core_words::_RETURN)
                     _pc = nullptr;
-                return Compiler::WordRef(*word);
+                result = Compiler::WordRef(*word);
             }
+            if (_pc)
+                _pc = _pc->next();
+            return result;
         }
 
         Compiler::WordRef next() {

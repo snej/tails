@@ -16,7 +16,7 @@
 // limitations under the License.
 //
 
-#include "tests.hh"
+#include "test_utils.hh"
 
 using namespace tails::core_words;
 
@@ -81,6 +81,11 @@ TEST_CASE("Vocabulary") {
     cout << "\n";
     CHECK(n == 52);     // This needs to be updated whenever new core words are added
 
+    for (int i = 0; i < 256 && OpWords[i]; i++) {
+        INFO("Checking " << OpWords[i]->name());
+        CHECK(OpWords[i]->instruction().opcode == Opcode(i));
+    }
+
     garbageCollect();
 }
 
@@ -92,6 +97,9 @@ static inline void _test(std::initializer_list<Compiler::WordRef> words,
     cout << "* Testing {" << sourcecode << "} ...\n";
     CompiledWord word = Compiler::compile(words);
     printStackEffect(word.stackEffect());
+    cout << "Disassembly: ";
+    printDisassembly(&word);
+    cout << endl;
     Value result = run(word);
     cout << "\t-> got " << result << "\n";
     CHECK(result == Value(expected));
@@ -102,7 +110,10 @@ static inline void _test(std::initializer_list<Compiler::WordRef> words,
 TEST_CASE("Compiled Words") {
     initVocabulary();
 
+    TEST(1234,  1234);
     TEST(-1234, -1234);
+    TEST(32768, 32768);
+    TEST(-32769, -32769);
     TEST(-1,    3, 4, MINUS);
     TEST(0.75,  3, 4, DIV);
     TEST(1,     1, 2, 3, ROT);

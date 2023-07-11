@@ -54,20 +54,24 @@ namespace tails {
 
     static inline void disassemble(std::ostream& out, Compiler::WordRef const& wordRef) {
         out << (wordRef.word->name() ? wordRef.word->name() : "???");
-        if (wordRef.word == &core_words::_DROPARGS)
-            out << "<" << (wordRef.param.offset & 0xFFFF) << ","
-            << (wordRef.param.offset >> 16) << ">";
-        else if (wordRef.word->hasIntParams())
-            out << "<" << (int)wordRef.param.offset << '>';
-        else if (wordRef.word->hasValParams())
-            out << ":<" << wordRef.param.literal << '>';
-        else if (wordRef.word->hasWordParams())
-            out << ":<" << Compiler::activeVocabularies.lookup(wordRef.param.word)->name() << '>';
+        if (wordRef.word->parameters() > 0) {
+            out << '<';
+            if (wordRef.word == &core_words::_DROPARGS)
+                out << int(wordRef.param.param.drop.locals) << ","
+                    << int(wordRef.param.param.drop.results);
+            else if (wordRef.word->hasIntParams())
+                out << wordRef.param.param.offset;
+            else if (wordRef.word->hasValParams())
+                out << wordRef.param.param.literal;
+            else if (wordRef.word->hasWordParams())
+                out << Compiler::activeVocabularies.lookup(Instruction(wordRef.param.param.word))->name();
+            out << '>';
+        }
     }
 
     static inline void disassemble(std::ostream& out, const Word &word) {
         int n = 0;
-        for (auto &wordRef : Disassembler::disassembleWord(word.instruction().word, true)) {
+        for (auto &wordRef : Disassembler::disassembleWord(word.instruction().param.word, true)) {
             if (n++) out << ' ';
             disassemble(out, wordRef);
         }

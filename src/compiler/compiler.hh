@@ -32,7 +32,7 @@ namespace tails {
     class VocabularyStack;
 
     namespace core_words {
-        extern const Word _LITERAL;
+        extern const Word _LITERAL, _INT;
     }
 
 
@@ -40,7 +40,7 @@ namespace tails {
     /// created at runtime.
     class CompiledWord : public Word {
     public:
-        CompiledWord(std::string &&name, StackEffect effect, std::vector<Instruction> &&instrs);
+        CompiledWord(std::string &&name, StackEffect effect, std::vector<Opcode> &&instrs);
 
         /// Constructs a word from a compiler. Call this instead of Compiler::finish.
         explicit CompiledWord(Compiler&&);
@@ -49,8 +49,8 @@ namespace tails {
         CompiledWord(const CompiledWord&, std::string &&name);
 
     private:
-        std::string const              _nameStr;   // Backing store for inherited _name
-        std::vector<Instruction> const _instrs {}; // Backing store for inherited _instr
+        std::string const           _nameStr;   // Backing store for inherited _name
+        std::vector<Opcode> const   _instrs {}; // Backing store for inherited _instr
     };
 
 
@@ -62,21 +62,45 @@ namespace tails {
         /// A reference to a word and its parameter (if any), used during compilation.
         struct WordRef {
             WordRef(const Word &w)               :word(&w), param(nullptr) {assert(!w.parameters());}
-            WordRef(const Word &w, Instruction p):word(&w), param(p) {assert(w.parameters() > 0);}
-            WordRef(const Word &w, Value v)      :word(&w), param(v) {assert(w.parameters() > 0);}
-            WordRef(const Word &w, intptr_t o)   :word(&w), param(o) {assert(w.parameters() > 0);}
+//            WordRef(const Word &w, Instruction p):word(&w), param(p) {assert(w.parameters() > 0);}
+//            WordRef(const Word &w, Value v)      :word(&w), param(v) {assert(w.parameters() > 0);}
+//            WordRef(const Word &w, intptr_t o)   :word(&w), param(o) {assert(w.parameters() > 0);}
+            WordRef(double d)                    {init(d);}
 
-            WordRef(Value v)                     :WordRef(core_words::_LITERAL, v) { }
-            WordRef(double d)                    :WordRef(core_words::_LITERAL, Value(d)) { }
+            template <typename T>
+            WordRef(const Word &w, T&& t)
+            :word(&w)
+            ,param(std::forward<T>(t))
+            {assert(w.parameters() > 0);}
+
+            WordRef(Value v) {
+                if (v.isDouble())
+                    init(v.asDouble());
+                else
+                    init(v);
+            }
 
             bool hasParam() const                {return word->parameters() || !word->isNative();}
 
             const Word*  word;                   // The word (interpreted or native)
-            Instruction  param;                  // Optional parameter, if it has one
+            Instruction  param {nullptr};        // Optional parameter, if it has one
 
         private:
             friend class Compiler;
             WordRef() :param(intptr_t(0)) { }
+            
+            void init(double d) {
+                if (canCastToInt16(d)) {
+                    word = &core_words::_INT;
+                    param = Instruction(int16_t(d));
+                } else {
+                    init(Value(d));
+                }
+            }
+            void init(Value v) {
+                word = &core_words::_LITERAL;
+                param = Instruction(v);
+            }
         };
 
         Compiler();
@@ -187,7 +211,7 @@ namespace tails {
 
         using BranchTarget = std::pair<char, InstructionPos>;
 
-        std::vector<Instruction> generateInstructions();
+        std::vector<Opcode> generateInstructions();
         const char* parse(const char *input);
         Value parseString(std::string_view token);
         Value parseArray(const char* &input);

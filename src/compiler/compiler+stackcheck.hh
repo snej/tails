@@ -82,28 +82,30 @@ namespace tails {
             // apply the instruction's effect:
             if (i->word == &_LITERAL) {
                 // A literal, just push it
-                curStack.push(i->param.literal);
+                curStack.push(i->param.param.literal);
+            } else if (i->word == &_INT) {
+                curStack.push(Value(i->param.param.offset));
             } else if (i->word == &_GETARG || i->word == &_SETARG) {
                 // Get/set a function argument. Adjust the offset for the current stack:
-                auto offset = i->param.offset;
+                auto offset = i->param.param.offset;
                 TypeSet paramType;
                 if (offset <= 0)
                     paramType = _effect.inputs()[-offset];
                 else
                     paramType = _localsTypes[offset - 1];
-                i->param.offset -= curStack.depth() - _effect.inputCount();
+                i->param.param.offset -= curStack.depth() - _effect.inputCount();
                 if (i->word == &_GETARG)
                     curStack.push(paramType);
                 else
                     curStack.add(*i->word, StackEffect({paramType}, {}), i->sourceCode);
             } else if (i->word == &_LOCALS) {
                 // Reserving space for local variables:
-                for (auto n = i->param.offset; n > 0; --n)
+                for (auto n = i->param.param.offset; n > 0; --n)
                     curStack.push(Value());
             } else if (i->word == &_DROPARGS) {
                 // Popping the parameters:
-                auto nParams = i->param.offset & 0xFFFF;
-                auto nResults = i->param.offset >> 16;
+                auto nParams = i->param.param.drop.locals;
+                auto nResults = i->param.param.drop.results;
                 auto actualResults = curStack.depth() - nParams;
                 if (actualResults != nResults)
                     throw compile_error(format("Should return %d values, not %d",

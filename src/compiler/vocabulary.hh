@@ -38,7 +38,7 @@ namespace tails {
         void add(const Word* const *wordList);
 
         const Word* lookup(std::string_view name) const;
-        const Word* lookup(Instruction) const;
+        const Word* lookup(Instruction const&) const;
 
         using map = std::unordered_map<std::string_view, const Word*>;
         using iterator = map::const_iterator;
@@ -66,7 +66,7 @@ namespace tails {
         bool use(const Vocabulary &v);
 
         const Word* lookup(std::string_view name) const;
-        const Word* lookup(Instruction) const;
+        const Word* lookup(Instruction const&) const;
 
         /// The Vocabulary to which new Words are added, if any.
         Vocabulary* current() const             {return _current;}

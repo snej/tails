@@ -20,6 +20,7 @@
 
 #include "core_words.hh"
 #include "stack_effect.hh"
+#include <cmath>
 
 
 namespace tails::core_words {
@@ -30,18 +31,25 @@ namespace tails::core_words {
     Num = TypeSet(Value::ANumber),
     Str = TypeSet(Value::AString),
     Arr = TypeSet(Value::AnArray);
-    
-    
+
+
+    [[nodiscard]]
+    ALWAYS_INLINE
+    static inline Value* call(Value *sp, const AfterInstruction *pc) {
+        return _next(sp, pc);
+    }
+
+
 #pragma mark NATIVE WORDS:
-    
-    
+
+
 #pragma mark The absolute core:
     
     // Calls the interpreted word pointed to by the following instruction.
     NATIVE_WORD(_INTERP, "_INTERP", StackEffect::weird(),
                 Word::MagicWordParam)
     {
-        sp = call(sp, (pc++)->word);
+        sp = call(sp, PARAM(pc->word));
         NEXT();
     }
     
@@ -58,7 +66,16 @@ namespace tails::core_words {
     NATIVE_WORD(_LITERAL, "_LITERAL", StackEffect({}, {Any}),
                 Word::MagicValParam)
     {
-        *(++sp) = (pc++)->literal;
+        *(++sp) = PARAM(pc->literal);
+        NEXT();
+    }
+    
+    
+    // Pushes the following small integer as a Value.
+    NATIVE_WORD(_INT, "_INT", StackEffect({}, {Num}),
+                Word::MagicIntParam)
+    {
+        *(++sp) = PARAM(pc->offset);
         NEXT();
     }
     
@@ -69,8 +86,8 @@ namespace tails::core_words {
     NATIVE_WORD(_INTERP2, "_INTERP2", StackEffect::weird(),
                 Word::MagicWordParam, 2)
     {
-        sp = call(sp, (pc++)->word);
-        sp = call(sp, (pc++)->word);
+        sp = call(sp, PARAM(pc->word));
+        sp = call(sp, PARAM(pc->word));
         NEXT();
     }
     
@@ -78,8 +95,8 @@ namespace tails::core_words {
     NATIVE_WORD(_INTERP3, "_INTERP3", StackEffect::weird(),
                 Word::MagicWordParam, 3)
     {
-        sp = call(sp, (pc++)->word);
-        sp = call(sp, (pc++)->word);
+        sp = call(sp, PARAM(pc->word));
+        sp = call(sp, PARAM(pc->word));
         NEXT();
     }
     
@@ -87,10 +104,10 @@ namespace tails::core_words {
     NATIVE_WORD(_INTERP4, "_INTERP4", StackEffect::weird(),
                 Word::MagicWordParam, 4)
     {
-        sp = call(sp, (pc++)->word);
-        sp = call(sp, (pc++)->word);
-        sp = call(sp, (pc++)->word);
-        sp = call(sp, (pc++)->word);
+        sp = call(sp, PARAM(pc->word));
+        sp = call(sp, PARAM(pc->word));
+        sp = call(sp, PARAM(pc->word));
+        sp = call(sp, PARAM(pc->word));
         NEXT();
     }
     
@@ -101,34 +118,34 @@ namespace tails::core_words {
     NATIVE_WORD(_TAILINTERP, "_TAILINTERP", StackEffect::weird(),
                 Word::MagicWordParam, 1)
     {
-        MUSTTAIL return call(sp, pc->word);
+        MUSTTAIL return call(sp, &PARAM(pc->word)->param);
     }
     
     // Interprets 2 following words, jumping to the last one.
     NATIVE_WORD(_TAILINTERP2, "_TAILINTERP2", StackEffect::weird(),
                 Word::MagicWordParam, 2)
     {
-        sp = call(sp, (pc++)->word);
-        MUSTTAIL return call(sp, pc->word);
+        sp = call(sp, PARAM(pc->word));
+        MUSTTAIL return call(sp, &PARAM(pc->word)->param);
     }
     
     // Interprets 3 following words, jumping to the last one.
     NATIVE_WORD(_TAILINTERP3, "_TAILINTERP3", StackEffect::weird(),
                 Word::MagicWordParam, 3)
     {
-        sp = call(sp, (pc++)->word);
-        sp = call(sp, (pc++)->word);
-        MUSTTAIL return call(sp, pc->word);
+        sp = call(sp, PARAM(pc->word));
+        sp = call(sp, PARAM(pc->word));
+        MUSTTAIL return call(sp, &PARAM(pc->word)->param);
     }
     
     // Interprets 4 following words, jumping to the last one.
     NATIVE_WORD(_TAILINTERP4, "_TAILINTERP4", StackEffect::weird(),
                 Word::MagicWordParam, 4)
     {
-        sp = call(sp, (pc++)->word);
-        sp = call(sp, (pc++)->word);
-        sp = call(sp, (pc++)->word);
-        MUSTTAIL return call(sp, pc->word);
+        sp = call(sp, PARAM(pc->word));
+        sp = call(sp, PARAM(pc->word));
+        sp = call(sp, PARAM(pc->word));
+        MUSTTAIL return call(sp, &PARAM(pc->word)->param);
     }
     
     // There's no reason there couldn't be more of these: _INTERP5, _INTERP6, ...
@@ -185,7 +202,7 @@ namespace tails::core_words {
     NATIVE_WORD(_LOCALS, "_LOCALS", StackEffect::weird(),
                 Word::MagicIntParam, 1)
     {
-        for (auto n = (pc++)->offset; n > 0; --n)
+        for (auto n = PARAM(pc->offset); n > 0; --n)
             *++sp = Value();
         NEXT();
     }
@@ -194,7 +211,7 @@ namespace tails::core_words {
     NATIVE_WORD(_GETARG, "_GETARG", StackEffect::weird(),  // or, StackEffect({}, {Any})
                 Word::MagicIntParam, 1)
     {
-        auto n = (pc++)->offset;
+        auto n = PARAM(pc->offset);
         assert(n <= 0);
         auto val = sp[n];
         *++sp = val;
@@ -206,7 +223,7 @@ namespace tails::core_words {
     NATIVE_WORD(_SETARG, "_SETARG", StackEffect::weird(),  // or, StackEffect({Any}, {})
                 Word::MagicIntParam, 1)
     {
-        auto n = (pc++)->offset;
+        auto n = PARAM(pc->offset);
         assert(n <= 0);
         sp[n] = *sp;
         --sp;
@@ -219,12 +236,12 @@ namespace tails::core_words {
     NATIVE_WORD(_DROPARGS, "_DROPARGS", StackEffect::weird(),
                 Word::MagicIntParam, 1)
     {
-        auto n = (pc++)->offset;
-        auto nParams = n & 0xFFFF;
-        auto nResults = n >> 16;
-        if (nResults > 0)
-            memmove(&sp[-nParams], &sp[1-nResults], nResults * sizeof(*sp));
-        sp -= nParams;
+        auto drop = PARAM(pc->drop);
+        if (drop.results > 0)
+            memmove(&sp[-int(drop.locals)],
+                    &sp[1-int(drop.results)],
+                    drop.results * sizeof(*sp));
+        sp -= drop.locals;
         NEXT();
     }
     
@@ -241,7 +258,7 @@ namespace tails::core_words {
     NATIVE_WORD(_BRANCH, "BRANCH", StackEffect(),
                 Word::MagicIntParam)
     {
-        pc += pc->offset + 1;
+        pc = offsetby(pc, pc->offset);
         NEXT();
     }
     
@@ -250,8 +267,9 @@ namespace tails::core_words {
                 Word::MagicIntParam)
     {
         if (!(*sp--))
-            pc += pc->offset;
-        ++pc;
+            pc = offsetby(pc, pc->offset);
+        else
+            pc = offsetby(pc, sizeof(pc->offset));
         NEXT();
     }
     
@@ -260,8 +278,8 @@ namespace tails::core_words {
     NATIVE_WORD(_RECURSE, "_RECURSE", StackEffect::weird(),
                 Word::MagicIntParam)
     {
-        sp = call(sp, pc + 1 + pc->offset);
-        ++pc;
+        sp = call(sp, offsetby(pc, pc->offset));
+        pc = offsetby(pc, sizeof(pc->offset));
         NEXT();
     }
     
@@ -275,7 +293,7 @@ namespace tails::core_words {
     {
         const Word *quote = (*sp--).asQuote();
         assert(quote);                                  // FIXME: Handle somehow; exceptions?
-        sp = call(sp, quote->instruction().word);
+        sp = call(sp, quote->instruction().param.word);
         NEXT();
     }
     
@@ -287,7 +305,7 @@ namespace tails::core_words {
     // the compiler's stack-checker.
     NATIVE_WORD(IFELSE, "IFELSE", StackEffect::weird()) {
         const Word *quote = (!!sp[-2] ? sp[-1] : sp[0]).asQuote();
-        sp = call(sp - 3, quote->instruction().word);
+        sp = call(sp - 3, quote->instruction().param.word);
         NEXT();
     }
     
@@ -329,7 +347,26 @@ namespace tails::core_words {
     NATIVE_WORD(NE_ZERO, "0<>", k0RelEffect)  { sp[0] = Value(sp[0] != Value(0)); NEXT(); }
     NATIVE_WORD(GT_ZERO, "0>",  k0RelEffect)  { sp[0] = Value(sp[0] >  Value(0)); NEXT(); }
     NATIVE_WORD(LT_ZERO, "0<",  k0RelEffect)  { sp[0] = Value(sp[0] <  Value(0)); NEXT(); }
-    
+
+    NATIVE_WORD(ABS, "ABS", StackEffect({Num}, {Num})) {
+        *sp = Value(::abs(sp->asDouble()));
+        NEXT();
+    }
+
+    NATIVE_WORD(MIN, "MIN", StackEffect({Any, Any}, {Any/1})) {
+        if (sp[0] < sp[-1])
+            sp[-1] = sp[0];
+        --sp;
+        NEXT();
+    }
+
+    NATIVE_WORD(MAX, "MAX", StackEffect({Any, Any}, {Any/1})) {
+        if (sp[0] > sp[-1])
+            sp[-1] = sp[0];
+        --sp;
+        NEXT();
+    }
+
     // [Appended an "_" to the symbol name to avoid conflict with C's `NULL`.]
     NATIVE_WORD(NULL_, "NULL", StackEffect({}, {Nul})) {
         *(++sp) = NullValue;
@@ -343,52 +380,6 @@ namespace tails::core_words {
         *sp = sp->length();
         NEXT();
     }
-    
-    
-#pragma mark - INTERPRETED WORDS:
-    
-    // These could easily be implemented in native code, but I'm making them interpreted for now
-    // so the interpreted call path gets more use. --jpa May 2021
-    
-    // Warning: A numeric literal has to be preceded by _LITERAL, an interpreted word by _INTERP.
-    
-    INTERP_WORD(ABS, "ABS", StackEffect({Num}, {Num}).withMax(1),
-                DUP,
-                LT_ZERO,
-                _ZBRANCH, Instruction::withOffset(3),
-                ZERO,
-                SWAP,
-                MINUS
-                );
-    
-    INTERP_WORD(MAX, "MAX", StackEffect({Any, Any}, {Any/0}).withMax(2),
-                OVER,
-                OVER,
-                LT,
-                _ZBRANCH, Instruction::withOffset(1),
-                SWAP,
-                DROP
-                );
-    
-    
-    INTERP_WORD (MIN, "MIN", StackEffect({Any, Any}, {Any/0}).withMax(2),
-                 OVER,
-                 OVER,
-                 GT,
-                 _ZBRANCH, Instruction::withOffset(1),
-                 SWAP,
-                 DROP
-                 );
-    
-    
-    extern "C" {
-        Value* f_DEFINE(Value *sp, const Instruction *pc);  // compiler.cc
-        Value* f_PRINT(Value *sp, const Instruction *pc);  // more_words.cc
-        Value* f_SP(Value *sp, const Instruction *pc);  // more_words.cc
-        Value* f_NL(Value *sp, const Instruction *pc);  // more_words.cc
-        Value* f_NLQ(Value *sp, const Instruction *pc);  // more_words.cc
-    }
-    
     
     
 #pragma mark - LIST OF CORE WORDS:
@@ -420,19 +411,32 @@ namespace tails::core_words {
 }
 
 
+#include "more_words.hh"
+
 namespace tails {
     using namespace core_words;
+    using namespace word;
 
-    const Op Opcodes[256] = {
+
+    extern "C" {
+        Value* f_DEFINE(Value *sp, const AfterInstruction* pc);  // compiler.cc
+        Value* f_PRINT(Value *sp, const AfterInstruction* pc);  // more_words.cc
+        Value* f_SP(Value *sp, const AfterInstruction* pc);  // more_words.cc
+        Value* f_NL(Value *sp, const AfterInstruction* pc);  // more_words.cc
+        Value* f_NLQ(Value *sp, const AfterInstruction* pc);  // more_words.cc
+    }
+
+    static const Op Opcodes[256] = {
         &f__INTERP, &f__INTERP2, &f__INTERP3, &f__INTERP4,
         &f__TAILINTERP, &f__TAILINTERP2, &f__TAILINTERP3, &f__TAILINTERP4,
-        &f__LITERAL, &f__RETURN, &f__BRANCH, &f__ZBRANCH,
+        &f__LITERAL, &f__INT, &f__RETURN, &f__BRANCH, &f__ZBRANCH,
         &f_NOP, &f__RECURSE,
         &f_DROP, &f_DUP, &f_OVER, &f_ROT, &f_SWAP,
         &f_ZERO, &f_ONE,
         &f_EQ, &f_NE, &f_EQ_ZERO, &f_NE_ZERO,
         &f_GE, &f_GT, &f_GT_ZERO,
         &f_LE, &f_LT, &f_LT_ZERO,
+        &f_ABS, &f_MAX, &f_MIN,
         &f_DIV, &f_MOD, &f_MINUS, &f_MULT, &f_PLUS,
         &f_CALL,
         &f_NULL_,
@@ -442,5 +446,32 @@ namespace tails {
         &f__GETARG, &f__SETARG, &f__LOCALS, &f__DROPARGS,
         &f_PRINT, &f_SP, &f_NL, &f_NLQ,
     };
+
+    const Word* const OpWords[] = {
+        &_INTERP, &_INTERP2, &_INTERP3, &_INTERP4,
+        &_TAILINTERP, &_TAILINTERP2, &_TAILINTERP3, &_TAILINTERP4,
+        &_LITERAL, &_INT, &_RETURN, &_BRANCH, &_ZBRANCH,
+        &NOP, &_RECURSE,
+        &DROP, &DUP, &OVER, &ROT, &SWAP,
+        &ZERO, &ONE,
+        &EQ, &NE, &EQ_ZERO, &NE_ZERO,
+        &GE, &GT, &GT_ZERO,
+        &LE, &LT, &LT_ZERO,
+        &ABS, &MAX, &MIN,
+        &DIV, &MOD, &MINUS, &MULT, &PLUS,
+        &CALL,
+        &NULL_,
+        &LENGTH,
+        &IFELSE,
+        &DEFINE,
+        &_GETARG, &_SETARG, &_LOCALS, &_DROPARGS,
+        &PRINT, &SP, &NL, &NLQ,
+    };
+
+
+    Value* _next(Value *sp, const AfterInstruction* pc) {
+        TRACE(sp, pc->next());
+        MUSTTAIL return Opcodes[uint8_t(pc->nextOp)](sp, pc->afterNext());
+    }
 
 }

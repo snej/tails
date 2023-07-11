@@ -18,6 +18,7 @@
 
 #include "compiler.hh"
 #include "compiler+stackcheck.hh"
+#include "assembler.hh"
 #include "disassembler.hh"
 #include "core_words.hh"
 #include "stack_effect_parser.hh"
@@ -37,12 +38,12 @@ namespace tails {
 #pragma mark - COMPILEDWORD:
 
 
-    CompiledWord::CompiledWord(string &&name, StackEffect effect, vector<Instruction> &&instrs)
+    CompiledWord::CompiledWord(string &&name, StackEffect effect, vector<Opcode> &&instrs)
     :_nameStr(toupper(name))
     ,_instrs(move(instrs))
     {
         _effect = effect;
-        _instr = &_instrs.front();
+        _instr = Instruction((Instruction*)&_instrs.front());
         if (!_nameStr.empty()) {
             _name = _nameStr.c_str();
             Compiler::activeVocabularies.current()->add(*this);
@@ -61,7 +62,7 @@ namespace tails {
 
 
     CompiledWord::CompiledWord(const CompiledWord &word, std::string &&name)
-    :CompiledWord(move(name), word.stackEffect(), vector<Instruction>(word._instrs))
+    :CompiledWord(move(name), word.stackEffect(), vector<Opcode>(word._instrs))
     {
         _flags = word._flags;
     }
@@ -117,7 +118,7 @@ namespace tails {
             return add({word});
         } else {
             auto i = prev(_words.end());
-            Disassembler dis(word.instruction().word);
+            Disassembler dis(word.instruction().param.word);
             while (true) {
                 WordRef ref = dis.next();
                 if (ref.word == &_RETURN)
@@ -155,6 +156,11 @@ namespace tails {
 
 
     Compiler::InstructionPos Compiler::addLiteral(Value v, const char *sourcePos) {
+        if (v.isDouble()) {
+            double n = v.asDouble();
+            if (canCastToInt16(n))
+                return add({_INT, int16_t(n)}, sourcePos);
+        }
         return add({_LITERAL, v}, sourcePos);
     }
 
@@ -180,7 +186,7 @@ namespace tails {
             iLocals = _words.insert(_words.begin(), SourceWord({_LOCALS, 0}, nullptr));
         _localsTypes.push_back(type);
         int offset = int(_localsTypes.size());
-        iLocals->param.offset = offset;
+        iLocals->param.param.offset = offset;
         return offset;
     }
 
@@ -234,17 +240,18 @@ namespace tails {
     }
 
 
-    vector<Instruction> Compiler::generateInstructions() {
+    vector<Opcode> Compiler::generateInstructions() {
         if (!_controlStack.empty())
             throw compile_error("Unfinished IF-ELSE-THEN or BEGIN-WHILE-REPEAT)", nullptr);
 
         // If the word preserves its args or has locals, clean up the stack:
         if (_usesArgs || !_localsTypes.empty()) {
-            auto dropCount = _effect.inputCount() + _localsTypes.size();
-            if (dropCount > 0) {
-                intptr_t n(dropCount | (_effect.outputCount() << 16));
-                add({_DROPARGS, n}, nullptr);
-            }
+            AfterInstruction::DropCount drop {
+                .locals = uint8_t(_effect.inputCount() + _localsTypes.size()),
+                .results = uint8_t(_effect.outputCount()),
+            };
+            if (drop.locals > 0)
+                add(WordRef{_DROPARGS, drop}, nullptr);
         }
 
         // Add a RETURN, replacing the "next word" placeholder:
@@ -255,56 +262,50 @@ namespace tails {
         computeEffect();
 
         // Assign a PC offset to each instruction, and do some optimizations:
-        int interpCount = 0;
-        InstructionPos firstInterp;
-        bool afterBranch = false;
-        int pc = 0;
-        for (auto i = _words.begin(); i != _words.end();) {
-            if (afterBranch && !i->isBranchDestination) {
-                // Unreachable instruction after a branch
-                i = _words.erase(i);
-                continue;
+        {
+            Assembler asmblr;
+            bool afterBranch = false;
+            for (auto i = _words.begin(); i != _words.end();) {
+                if (afterBranch && !i->isBranchDestination) {
+                    // Unreachable instruction after a branch
+                    i = _words.erase(i);
+                } else {
+                    if (i->word == &_RECURSE) {
+                        // Detect tail recursion: Change RECURSE to BRANCH if it's followed by RETURN:
+                        if (returnsImmediately(next(i)))
+                            i->word = &_BRANCH;
+                        else
+                            _flags = Word::Flags(_flags | Word::Recursive);
+                    }
+                    if (auto dst = i->branchTo) {
+                        // Follow chains of branches:
+                        while ((*dst)->word == &_BRANCH)
+                            dst = (*dst)->branchTo;
+                        i->branchTo = dst;
+                        // OPT: We could optimize a BRANCH to RETURN into a RETURN; but currently we use
+                        // RETURN as an end-of-word marker, so it can only appear at the end of a word.
+                    }
+                    // Add word to temporary assembly so we know its pc offset:
+                    i->pc = asmblr.codeSize();
+                    asmblr.add(*i->word, i->param);
+                    afterBranch = (i->word == &_BRANCH);
+                    ++i;
+                }
             }
-
-            i->pc = pc;
-            if (i->word->isNative()) {
-                if (i->word == &_RECURSE) {
-                    // Detect tail recursion: Change RECURSE to BRANCH if it's followed by RETURN:
-                    if (returnsImmediately(next(i)))
-                        i->word = &_BRANCH;
-                    else
-                        _flags = Word::Flags(_flags | Word::Recursive);
-                }
-                if (auto dst = i->branchTo; dst) {
-                    // Follow chains of branches:
-                    while ((*dst)->word == &_BRANCH)
-                        dst = (*dst)->branchTo;
-                    i->branchTo = dst;
-                }
-                // Note: We could optimize a BRANCH to RETURN into a RETURN; but currently we use
-                // RETURN as an end-of-word marker, so it can only appear at the end of a word.
-                interpCount = 0;
-                pc += i->word->parameters();
-            } else {
-                // In a series of 1 or more interpreted words, set the _first_ one's `interpWord` to
-                // the appropriate word. As more words are found it's changed from INTERP to INTERP2
-                // etc.; and if the final one is followed by RETURN it's changed to the matching
-                // TAILINTERP word.
-                if (interpCount == 0 || interpCount >= kMaxInterp || i->isBranchDestination) {
-                    interpCount = 0;
-                    firstInterp = i;
-                    pc += 1;
-                }
-                bool isTail = returnsImmediately(next(i));
-                firstInterp->interpWord = kInterpWords[isTail][interpCount];
-                ++interpCount;
-            }
-            afterBranch = (i->word == &_BRANCH);
-            ++pc;
-            ++i;
         }
 
         // Assemble `_words` into a series of instructions:
+#if 1
+        Assembler asmblr;
+        for (auto i = _words.begin(); i != _words.end(); ++i) {
+            if (i->branchTo) {
+                // Now that we know the destination's pc offset we can compute the relative jump:
+                i->param.param.offset = (*i->branchTo)->pc - i->pc - 1;
+            }
+            asmblr.add(*i->word, i->param);
+        }
+        return std::move(asmblr).finish();
+#else
         vector<Instruction> instrs;
         instrs.reserve(pc);
         for (auto i = _words.begin(); i != _words.end(); ++i) {
@@ -326,6 +327,7 @@ namespace tails {
         }
         assert(instrs.size() == pc);
         return instrs;
+#endif
     }
 
 

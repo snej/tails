@@ -22,7 +22,7 @@
 #include "core_words.hh"
 #include "io.hh"
 
-#include "tests.hh"
+#include "test_utils.hh"
 
 
 static void testParser(string source,
@@ -61,54 +61,54 @@ TEST_CASE("Pratt Parser") {
     initVocabulary();
 
     testParserXY("3+4",
-                 "_LITERAL:<3> _LITERAL:<4> + _DROPARGS<2,1> _RETURN",
+                 "_INT<3> _INT<4> + _DROPARGS<2,1> _RETURN",
                  7);
     testParserXY("-(3-4)",
-                 "0 _LITERAL:<3> _LITERAL:<4> - - _DROPARGS<2,1> _RETURN",
+                 "0 _INT<3> _INT<4> - - _DROPARGS<2,1> _RETURN",
                  1);
     testParserXY("3+4*5",
-                 "_LITERAL:<3> _LITERAL:<4> _LITERAL:<5> * + _DROPARGS<2,1> _RETURN",
+                 "_INT<3> _INT<4> _INT<5> * + _DROPARGS<2,1> _RETURN",
                  23);
     testParserXY("3*4+5",
-                 "_LITERAL:<3> _LITERAL:<4> * _LITERAL:<5> + _DROPARGS<2,1> _RETURN",
+                 "_INT<3> _INT<4> * _INT<5> + _DROPARGS<2,1> _RETURN",
                  17);
     testParserXY("3*(4+5)",
-                 "_LITERAL:<3> _LITERAL:<4> _LITERAL:<5> + * _DROPARGS<2,1> _RETURN",
+                 "_INT<3> _INT<4> _INT<5> + * _DROPARGS<2,1> _RETURN",
                  27);
     testParserXY("3*4 == 5",
-                 "_LITERAL:<3> _LITERAL:<4> * _LITERAL:<5> = _DROPARGS<2,1> _RETURN",
+                 "_INT<3> _INT<4> * _INT<5> = _DROPARGS<2,1> _RETURN",
                  0);
     testParserXY(R"("foo" != 2)",
-                 R"(_LITERAL:<"foo"> _LITERAL:<2> <> _DROPARGS<2,1> _RETURN)",
+                 R"(_LITERAL<"foo"> _INT<2> <> _DROPARGS<2,1> _RETURN)",
                  1);
     testParserXY(R"("foo\"bar" == 2)",
-                 R"(_LITERAL:<"foo\"bar"> _LITERAL:<2> = _DROPARGS<2,1> _RETURN)",
+                 R"(_LITERAL<"foo\"bar"> _INT<2> = _DROPARGS<2,1> _RETURN)",
                  0);
 
     testParserXY("3+x",
-                 "_LITERAL:<3> _GETARG<-2> + _DROPARGS<2,1> _RETURN",
+                 "_INT<3> _GETARG<-2> + _DROPARGS<2,1> _RETURN",
                  10);
     testParserXY("x+y",
                  "_GETARG<-1> _GETARG<-1> + _DROPARGS<2,1> _RETURN",
                  15);
     testParserXY("12; x",
-                 "_LITERAL:<12> DROP _GETARG<-1> _DROPARGS<2,1> _RETURN",
+                 "_INT<12> DROP _GETARG<-1> _DROPARGS<2,1> _RETURN",
                  7);
     testParserXY("12; x;",
-                 "_LITERAL:<12> DROP _GETARG<-1> _DROPARGS<2,1> _RETURN",
+                 "_INT<12> DROP _GETARG<-1> _DROPARGS<2,1> _RETURN",
                  7);
     testParserXY("x := 5; y",
-                 "_LITERAL:<5> _SETARG<-2> _GETARG<0> _DROPARGS<2,1> _RETURN",
+                 "_INT<5> _SETARG<-2> _GETARG<0> _DROPARGS<2,1> _RETURN",
                  8);
     testParserXY("x if: 1+2 else: 0",
-                 "_GETARG<-1> 0BRANCH<7> _LITERAL:<1> _LITERAL:<2> + BRANCH<2> _LITERAL:<0> _DROPARGS<2,1> _RETURN",
+                 "_GETARG<-1> 0BRANCH<7> _INT<1> _INT<2> + BRANCH<2> _INT<0> _DROPARGS<2,1> _RETURN",
                  3);
     testParserXY("let z = 3+4; z",
-                 "_LOCALS<1> _LITERAL:<3> _LITERAL:<4> + _SETARG<-1> _GETARG<0> _DROPARGS<3,1> _RETURN",
+                 "_LOCALS<1> _INT<3> _INT<4> + _SETARG<-1> _GETARG<0> _DROPARGS<3,1> _RETURN",
                  7);
 
     testParserXY("abs(-3)",
-                 "_LITERAL:<-3> _INTERP:<ABS> _DROPARGS<2,1> _RETURN",
+                 "_INT<-3> _INTERP:<ABS> _DROPARGS<2,1> _RETURN",
                  3);
     testParserXY("Max(x,y)",
                  "_GETARG<-1> _GETARG<-1> _INTERP:<MAX> _DROPARGS<2,1> _RETURN",
@@ -118,19 +118,19 @@ TEST_CASE("Pratt Parser") {
                  8);
 
     testParser("(n# -- #) n > 1 if: recurse(n-1) * n else: n",
-               "_GETARG<0> _LITERAL:<1> > 0BRANCH<12> _GETARG<0> _LITERAL:<1> - _RECURSE<-14> _GETARG<-1> * BRANCH<2> _GETARG<0> _DROPARGS<1,1> _RETURN",
+               "_GETARG<0> _INT<1> > 0BRANCH<12> _GETARG<0> _INT<1> - _RECURSE<-14> _GETARG<-1> * BRANCH<2> _GETARG<0> _DROPARGS<1,1> _RETURN",
                {15},
                Value(1'307'674'368'000));
 
     testParser("(a# n# -- #) n > 1 if: recurse(a*n, n-1) else: a",
-               "_GETARG<0> _LITERAL:<1> > 0BRANCH<14> _GETARG<-1> _GETARG<-1> * _GETARG<-1> _LITERAL:<1> - _RECURSE<-19> BRANCH<2> _GETARG<-1> _DROPARGS<2,1> _RETURN",
+               "_GETARG<0> _INT<1> > 0BRANCH<14> _GETARG<-1> _GETARG<-1> * _GETARG<-1> _INT<1> - _RECURSE<-19> BRANCH<2> _GETARG<-1> _DROPARGS<2,1> _RETURN",
                {1, 3},
                Value(6));
     //TODO: Make tail recursion work! The _DROPARGS is preventing it
 
 #if 0 // FIXME: This test doesn't work yet
     testParser("( -- #) let q = {3+4}; q()",
-               "_LITERAL:<{( -- #)}> _RETURN",
+               "_LITERAL<{( -- #)}> _RETURN",
                {},
                0);
 #endif

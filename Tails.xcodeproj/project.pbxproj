@@ -31,6 +31,7 @@
 		2753DADB26682769008EBCE0 /* gc.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2753DAD926682769008EBCE0 /* gc.cc */; };
 		275B4D2F2A5C750A00E00723 /* stack_effect.cc in Sources */ = {isa = PBXBuildFile; fileRef = 275B4D2E2A5C750A00E00723 /* stack_effect.cc */; };
 		275B4D302A5C750A00E00723 /* stack_effect.cc in Sources */ = {isa = PBXBuildFile; fileRef = 275B4D2E2A5C750A00E00723 /* stack_effect.cc */; };
+		275B4D332A5F202800E00723 /* test_utils.cc in Sources */ = {isa = PBXBuildFile; fileRef = 275B4D322A5F202800E00723 /* test_utils.cc */; };
 		27783695266164930025D97F /* compiler+stackcheck.hh in Sources */ = {isa = PBXBuildFile; fileRef = 27783694266164930025D97F /* compiler+stackcheck.hh */; };
 		27AC392A2A40D32A00C9A8E6 /* tokenizer.cc in Sources */ = {isa = PBXBuildFile; fileRef = 27AC39292A40D32A00C9A8E6 /* tokenizer.cc */; };
 		27AC392D2A40E57E00C9A8E6 /* parser.cc in Sources */ = {isa = PBXBuildFile; fileRef = 27AC392C2A40E57E00C9A8E6 /* parser.cc */; };
@@ -127,6 +128,8 @@
 		2753DAD826682769008EBCE0 /* gc.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = gc.hh; sourceTree = "<group>"; };
 		2753DAD926682769008EBCE0 /* gc.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = gc.cc; sourceTree = "<group>"; };
 		275B4D2E2A5C750A00E00723 /* stack_effect.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = stack_effect.cc; sourceTree = "<group>"; };
+		275B4D312A5C8F1E00E00723 /* assembler.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = assembler.hh; sourceTree = "<group>"; };
+		275B4D322A5F202800E00723 /* test_utils.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = test_utils.cc; sourceTree = "<group>"; };
 		27736CBB26714B9200655493 /* Syntax.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = Syntax.md; sourceTree = "<group>"; };
 		27783694266164930025D97F /* compiler+stackcheck.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = "compiler+stackcheck.hh"; sourceTree = "<group>"; };
 		27AC39282A40D32A00C9A8E6 /* tokenizer.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = tokenizer.hh; sourceTree = "<group>"; };
@@ -143,7 +146,7 @@
 		27D7D9D32A49F98B0058B3BF /* catch.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = catch.hpp; sourceTree = "<group>"; };
 		27D7D9D42A49F98B0058B3BF /* CaseListReporter.hh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = CaseListReporter.hh; sourceTree = "<group>"; };
 		27D7D9D52A49F9AE0058B3BF /* TestsMain.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = TestsMain.cc; sourceTree = "<group>"; };
-		27D7D9D82A49FA200058B3BF /* tests.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = tests.hh; sourceTree = "<group>"; };
+		27D7D9D82A49FA200058B3BF /* test_utils.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = test_utils.hh; sourceTree = "<group>"; };
 		27D7D9D92A4A067B0058B3BF /* smoltalk.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = smoltalk.hh; sourceTree = "<group>"; };
 		27D7D9DA2A4DED4C0058B3BF /* symbol.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = symbol.hh; sourceTree = "<group>"; };
 		27D7D9DB2A4DEDED0058B3BF /* symbol.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = symbol.cc; sourceTree = "<group>"; };
@@ -275,6 +278,7 @@
 				27AC39332A44B45E00C9A8E6 /* effect_stack.hh */,
 				273B20AF2645D67000A14EC4 /* compiler.hh */,
 				273B20B02645D67000A14EC4 /* compiler.cc */,
+				275B4D312A5C8F1E00E00723 /* assembler.hh */,
 				2732FA2A2655E89D0013063A /* compiler+parser.cc */,
 				27783694266164930025D97F /* compiler+stackcheck.hh */,
 				27BE51902661C2050010DC42 /* disassembler.hh */,
@@ -323,7 +327,8 @@
 		27D7D9D72A49F9EE0058B3BF /* tests */ = {
 			isa = PBXGroup;
 			children = (
-				27D7D9D82A49FA200058B3BF /* tests.hh */,
+				27D7D9D82A49FA200058B3BF /* test_utils.hh */,
+				275B4D322A5F202800E00723 /* test_utils.cc */,
 				273B20952643493E00A14EC4 /* test_core.cc */,
 				27AC392E2A40F95E00C9A8E6 /* test_parser.cc */,
 				27D7D9D52A49F9AE0058B3BF /* TestsMain.cc */,
@@ -486,6 +491,7 @@
 				2732F9ED2652DE510013063A /* compiler.cc in Sources */,
 				2753DAD42667EAFE008EBCE0 /* more_words.cc in Sources */,
 				27D7D9DD2A4DEDED0058B3BF /* symbol.cc in Sources */,
+				275B4D332A5F202800E00723 /* test_utils.cc in Sources */,
 				27AC39302A40FBA500C9A8E6 /* tokenizer.cc in Sources */,
 				27AC39312A40FBA500C9A8E6 /* parser.cc in Sources */,
 				2732F9EC2652DE510013063A /* value.cc in Sources */,

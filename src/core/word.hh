@@ -78,6 +78,20 @@ namespace tails {
 
         constexpr operator Instruction() const          {return _instr;}
 
+        constexpr size_t parametersSize() const {
+            size_t s = 0;
+            if (_nParams > 0) {
+                if (hasIntParams())
+                    s = sizeof(AfterInstruction::offset);
+                else if (hasValParams())
+                    s = sizeof(AfterInstruction::literal);
+                else if (hasWordParams())
+                    s = sizeof(AfterInstruction::word);
+                s *= _nParams;
+            }
+            return s;
+       }
+
     protected:
         Word() :_instr {}, _name(nullptr), _effect(), _flags(NoFlags) { };
 
@@ -90,9 +104,29 @@ namespace tails {
 
 
     constexpr inline bool operator==(const Word &a, const Word &b)
-                                        {return a.instruction().native == b.instruction().native;}
+                                        {return a.instruction().opcode == b.instruction().opcode;}
     constexpr inline bool operator!=(const Word &a, const Word &b)
                                         {return !(a == b);}
+
+    /// The Word that implements each opcode; for use by disassemblers.
+    extern const Word* const OpWords[256];
+
+
+    // Instruction methods whose implementations depend on Word:
+
+    Word const* Instruction::nativeWord() const {
+        return OpWords[uint8_t(opcode)];
+    }
+
+    Instruction const* Instruction::next() const {
+        return (Instruction const*)(uintptr_t(&param.nextOp) + nativeWord()->parametersSize());
+    }
+
+    Instruction Instruction::carefulCopy() const {
+        Instruction dst;
+        ::memcpy(&dst, this, sizeof(Opcode) + nativeWord()->parametersSize());
+        return dst;
+    }
 
 
     // Shortcut for defining a native word (see examples in core_words.cc.)
@@ -103,9 +137,9 @@ namespace tails {
     // @param EFFECT  The \ref StackEffect. Must be accurate!
     // Flags and parameter count may optionally follow, as per the Word constructor.
     #define NATIVE_WORD(NAME, FORTHNAME, EFFECT, ...) \
-        extern "C" Value* f_##NAME(Value *sp, const Instruction *pc); \
+        extern "C" Value* f_##NAME(Value *sp, const AfterInstruction* pc); \
         constexpr Word NAME(FORTHNAME, Opcode::NAME, EFFECT, ## __VA_ARGS__); \
-        Value* f_##NAME(Value *sp, const Instruction *pc)
+        Value* f_##NAME(Value *sp, const AfterInstruction* pc)
 
 
     // Shortcut for defining a native word implementing a binary operator like `+` or `==`.

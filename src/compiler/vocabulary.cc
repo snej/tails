@@ -52,7 +52,7 @@ namespace tails {
     }
 
 
-    const Word* Vocabulary::lookup(Instruction instr) const {
+    const Word* Vocabulary::lookup(Instruction const& instr) const {
         for (auto i = _words.begin(); i != _words.end(); ++i) {
             if (i->second->instruction() == instr)
                 return i->second;
@@ -86,7 +86,7 @@ namespace tails {
         return nullptr;
     }
 
-    const Word* VocabularyStack::lookup(Instruction instr) const {
+    const Word* VocabularyStack::lookup(Instruction const& instr) const {
         for (auto vocab : _active)
             if (auto word = vocab->lookup(instr); word)
                 return word;

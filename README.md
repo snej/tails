@@ -34,7 +34,7 @@ Tails's world is currently very simple: a stack of (dynamically-typed) values, a
 
 ### Core (AKA native, primitive) functions
 
-Tails's core primitives are C+\+ functions of the form `Value* FN(Value *sp, const Instruction *pc)`.
+Tails's core primitives are C+\+ functions of the form `Value* FN(Value *sp, const AfterInstruction* pc)`.
 
 * `sp` is the stack pointer. It grows upward, so `sp[0]` is the top value, `sp[-1]` is below it, etc.
 * `pc` is the program counter, which points to an array of `Instruction`s, specifically to the next instruction to execute.
@@ -91,7 +91,7 @@ Yeah, Tails wouldn't be much of a language if you couldn't define functions in i
 It reads it from the instruction stream, as `pc->word`, which is a pointer to an `Instruction` not a function pointer. (Remember that `pc` points to a `union` value.) Then it increments `pc` to skip over the extra value it just read:
 
 ```c
-    Value* INTERP(Value *sp, const Instruction *pc) {
+    Value* INTERP(Value *sp, const AfterInstruction* pc) {
         sp = call(sp, (pc++)->word);
         NEXT();
     }

@@ -70,4 +70,12 @@ namespace tails {
     constexpr static inline int _cmp(T a, T b)    {return (a==b) ? 0 : ((a<b) ? -1 : 1);}
 
 
+    template <typename T>
+    static constexpr T* offsetby(T* ptr, intptr_t offset) {
+        return (T*)(intptr_t(ptr) + offset);
+    }
+
+    static inline bool canCastToInt16(double d) {
+        return d >= INT16_MIN && d <= INT16_MAX && d == int16_t(d);
+    }
 }
