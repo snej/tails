@@ -295,7 +295,6 @@ namespace tails {
         }
 
         // Assemble `_words` into a series of instructions:
-#if 1
         Assembler asmblr;
         for (auto i = _words.begin(); i != _words.end(); ++i) {
             if (i->branchTo) {
@@ -305,29 +304,6 @@ namespace tails {
             asmblr.add(*i->word, i->param);
         }
         return std::move(asmblr).finish();
-#else
-        vector<Instruction> instrs;
-        instrs.reserve(pc);
-        for (auto i = _words.begin(); i != _words.end(); ++i) {
-            if (i->word->isNative()) {
-                // Add a native word. If it's a branch, compute its PC offset. Then add any param:
-                instrs.push_back(*i->word);
-                if (i->branchTo)
-                    i->param.offset = (*i->branchTo)->pc - i->pc - 2;
-                if (i->word->parameters())
-                    instrs.push_back(i->param);
-            } else {
-                // The first of a series of interpreted words will have `interpWord` set to the
-                // appropriate INTERP-family native word, so emit it:
-                if (i->interpWord)
-                    instrs.push_back(*i->interpWord);
-                // For each interpreted word add its word as a parameter:
-                instrs.push_back(*i->word);
-            }
-        }
-        assert(instrs.size() == pc);
-        return instrs;
-#endif
     }
 
 

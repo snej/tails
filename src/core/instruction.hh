@@ -29,8 +29,7 @@ namespace tails {
     /// Definition of the Tails bytecodes, i.e. native words.
     /// If this is changed you MUST also change the arrays `Opcodes` and `OpWords` in core_words.cc!
     enum class Opcode : uint8_t {
-        _INTERP, _INTERP2, _INTERP3, _INTERP4,
-        _TAILINTERP, _TAILINTERP2, _TAILINTERP3, _TAILINTERP4,
+        _INTERP, _TAILINTERP,
         _LITERAL, _INT, _RETURN, _BRANCH, _ZBRANCH,
         NOP, _RECURSE,
         DROP, DUP, OVER, ROT, SWAP,

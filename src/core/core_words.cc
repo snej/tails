@@ -80,37 +80,6 @@ namespace tails::core_words {
     }
     
     
-#pragma mark - CALL OPTIMIZATIONS:
-    
-    // Interprets 2 following words (saving an instruction and some clock cycles.)
-    NATIVE_WORD(_INTERP2, "_INTERP2", StackEffect::weird(),
-                Word::MagicWordParam, 2)
-    {
-        sp = call(sp, PARAM(pc->word));
-        sp = call(sp, PARAM(pc->word));
-        NEXT();
-    }
-    
-    // Interprets 3 following words.
-    NATIVE_WORD(_INTERP3, "_INTERP3", StackEffect::weird(),
-                Word::MagicWordParam, 3)
-    {
-        sp = call(sp, PARAM(pc->word));
-        sp = call(sp, PARAM(pc->word));
-        NEXT();
-    }
-    
-    // Interprets 4 following words.
-    NATIVE_WORD(_INTERP4, "_INTERP4", StackEffect::weird(),
-                Word::MagicWordParam, 4)
-    {
-        sp = call(sp, PARAM(pc->word));
-        sp = call(sp, PARAM(pc->word));
-        sp = call(sp, PARAM(pc->word));
-        sp = call(sp, PARAM(pc->word));
-        NEXT();
-    }
-    
     // _Jumps_ to the interpreted word pointed to by the following instruction,
     // as a tail-call optimization. The stack does not grow.
     // This must of course be the last word before a _RETURN.
@@ -120,38 +89,8 @@ namespace tails::core_words {
     {
         MUSTTAIL return call(sp, &PARAM(pc->word)->param);
     }
-    
-    // Interprets 2 following words, jumping to the last one.
-    NATIVE_WORD(_TAILINTERP2, "_TAILINTERP2", StackEffect::weird(),
-                Word::MagicWordParam, 2)
-    {
-        sp = call(sp, PARAM(pc->word));
-        MUSTTAIL return call(sp, &PARAM(pc->word)->param);
-    }
-    
-    // Interprets 3 following words, jumping to the last one.
-    NATIVE_WORD(_TAILINTERP3, "_TAILINTERP3", StackEffect::weird(),
-                Word::MagicWordParam, 3)
-    {
-        sp = call(sp, PARAM(pc->word));
-        sp = call(sp, PARAM(pc->word));
-        MUSTTAIL return call(sp, &PARAM(pc->word)->param);
-    }
-    
-    // Interprets 4 following words, jumping to the last one.
-    NATIVE_WORD(_TAILINTERP4, "_TAILINTERP4", StackEffect::weird(),
-                Word::MagicWordParam, 4)
-    {
-        sp = call(sp, PARAM(pc->word));
-        sp = call(sp, PARAM(pc->word));
-        sp = call(sp, PARAM(pc->word));
-        MUSTTAIL return call(sp, &PARAM(pc->word)->param);
-    }
-    
-    // There's no reason there couldn't be more of these: _INTERP5, _INTERP6, ...
-    // They'd need to be implemented here, and added to kWords and kInterpWords.
-    
-    
+
+
 #pragma mark Stack gymnastics:
     
     NATIVE_WORD(DUP, "DUP", StackEffect({Any}, {Any/0, Any/0})) {
@@ -388,8 +327,8 @@ namespace tails::core_words {
     // This null-terminated list is used to register these words in the Vocabulary at startup.
     
     const Word* const kWords[] = {
-        &_INTERP, &_INTERP2, &_INTERP3, &_INTERP4,
-        &_TAILINTERP, &_TAILINTERP2, &_TAILINTERP3, &_TAILINTERP4, 
+        &_INTERP,
+        &_TAILINTERP,
         &_LITERAL, &_RETURN, &_BRANCH, &_ZBRANCH,
         &NOP, &_RECURSE,
         &DROP, &DUP, &OVER, &ROT, &SWAP,
@@ -427,8 +366,7 @@ namespace tails {
     }
 
     static const Op Opcodes[256] = {
-        &f__INTERP, &f__INTERP2, &f__INTERP3, &f__INTERP4,
-        &f__TAILINTERP, &f__TAILINTERP2, &f__TAILINTERP3, &f__TAILINTERP4,
+        &f__INTERP, &f__TAILINTERP,
         &f__LITERAL, &f__INT, &f__RETURN, &f__BRANCH, &f__ZBRANCH,
         &f_NOP, &f__RECURSE,
         &f_DROP, &f_DUP, &f_OVER, &f_ROT, &f_SWAP,
@@ -448,8 +386,7 @@ namespace tails {
     };
 
     const Word* const OpWords[] = {
-        &_INTERP, &_INTERP2, &_INTERP3, &_INTERP4,
-        &_TAILINTERP, &_TAILINTERP2, &_TAILINTERP3, &_TAILINTERP4,
+        &_INTERP, &_TAILINTERP,
         &_LITERAL, &_INT, &_RETURN, &_BRANCH, &_ZBRANCH,
         &NOP, &_RECURSE,
         &DROP, &DUP, &OVER, &ROT, &SWAP,
