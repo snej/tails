@@ -21,6 +21,7 @@
 #include "assembler.hh"
 #include "disassembler.hh"
 #include "core_words.hh"
+#include "native_word.hh"
 #include "stack_effect_parser.hh"
 #include "utils.hh"
 #include "vocabulary.hh"

@@ -19,6 +19,7 @@
 // Reference: <https://forth-standard.org/standard/core>
 
 #include "core_words.hh"
+#include "native_word.hh"
 #include "stack_effect.hh"
 #include <cmath>
 

@@ -130,6 +130,7 @@
 		275B4D2E2A5C750A00E00723 /* stack_effect.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = stack_effect.cc; sourceTree = "<group>"; };
 		275B4D312A5C8F1E00E00723 /* assembler.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = assembler.hh; sourceTree = "<group>"; };
 		275B4D322A5F202800E00723 /* test_utils.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = test_utils.cc; sourceTree = "<group>"; };
+		275B4D342A5F7A4E00E00723 /* native_word.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = native_word.hh; sourceTree = "<group>"; };
 		27736CBB26714B9200655493 /* Syntax.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = Syntax.md; sourceTree = "<group>"; };
 		27783694266164930025D97F /* compiler+stackcheck.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = "compiler+stackcheck.hh"; sourceTree = "<group>"; };
 		27AC39282A40D32A00C9A8E6 /* tokenizer.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = tokenizer.hh; sourceTree = "<group>"; };
@@ -296,6 +297,7 @@
 				2732FA0D26543FBF0013063A /* stack_effect.hh */,
 				27AC39322A427CBB00C9A8E6 /* type_set.hh */,
 				273B209C264351E400A14EC4 /* word.hh */,
+				275B4D342A5F7A4E00E00723 /* native_word.hh */,
 				273B2093264348A400A14EC4 /* core_words.cc */,
 				273B20972643498900A14EC4 /* core_words.hh */,
 			);

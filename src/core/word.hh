@@ -65,7 +65,7 @@ namespace tails {
         { }
 
         constexpr const char* name() const              {return _name;}
-        constexpr Instruction instruction() const       {return _instr;}
+        constexpr Instruction const& instruction() const{return _instr;}
         constexpr StackEffect stackEffect() const       {return _effect;}
 
         constexpr bool hasFlag(Flags f) const           {return (_flags & f) != 0;}
@@ -75,8 +75,6 @@ namespace tails {
         constexpr bool hasValParams() const             {return hasFlag(HasValParam);}
         constexpr bool hasWordParams() const            {return hasFlag(HasWordParam);}
         constexpr bool isMagic() const                  {return hasFlag(Magic);}
-
-        constexpr operator Instruction() const          {return _instr;}
 
         constexpr size_t parametersSize() const {
             size_t s = 0;
@@ -127,41 +125,5 @@ namespace tails {
         ::memcpy(&dst, this, sizeof(Opcode) + nativeWord()->parametersSize());
         return dst;
     }
-
-
-    // Shortcut for defining a native word (see examples in core_words.cc.)
-    // It should be followed by the C++ function body in curly braces.
-    // The body can use parameters `sp` and `pc`, and should end by calling `NEXT()`.
-    // @param NAME  The C++ name of the Word object to define.
-    // @param FORTHNAME  The word's Forth name (a string literal.)
-    // @param EFFECT  The \ref StackEffect. Must be accurate!
-    // Flags and parameter count may optionally follow, as per the Word constructor.
-    #define NATIVE_WORD(NAME, FORTHNAME, EFFECT, ...) \
-        extern "C" Value* f_##NAME(Value *sp, const AfterInstruction* pc); \
-        constexpr Word NAME(FORTHNAME, Opcode::NAME, EFFECT, ## __VA_ARGS__); \
-        Value* f_##NAME(Value *sp, const AfterInstruction* pc)
-
-
-    // Shortcut for defining a native word implementing a binary operator like `+` or `==`.
-    // @param NAME  The C++ name of the Word object to define.
-    // @param FORTHNAME  The word's Forth name (a string literal.)
-    // @param INFIXOP  The raw C++ infix operator to implement, e.g. `+` or `==`.
-    #define BINARY_OP_WORD(NAME, FORTHNAME, EFFECT, INFIXOP) \
-        NATIVE_WORD(NAME, FORTHNAME, EFFECT) { \
-            sp[-1] = Value(sp[-1] INFIXOP sp[0]);\
-            --sp;\
-            NEXT(); \
-        }
-
-
-    // Shortcut for defining an interpreted word (see examples in core_words.cc.)
-    // The variable arguments must be a list of previously-defined Word objects.
-    // (A `RETURN` will be appended automatically.)
-    // @param NAME  The C++ name of the Word object to define.
-    // @param FORTHNAME  The word's Forth name (a string literal.)
-    // @param EFFECT  The \ref StackEffect. Must be accurate!
-    #define INTERP_WORD(NAME, FORTHNAME, EFFECT, ...) \
-        static constexpr Instruction const i_##NAME[] { __VA_ARGS__, _RETURN }; \
-        constexpr Word NAME(FORTHNAME, EFFECT, i_##NAME)
 
 }

@@ -18,6 +18,7 @@
 
 #include "more_words.hh"
 #include "io.hh"
+#include "native_word.hh"
 #include "stack_effect_parser.hh"
 #include <iostream>
 

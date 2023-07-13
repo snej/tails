@@ -101,29 +101,29 @@ TEST_CASE("Pratt Parser") {
                  "_INT<5> _SETARG<-2> _GETARG<0> _DROPARGS<2,1> _RETURN",
                  8);
     testParserXY("x if: 1+2 else: 0",
-                 "_GETARG<-1> 0BRANCH<7> _INT<1> _INT<2> + BRANCH<2> _INT<0> _DROPARGS<2,1> _RETURN",
+                 "_GETARG<-1> 0BRANCH<12> _INT<1> _INT<2> + BRANCH<5> _INT<0> _DROPARGS<2,1> _RETURN",
                  3);
     testParserXY("let z = 3+4; z",
                  "_LOCALS<1> _INT<3> _INT<4> + _SETARG<-1> _GETARG<0> _DROPARGS<3,1> _RETURN",
                  7);
 
     testParserXY("abs(-3)",
-                 "_INT<-3> _INTERP:<ABS> _DROPARGS<2,1> _RETURN",
+                 "_INT<-3> ABS _DROPARGS<2,1> _RETURN",
                  3);
     testParserXY("Max(x,y)",
-                 "_GETARG<-1> _GETARG<-1> _INTERP:<MAX> _DROPARGS<2,1> _RETURN",
+                 "_GETARG<-1> _GETARG<-1> MAX _DROPARGS<2,1> _RETURN",
                  8);
     testParserXY("abs(MAX(x,y))",
-                 "_GETARG<-1> _GETARG<-1> _INTERP2:<MAX> ABS _DROPARGS<2,1> _RETURN",
+                 "_GETARG<-1> _GETARG<-1> MAX ABS _DROPARGS<2,1> _RETURN",
                  8);
 
     testParser("(n# -- #) n > 1 if: recurse(n-1) * n else: n",
-               "_GETARG<0> _INT<1> > 0BRANCH<12> _GETARG<0> _INT<1> - _RECURSE<-14> _GETARG<-1> * BRANCH<2> _GETARG<0> _DROPARGS<1,1> _RETURN",
+               "_GETARG<0> _INT<1> > 0BRANCH<19> _GETARG<0> _INT<1> - _RECURSE<-18> _GETARG<-1> * BRANCH<5> _GETARG<0> _DROPARGS<1,1> _RETURN",
                {15},
                Value(1'307'674'368'000));
 
     testParser("(a# n# -- #) n > 1 if: recurse(a*n, n-1) else: a",
-               "_GETARG<0> _INT<1> > 0BRANCH<14> _GETARG<-1> _GETARG<-1> * _GETARG<-1> _INT<1> - _RECURSE<-19> BRANCH<2> _GETARG<-1> _DROPARGS<2,1> _RETURN",
+               "_GETARG<0> _INT<1> > 0BRANCH<22> _GETARG<-1> _GETARG<-1> * _GETARG<-1> _INT<1> - _RECURSE<-25> BRANCH<5> _GETARG<-1> _DROPARGS<2,1> _RETURN",
                {1, 3},
                Value(6));
     //TODO: Make tail recursion work! The _DROPARGS is preventing it

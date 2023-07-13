@@ -49,8 +49,8 @@ namespace tails::gc {
 
     void object::scanWord(const Word *word) {
         if (!word->isNative()) {
-            for (const Instruction* pc = word->instruction().param.word; *pc != core_words::_RETURN; pc = pc->next()) {
-                if (*pc == core_words::_LITERAL) {
+            for (const Instruction* pc = word->instruction().param.word; *pc != core_words::_RETURN.instruction(); pc = pc->next()) {
+                if (*pc == core_words::_LITERAL.instruction()) {
                     Value literal = pc->param.literal;  // copy so Value is 8-byte aligned
                     literal.mark();
                 }

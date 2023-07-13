@@ -64,18 +64,6 @@ namespace tails {
     #endif
 
 
-    union AfterInstruction;
-
-    /// A native word, implementing an Opcode, is a C++ function with this signature.
-    /// Interpreted words consist of an array of (mostly) Op pointers,
-    /// but some native ops are followed by a parameter read by the function.
-    /// @param sp  Stack pointer. Top is sp[0], below is sp[-1], sp[-2] ...
-    /// @param pc  Program counter. Points to the _next_ op to run.
-    /// @return    The updated stack pointer. (But almost all ops tail-call via `NEXT()`
-    ///            instead of explicitly returning a value.)
-    using Op = Value* (*)(Value *sp, const AfterInstruction* pc);
-
-
     // What comes after opcode of an Instruction: either a param or the next Instruction's opcode.
     union AfterInstruction {
         struct DropCount {          // Used by _DROPARGS instruction
@@ -127,17 +115,6 @@ namespace tails {
     inline bool operator== (const Instruction &a, const Instruction &b) {return a.opcode == b.opcode;}
     inline bool operator!= (const Instruction &a, const Instruction &b) {return !(a == b);}
 
-    /// Reads an instruction parameter from the code. For use in native words.
-    template <typename PARAM>
-    PARAM readParam(const AfterInstruction* &pc) {
-        PARAM p;
-        ::memcpy(&p, pc, sizeof(PARAM));
-        pc = offsetby(pc, sizeof(PARAM));
-        return p;
-    }
-
-    #define PARAM(P)    readParam<std::remove_const<__typeof(P)>::type>(pc)
-
     // The standard Forth NEXT routine, found at the end of every native op,
     // that jumps to the next op.
     // It uses tail-recursion, so (in an optimized build) it _literally does jump_,
@@ -155,5 +132,6 @@ namespace tails {
     static inline Value* call(Value *sp, const Instruction *start) {
         return _next(sp, (AfterInstruction*)start);
     }
+
 
 }
