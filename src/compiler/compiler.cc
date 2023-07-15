@@ -17,10 +17,10 @@
 //
 
 #include "compiler.hh"
-#include "compiler+stackcheck.hh"
 #include "assembler.hh"
 #include "disassembler.hh"
 #include "core_words.hh"
+#include "effect_stack.hh"
 #include "native_word.hh"
 #include "stack_effect_parser.hh"
 #include "utils.hh"
@@ -36,7 +36,7 @@ namespace tails {
     using namespace tails::core_words;
 
 
-#pragma mark - COMPILEDWORD:
+#pragma mark - COMPILED WORD:
 
 
     CompiledWord::CompiledWord(string &&name, StackEffect effect, vector<Opcode> &&instrs)
@@ -68,6 +68,19 @@ namespace tails {
     {
         _flags = word._flags;
     }
+
+
+#pragma mark - SOURCE WORD:
+
+
+    Compiler::SourceWord::SourceWord(const WordRef &ref, const char *source)
+    :WordRef(ref)
+    ,sourceCode(source)
+    { }
+
+    Compiler::SourceWord::~SourceWord() = default;
+    Compiler::SourceWord::SourceWord(SourceWord&&) = default;
+    Compiler::SourceWord& Compiler::SourceWord::operator=(Compiler::SourceWord&&) = default;
 
 
 #pragma mark - COMPILER:

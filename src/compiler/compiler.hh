@@ -188,6 +188,26 @@ namespace tails {
         /// The vocabularies the parser looks up words from
         static VocabularyStack activeVocabularies;
 
+        /// Extension of WordRef that adds private fields used by the compiler.
+        struct SourceWord : public WordRef {
+            SourceWord(const WordRef &ref, const char *source =nullptr);
+            ~SourceWord();
+            SourceWord(SourceWord&&);
+            SourceWord& operator=(SourceWord&&);
+
+            void branchesTo(InstructionPos pos) {
+                branchTo = pos;
+                pos->isBranchDestination = true;
+            }
+
+            const char*  sourceCode;                        // Points to source code where word appears
+            std::unique_ptr<EffectStack> knownStack;          // Stack effect at this point, once known
+            std::optional<InstructionPos> branchTo;         // Points to where a branch goes
+            int pc;                                         // Relative address during code-gen
+            bool isBranchDestination = false;               // True if a branch points here
+        };
+
+
     private:
         friend class CompiledWord;
 
@@ -204,7 +224,6 @@ namespace tails {
         void computeEffect();
         void computeEffect(InstructionPos i,
                            EffectStack stack);
-        StackEffect effectOfIFELSE(InstructionPos, EffectStack&);
 
         std::string                 _name;
         Word::Flags                 _flags {};

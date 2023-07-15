@@ -27,26 +27,10 @@ namespace tails {
 
 
     /// Definition of the Tails bytecodes, i.e. native words.
-    /// If this is changed you MUST also change the arrays `Opcodes` and `OpWords` in core_words.cc!
+    /// The actual opcodes are defined in opcodes.hh as a magic preprocessor thingy.
     enum class Opcode : uint8_t {
-        _INTERP, _TAILINTERP,
-        _LITERAL, _INT, _RETURN, _BRANCH, _ZBRANCH,
-        NOP, _RECURSE,
-        DROP, DUP, OVER, ROT, _ROTn, SWAP,
-        ZERO, ONE,
-        EQ, NE, EQ_ZERO, NE_ZERO,
-        GE, GT, GT_ZERO,
-        LE, LT, LT_ZERO,
-        ABS, MAX, MIN,
-        DIV, MOD, MINUS, MULT, PLUS,
-        CALL,
-        NULL_,
-        LENGTH,
-        IFELSE,
-        DEFINE,
-        _GETARG, _SETARG, _LOCALS, _DROPARGS,
-        PRINT, SP, NL, NLQ,
-
+#define DEFINE_OP(O) O,
+#include "opcodes.hh"
         none = 255
     };
 
@@ -88,11 +72,11 @@ namespace tails {
         Opcode              opcode = Opcode::none;  // Every instruction starts with an opcode
         AfterInstruction    param;
 
-        explicit constexpr Instruction(Opcode o)             :opcode(o) { }
-        explicit constexpr Instruction(const Instruction *w) {param.word = w;}
-        explicit constexpr Instruction(Value v)              {param.literal = v;}
+        explicit constexpr Instruction(Opcode o)             :opcode(o) {param.word = nullptr; }
+        explicit constexpr Instruction(const Instruction *w) :opcode(Opcode::_INTERP) {param.word = w;}
+        explicit constexpr Instruction(Value v)              :opcode(Opcode::_LITERAL) {param.literal = v;}
         explicit constexpr Instruction(AfterInstruction::DropCount d) {param.drop = d;}
-        explicit constexpr Instruction(int16_t o)   {param.offset = o;}
+        explicit constexpr Instruction(int16_t o)            {param.offset = o;}
 
         static constexpr Instruction withOffset(int16_t o) {return Instruction(o);}
 
@@ -109,10 +93,14 @@ namespace tails {
     private:
         friend class Word;
         friend class WordRef;
-        constexpr Instruction()                     :Instruction(nullptr) { }
+        constexpr Instruction()                     :Instruction(Opcode::none) { }
     };
 
-    inline bool operator== (const Instruction &a, const Instruction &b) {return a.opcode == b.opcode;}
+    inline bool operator== (const Instruction &a, const Instruction &b) {
+        // Compare opcodes; but INTERP_ instructions also have to point to the same Word.
+        return a.opcode == b.opcode && (a.opcode != Opcode::_INTERP || a.param.word == b.param.word);
+    }
+
     inline bool operator!= (const Instruction &a, const Instruction &b) {return !(a == b);}
 
     // The standard Forth NEXT routine, found at the end of every native op,

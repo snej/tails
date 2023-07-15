@@ -387,46 +387,16 @@ namespace tails {
         Value* f_NLQ(Value *sp, const AfterInstruction* pc);  // more_words.cc
     }
 
-    /// If this is changed you MUST also change the type `Opcode` in instruction.hh!
+    // The native function pointer for each opcode.
     static const Op Opcodes[256] = {
-        &f__INTERP, &f__TAILINTERP,
-        &f__LITERAL, &f__INT, &f__RETURN, &f__BRANCH, &f__ZBRANCH,
-        &f_NOP, &f__RECURSE,
-        &f_DROP, &f_DUP, &f_OVER, &f_ROT, f__ROTn, &f_SWAP,
-        &f_ZERO, &f_ONE,
-        &f_EQ, &f_NE, &f_EQ_ZERO, &f_NE_ZERO,
-        &f_GE, &f_GT, &f_GT_ZERO,
-        &f_LE, &f_LT, &f_LT_ZERO,
-        &f_ABS, &f_MAX, &f_MIN,
-        &f_DIV, &f_MOD, &f_MINUS, &f_MULT, &f_PLUS,
-        &f_CALL,
-        &f_NULL_,
-        &f_LENGTH,
-        &f_IFELSE,
-        &f_DEFINE,
-        &f__GETARG, &f__SETARG, &f__LOCALS, &f__DROPARGS,
-        &f_PRINT, &f_SP, &f_NL, &f_NLQ,
+#define DEFINE_OP(O) &f_##O,
+#include "opcodes.hh"
     };
 
-    /// If this is changed you MUST also change the type `Opcode` in instruction.hh!
+    // The Word describing each opcode.
     const Word* const OpWords[256] = {
-        &_INTERP, &_TAILINTERP,
-        &_LITERAL, &_INT, &_RETURN, &_BRANCH, &_ZBRANCH,
-        &NOP, &_RECURSE,
-        &DROP, &DUP, &OVER, &ROT, &_ROTn, &SWAP,
-        &ZERO, &ONE,
-        &EQ, &NE, &EQ_ZERO, &NE_ZERO,
-        &GE, &GT, &GT_ZERO,
-        &LE, &LT, &LT_ZERO,
-        &ABS, &MAX, &MIN,
-        &DIV, &MOD, &MINUS, &MULT, &PLUS,
-        &CALL,
-        &NULL_,
-        &LENGTH,
-        &IFELSE,
-        &DEFINE,
-        &_GETARG, &_SETARG, &_LOCALS, &_DROPARGS,
-        &PRINT, &SP, &NL, &NLQ,
+#define DEFINE_OP(O) &O,
+#include "opcodes.hh"
     };
 
 

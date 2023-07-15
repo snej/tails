@@ -32,7 +32,7 @@
 		275B4D2F2A5C750A00E00723 /* stack_effect.cc in Sources */ = {isa = PBXBuildFile; fileRef = 275B4D2E2A5C750A00E00723 /* stack_effect.cc */; };
 		275B4D302A5C750A00E00723 /* stack_effect.cc in Sources */ = {isa = PBXBuildFile; fileRef = 275B4D2E2A5C750A00E00723 /* stack_effect.cc */; };
 		275B4D332A5F202800E00723 /* test_utils.cc in Sources */ = {isa = PBXBuildFile; fileRef = 275B4D322A5F202800E00723 /* test_utils.cc */; };
-		27783695266164930025D97F /* compiler+stackcheck.hh in Sources */ = {isa = PBXBuildFile; fileRef = 27783694266164930025D97F /* compiler+stackcheck.hh */; };
+		27783695266164930025D97F /* compiler+stackcheck.cc in Sources */ = {isa = PBXBuildFile; fileRef = 27783694266164930025D97F /* compiler+stackcheck.cc */; };
 		27AC392A2A40D32A00C9A8E6 /* tokenizer.cc in Sources */ = {isa = PBXBuildFile; fileRef = 27AC39292A40D32A00C9A8E6 /* tokenizer.cc */; };
 		27AC392D2A40E57E00C9A8E6 /* parser.cc in Sources */ = {isa = PBXBuildFile; fileRef = 27AC392C2A40E57E00C9A8E6 /* parser.cc */; };
 		27AC392F2A40F95E00C9A8E6 /* test_parser.cc in Sources */ = {isa = PBXBuildFile; fileRef = 27AC392E2A40F95E00C9A8E6 /* test_parser.cc */; };
@@ -43,6 +43,7 @@
 		27D7D9DD2A4DEDED0058B3BF /* symbol.cc in Sources */ = {isa = PBXBuildFile; fileRef = 27D7D9DB2A4DEDED0058B3BF /* symbol.cc */; };
 		27F6FE9A2A61F8C8007629FC /* effect_stack.cc in Sources */ = {isa = PBXBuildFile; fileRef = 27F6FE992A61F8C8007629FC /* effect_stack.cc */; };
 		27F6FE9B2A61F8C8007629FC /* effect_stack.cc in Sources */ = {isa = PBXBuildFile; fileRef = 27F6FE992A61F8C8007629FC /* effect_stack.cc */; };
+		27F6FE9C2A6226CD007629FC /* compiler+stackcheck.cc in Sources */ = {isa = PBXBuildFile; fileRef = 27783694266164930025D97F /* compiler+stackcheck.cc */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -134,7 +135,8 @@
 		275B4D322A5F202800E00723 /* test_utils.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = test_utils.cc; sourceTree = "<group>"; };
 		275B4D342A5F7A4E00E00723 /* native_word.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = native_word.hh; sourceTree = "<group>"; };
 		27736CBB26714B9200655493 /* Syntax.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = Syntax.md; sourceTree = "<group>"; };
-		27783694266164930025D97F /* compiler+stackcheck.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = "compiler+stackcheck.hh"; sourceTree = "<group>"; };
+		27783694266164930025D97F /* compiler+stackcheck.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = "compiler+stackcheck.cc"; sourceTree = "<group>"; };
+		2791006C2A6307A6004A6887 /* opcodes.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = opcodes.hh; sourceTree = "<group>"; };
 		27AC39282A40D32A00C9A8E6 /* tokenizer.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = tokenizer.hh; sourceTree = "<group>"; };
 		27AC39292A40D32A00C9A8E6 /* tokenizer.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = tokenizer.cc; sourceTree = "<group>"; };
 		27AC392B2A40E57E00C9A8E6 /* parser.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = parser.hh; sourceTree = "<group>"; };
@@ -283,9 +285,9 @@
 				27F6FE992A61F8C8007629FC /* effect_stack.cc */,
 				273B20AF2645D67000A14EC4 /* compiler.hh */,
 				273B20B02645D67000A14EC4 /* compiler.cc */,
-				275B4D312A5C8F1E00E00723 /* assembler.hh */,
 				2732FA2A2655E89D0013063A /* compiler+parser.cc */,
-				27783694266164930025D97F /* compiler+stackcheck.hh */,
+				27783694266164930025D97F /* compiler+stackcheck.cc */,
+				275B4D312A5C8F1E00E00723 /* assembler.hh */,
 				27BE51902661C2050010DC42 /* disassembler.hh */,
 			);
 			path = compiler;
@@ -297,6 +299,7 @@
 				273B209B26434B6B00A14EC4 /* platform.hh */,
 				27BE518F266190850010DC42 /* utils.hh */,
 				273B20922643479600A14EC4 /* instruction.hh */,
+				2791006C2A6307A6004A6887 /* opcodes.hh */,
 				275B4D2E2A5C750A00E00723 /* stack_effect.cc */,
 				2732FA0D26543FBF0013063A /* stack_effect.hh */,
 				27AC39322A427CBB00C9A8E6 /* type_set.hh */,
@@ -492,6 +495,7 @@
 				27AC392F2A40F95E00C9A8E6 /* test_parser.cc in Sources */,
 				27D7D9D62A49F9AE0058B3BF /* TestsMain.cc in Sources */,
 				2732F9EB2652DE510013063A /* vocabulary.cc in Sources */,
+				27F6FE9C2A6226CD007629FC /* compiler+stackcheck.cc in Sources */,
 				2732FA2C2655E8DB0013063A /* compiler+parser.cc in Sources */,
 				275B4D302A5C750A00E00723 /* stack_effect.cc in Sources */,
 				2732F9ED2652DE510013063A /* compiler.cc in Sources */,
@@ -510,7 +514,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				27783695266164930025D97F /* compiler+stackcheck.hh in Sources */,
+				27783695266164930025D97F /* compiler+stackcheck.cc in Sources */,
 				27AC392A2A40D32A00C9A8E6 /* tokenizer.cc in Sources */,
 				27AC392D2A40E57E00C9A8E6 /* parser.cc in Sources */,
 				273B209A26434A1100A14EC4 /* vocabulary.cc in Sources */,
