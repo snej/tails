@@ -32,7 +32,7 @@ namespace tails {
 
         /// Creates a StackEffect from a human-readable stack effect declaration.
         /// See the above \ref _parseStackEffect function for details.
-        constexpr StackEffect parse(const char *str, const char *end) {
+        StackEffect parse(const char *str, const char *end) {
             _parseStackEffect(str, end);
             return effect;
         }
@@ -40,7 +40,7 @@ namespace tails {
 
         /// Creates a StackEffect from a human-readable stack effect declaration.
         /// See the above \ref _parseStackEffect function for details.
-        constexpr StackEffect parse(const char *str) {
+        StackEffect parse(const char *str) {
             return parse(str, str + _strlen(str));
         }
 
@@ -52,7 +52,7 @@ namespace tails {
 
     private:
         // Adds a type to a TypeSet given its stack-effect symbol.
-        static constexpr void addTypeSymbol(TypeSet &ts, char const* symbol) {
+        static void addTypeSymbol(ROMTypeSet &ts, char const* symbol) {
             switch (*symbol) {
                 case '?':           ts.addType(Value::ANull); break;
                 case '$':           ts.addType(Value::AString); break;
@@ -77,7 +77,7 @@ namespace tails {
         /// - `[` or `]` means a quotation
         /// - If more than one type is given, either is allowed.
         /// - If no types are given, or only null, then any type is allowed.
-        static constexpr TypeSet parseTypeSet(const char *token, const char *tokenEnd = nullptr) {
+        static TypeSet parseTypeSet(const char *token, const char *tokenEnd = nullptr) {
             TypeSet ts;
             while (token != tokenEnd && *token)
                 addTypeSymbol(ts, token++);
@@ -94,12 +94,12 @@ namespace tails {
         /// - If an output token exactly matches an input, and contains alphanumerics, that means it
         ///   has the same type as that input. So output "x" matches input "x". Output "n#?" matches
         ///   input "n#?" but not "n#". Output "#" can't match anything.
-        constexpr void _parseStackEffect(const char *str, const char *end) {
+        void _parseStackEffect(const char *str, const char *end) {
             effect = StackEffect();
             inputNames.clear();
             outputNames.clear();
 
-            auto entry = effect._entries.begin();                   // Current TypeSet being populated
+            TypeSet entry;                   // Current TypeSet being populated
             bool inputs = true;                                     // Are we still parsing inputs?
             const char *token = nullptr;                            // Current token, or NULL
             const char *tokenNameBegin = nullptr;                              // Does token have alphanumerics?
@@ -109,8 +109,8 @@ namespace tails {
                 if (c == end || *c == 0 || *c == ' ' || *c == '\t') {
                     if (token) {
                         // End of token:
-                        if (!entry->exists() || entry->flags() == 0x1)
-                            entry->addAllTypes();
+                        if (!entry.exists() || entry.flags() == 0x1)
+                            entry.addAllTypes();
                         std::string_view name;
                         if (tokenNameBegin) {
                             if (!tokenNameEnd)
@@ -118,21 +118,21 @@ namespace tails {
                             name = std::string_view(tokenNameBegin, tokenNameEnd);
                         }
                         if (inputs) {
+                            effect.addInput(entry);
                             inputNames.push_back(name);
-                            ++effect._ins;
                         } else {
                             // look for input token match:
                             if (tokenNameBegin) {
                                 if (auto i = std::find(inputNames.begin(), inputNames.end(), name); i != inputNames.end()) {
                                     name = *i;
                                     auto inputNo = (inputNames.size() - 1) - (i - inputNames.begin());
-                                    entry->setInputMatch(effect._entries[inputNo], unsigned(inputNo));
+                                    entry.setInputMatch(effect.inputs()[inputNo], unsigned(inputNo));
                                 }
                             }
+                            effect.addOutput(entry);
                             outputNames.push_back(name);
-                            ++effect._outs;
                         }
-                        ++entry;
+                        entry = TypeSet();
                         token = nullptr;
                         tokenNameBegin = tokenNameEnd = nullptr;
                     }
@@ -145,11 +145,10 @@ namespace tails {
                 } else {
                     if (!token) {
                         // Start of token:
-                        effect.checkNotFull();
                         token = c;
                     }
                     // Add character to token:
-                    addTypeSymbol(*entry, c);
+                    addTypeSymbol(entry, c);
                     if (_isalpha(*c) || *c == '_') {
                         if (!tokenNameBegin)
                             tokenNameBegin = c;
@@ -162,7 +161,6 @@ namespace tails {
             }
             if (inputs)
                 throw compile_error("Missing stack separator", end);
-            effect.setMax();
             std::reverse(inputNames.begin(), inputNames.end());
             std::reverse(outputNames.begin(), outputNames.end());
         }
@@ -171,7 +169,7 @@ namespace tails {
 
     /// Special operator that lets you create a StackEffect by suffixing its string literal form
     /// with `_sfx`.
-    constexpr static inline StackEffect operator""_sfx (const char *str, size_t len) {
+    static inline StackEffect operator""_sfx (const char *str, size_t len) {
         return StackEffectParser().parse(str, str + len);
     }
 }

@@ -20,6 +20,8 @@
 #include "utils.hh"
 #include "word.hh"
 #include <compare>
+#include <iosfwd>
+#include <iostream>//TEMP
 #include <optional>
 #include <variant>
 
@@ -37,7 +39,15 @@ namespace tails {
         Value const* if_literal() const         {return std::get_if<Value>(&_v);}
 
         TypeSet types() const {
-            return isLiteral() ? TypeSet(literal().type()) : std::get<TypeSet>(_v);
+            if (isLiteral()) {
+                auto type = literal().type();
+                TypeSet result(type);
+                if (type == Value::AQuote)
+                    result.withQuoteEffect(literal().asQuote()->stackEffect());
+                return result;
+            } else {
+                return std::get<TypeSet>(_v);
+            }
         }
 
         friend bool operator==(TypeItem const&, TypeItem const&) = default;
@@ -47,6 +57,8 @@ namespace tails {
         }
 
         TypeItem& operator |= (TypeItem const& b) {*this = *this | b; return *this;}
+
+        friend std::ostream& operator<< (std::ostream&, TypeItem const&);
 
     private:
         std::variant<TypeSet,Value> _v;
@@ -98,6 +110,35 @@ namespace tails {
             _maxDepth = std::max(_maxDepth, depth());
         }
 
+        /// Pops the top of the stack, returning the TypeItem.
+        TypeItem pop() {
+            if (_stack.empty())
+                throw compile_error("Stack underflow", nullptr);
+            TypeItem top = _stack.back();
+            _stack.pop_back();
+            return top;
+        }
+
+        /// Pushes the item at depth 'n'.
+        void over(int n) {
+            assert(n >= 0);
+            _stack.push_back(at(n));
+        }
+
+        // Arbitrary stack rotation. Positive n moves item at depth n to the top of the stack;
+        // negative n moves the top of the stack to depth n. Emulates the ROTn instruction.
+        void rotate(int n) {
+            if (depth() < n)
+                throw compile_error("Stack underflow", nullptr);
+            if (n > 0) {
+                _stack.push_back(_at(n));
+                _stack.erase(_stack.end() - 1 - n - 1);
+            } else if (n < 0) {
+                _stack.insert(_stack.end() + n - 1, _stack.back());
+                _stack.pop_back();
+            }
+       }
+
         /// Inserts a type at the _bottom_ of the stack -- used if deducing the input effect.
         void addAtBottom(TypeSet entry) {
             _stack.insert(_stack.begin(), TypeItem(entry));
@@ -140,6 +181,11 @@ namespace tails {
             }
         }
 
+        void setLocalType(int index, TypeSet type) {
+            assert(index < _stack.size());
+            _at(index) = TypeItem(type);
+        }
+
         /// Erases stack items from begin to end (non-inclusive.) Top of stack is 0.
         void erase(size_t begin, size_t end) {
             assert(begin <= end);
@@ -153,7 +199,7 @@ namespace tails {
             if (d != other.depth())
                 throw compile_error("Inconsistent stack depth", sourceCode);
             for (size_t i = 0; i < d; ++i)
-                at(i) |= other.at(i);
+                _at(i) |= other.at(i);
         }
 
         /// Checks whether the current stack matches a StackEffect's outputs.
@@ -185,12 +231,15 @@ namespace tails {
             }
         }
 
+        std::string dump() const;
+        friend std::ostream& operator<< (std::ostream&, EffectStack const&);
+
     private:
-        TypeItem& at(size_t i)  {return _stack[_stack.size() - 1 - i];}
+        TypeItem& _at(size_t i)  {return _stack[_stack.size() - 1 - i];}
 
         /// Checks if the stack items all match the allowed TypesView;
         /// if not, returns the invalid types and the stack position.
-        std::pair<TypeSet,int> typeCheck(TypesView types) const {
+        std::pair<TypeSet,int> typeCheck(std::vector<TypeSet> const& types) const {
             for (int i = 0; i < types.size(); ++i) {
                 if (TypeSet badTypes = at(i).types() - types[i])
                     return {badTypes, i};

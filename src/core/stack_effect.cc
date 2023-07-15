@@ -21,5 +21,17 @@
 
 namespace tails {
 
+    TypeSet& TypeSet::withQuoteEffect(StackEffect const& fx) {
+        addType(Value::AQuote);
+        _quoteEffect = std::make_shared<StackEffect>(std::move(fx));
+        return *this;
+    }
+
+    std::optional<StackEffect> TypeSet::quoteEffect() const {
+        if (_quoteEffect)
+            return *_quoteEffect;
+        else
+            return std::nullopt;
+    }
 
 }

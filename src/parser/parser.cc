@@ -124,20 +124,26 @@ namespace tails {
     }
 
     [[noreturn]] void Parser::fail(std::string&& message) {
-        throw compile_error(std::move(message), _tokens.position());
+          throw compile_error(std::move(message), _tokens.position());
     }
 
 
     StackEffect Parser::compileLiteral(Value literal) {
         _compiler->add(literal);
         _stack.push(literal);
-        return StackEffect({}, {literal.type()});
+        return StackEffect({}, {TypeSet(literal.type())});
     }
 
     void Parser::compileCall(Word const& word) {
         if (word == core_words::_RECURSE) {
             _compiler->addRecurse();
             _stack.add(word, _effect, _tokens.position());
+        } else if (word == core_words::CALL) {
+            auto quoteEffect = _stack.pop().types().quoteEffect();
+            if (!quoteEffect)
+                fail("Can't call this value");
+            _compiler->add(word, _tokens.position());
+            _stack.add(word, *quoteEffect, _tokens.position());
         } else {
             _compiler->add(word);
             _stack.add(word, word.stackEffect(), _tokens.position());

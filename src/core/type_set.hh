@@ -26,22 +26,23 @@
 #include <stdint.h>
 
 namespace tails {
+    class StackEffect;
 
     /// A set of Value types. Describes one item, an input or output, in a word's stack effect.
     /// If it's a StackEffect output, it can optionally declare that it matches type of an input.
-    class TypeSet {
+    class ROMTypeSet {
     public:
-        constexpr TypeSet() { }
+        constexpr ROMTypeSet() { }
 
-        constexpr TypeSet(Value::Type type)        {addType(type);}
+        constexpr ROMTypeSet(Value::Type type)        {addType(type);}
 
-        constexpr TypeSet(std::initializer_list<Value::Type> types) {
+        constexpr ROMTypeSet(std::initializer_list<Value::Type> types) {
             for (auto type : types)
                 addType(type);
         }
 
-        constexpr static TypeSet anyType()                  {return TypeSet(kTypeFlags);}
-        constexpr static TypeSet noType()                   {return TypeSet();}
+        constexpr static ROMTypeSet anyType()                  {return ROMTypeSet(kTypeFlags);}
+        constexpr static ROMTypeSet noType()                   {return ROMTypeSet();}
 
         constexpr bool exists() const                       {return _flags != 0;}
         constexpr bool canBeAnyType() const                 {return typeFlags() == kTypeFlags;}
@@ -60,32 +61,32 @@ namespace tails {
         }
 
         constexpr void addType(Value::Type type)            {_flags |= (1 << int(type));}
-        constexpr void addAllTypes()                        {_flags = kTypeFlags;}
+        void addAllTypes()                        {_flags = kTypeFlags;}
 
-        constexpr void setTypes(TypeSet t) {
+        void setTypes(ROMTypeSet t) {
             _flags = t.typeFlags() | (_flags & kInputMatchFlags);
         }
 
         /// True if the type matches the type of an input in a StackEffect.
-        constexpr bool isInputMatch() const               {return (_flags & kInputMatchFlags) != 0;}
+        bool isInputMatch() const               {return (_flags & kInputMatchFlags) != 0;}
         /// The index of the StackEffect input that this matches.
-        constexpr int inputMatch() const                    {return (_flags >> kNumTypes) - 1;}
+        int inputMatch() const                    {return (_flags >> kNumTypes) - 1;}
 
         /// Declares that this TypeSet matches an input's type.
-        constexpr void setInputMatch(TypeSet inputType, unsigned inputNo) {
+        constexpr void setInputMatch(ROMTypeSet inputType, unsigned inputNo) {
             assert(inputNo <= 6);
             _flags = ((inputNo+1) << kNumTypes) | (inputType._flags & kTypeFlags);
         }
 
         /// Adds an input index without changing my declared type.
         /// Used when declaring built-in words.
-        constexpr TypeSet operator/ (unsigned inputNo) const {
+        constexpr ROMTypeSet operator/ (unsigned inputNo) const {
             assert(inputNo <= 6);
-            return TypeSet(typeFlags() | ((inputNo+1) << kNumTypes));
+            return ROMTypeSet(typeFlags() | ((inputNo+1) << kNumTypes));
         }
 
         /// I am "greater than" another entry if I support types it doesn't.
-        constexpr int compare(const TypeSet &other) const {
+        int compare(const ROMTypeSet &other) const {
             if (typeFlags() == other.typeFlags())
                 return 0;
             else if ((typeFlags() & ~other.typeFlags()) != 0)
@@ -94,18 +95,18 @@ namespace tails {
                 return -1;
         }
 
-        constexpr bool operator== (const TypeSet &other) const   {return compare(other) == 0;}
-        constexpr bool operator!= (const TypeSet &other) const   {return compare(other) != 0;}
-        constexpr bool operator>  (const TypeSet &other) const   {return compare(other) > 0;}
-        constexpr bool operator<  (const TypeSet &other) const   {return compare(other) < 0;}
+        bool operator== (const ROMTypeSet &other) const   {return compare(other) == 0;}
+        bool operator!= (const ROMTypeSet &other) const   {return compare(other) != 0;}
+        bool operator>  (const ROMTypeSet &other) const   {return compare(other) > 0;}
+        bool operator<  (const ROMTypeSet &other) const   {return compare(other) < 0;}
 
         constexpr explicit operator bool() const                 {return exists();}
 
-        constexpr TypeSet operator| (TypeSet s) const {return (_flags | s._flags) & kTypeFlags;}
-        constexpr TypeSet operator& (TypeSet s) const {return (_flags & s._flags) & kTypeFlags;}
-        constexpr TypeSet operator- (TypeSet s) const {return (_flags & ~s._flags) & kTypeFlags;}
+        constexpr ROMTypeSet operator| (ROMTypeSet s) const {return (_flags | s._flags) & kTypeFlags;}
+        ROMTypeSet operator& (ROMTypeSet s) const {return (_flags & s._flags) & kTypeFlags;}
+        ROMTypeSet operator- (ROMTypeSet s) const {return (_flags & ~s._flags) & kTypeFlags;}
 
-        constexpr TypeSet& operator|= (TypeSet s) &              {*this = *this | s; return *this;}
+        ROMTypeSet& operator|= (ROMTypeSet s) &              {*this = *this | s; return *this;}
 
         constexpr uint8_t typeFlags() const                      {return _flags & kTypeFlags;}
         constexpr uint8_t flags() const                          {return _flags;} // tests only
@@ -128,7 +129,7 @@ namespace tails {
         }
 
     private:
-        constexpr TypeSet(int flags) :_flags(uint8_t(flags)) { }
+        constexpr ROMTypeSet(int flags) :_flags(uint8_t(flags)) { }
 
         static constexpr int kNumTypes = 5;
         static constexpr uint8_t kTypeFlags = (1 << kNumTypes) - 1;
@@ -138,52 +139,16 @@ namespace tails {
     };
 
 
-
-    /// A reference to a list of TypeSets. (Basically like a C++20 range.)
-    /// The items in memory are in stack bottom-to-top order,
-    /// but the API pretends they are top-to-bottom: `[0]` is the top, `[1]` is below it, etc.
-    class TypesView {
+    class TypeSet : public ROMTypeSet {
     public:
-        constexpr TypesView()                           :_bottom(nullptr), _top(nullptr) { }
+        TypeSet() = default;
+        TypeSet(ROMTypeSet ts)  :ROMTypeSet(ts) { }
 
-        constexpr TypesView(TypeSet *bottom, TypeSet *top)
-        :_bottom(bottom), _top(top + 1)
-        { assert(bottom && top && _bottom <= _top); }
-
-        constexpr TypesView(TypeSet *bottom, size_t size)
-        :TypesView(bottom, bottom + size - 1)
-        { }
-
-        constexpr int size() const                      {return int(_top - _bottom);}
-
-        // Indexing is from the top of the stack
-        constexpr TypeSet operator[] (size_t i) const   {assert (i < size()); return *(_top-1-i);}
-        constexpr TypeSet& operator[] (size_t i)        {assert (i < size()); return *(_top-1-i);}
-
-        // rbegin/rend start at the bottom of the stack
-        // (begin() / end() would take more work to implement since ++ needs to decrement the ptr)
-        constexpr const TypeSet* rbegin() const         {return _bottom;}
-        constexpr TypeSet* rbegin()                     {return _bottom;}
-        constexpr const TypeSet* rend() const           {return _top;}
-        constexpr TypeSet* rend()                       {return _top;}
-
-        constexpr bool operator== (const TypesView &other) const {
-            auto sz = size();
-            if (sz != other.size())
-                return false;
-            for (size_t i = 0; i < sz; ++i)
-                if (_bottom[i] != other._bottom[i])
-                    return false;
-            return true;
-        }
-
-        constexpr bool operator!= (const TypesView &other) const {
-            return !(*this == other);
-        }
+        TypeSet& withQuoteEffect(StackEffect const& fx);
+        std::optional<StackEffect> quoteEffect() const;
 
     private:
-        TypeSet* const _bottom; // bottom of stack
-        TypeSet* const _top;    // 1 past top of stack
+        std::shared_ptr<StackEffect> _quoteEffect;
     };
 
 }

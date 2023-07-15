@@ -11,7 +11,7 @@ namespace tails::word {
 
     void endLine();
 
-    extern const Word
+    extern const ROMWord
         PRINT,  // `.` -- print top of stack to stdout
         SP,     // `SP.` -- print a space character
         NL,     // `NL.` -- print a newline

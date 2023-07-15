@@ -184,11 +184,18 @@ namespace tails {
                 return x;
             }).makePostfix(60_pri, [](StackEffect const& lhs, Parser &parser) {
                 // Postfix parentheses are a function call:
-                if (lhs.outputCount() != 1 || lhs.outputs()[0] != TypeSet(Value::AQuote))
+                optional<StackEffect> quoteEffect;
+                if (lhs.outputCount() != 1 || lhs.outputs()[0] != Value::AQuote)
                     parser.fail("This isn't callable");
-                parseParameterList(parser, "a quote");
+                quoteEffect = lhs.outputs()[0].quoteEffect();
+                if (!quoteEffect)
+                    parser.fail("This quote's parameters/result aren't known");
+                auto nParams = quoteEffect->inputCount();
+                parseParameterList(parser, "a quote", nParams);
+                if (nParams > 0)
+                    parser.compiler().add(&core_words::_ROTn, int16_t(nParams));
                 parser.compileCall(core_words::CALL);
-                return " -- ?"_sfx; //FIXME: We don't know what the quote really returns
+                return StackEffect({}, quoteEffect->outputs());
             }));
 
             // Curly braces define a quote/block:
@@ -197,9 +204,7 @@ namespace tails {
                 SmolParser quoteParser;
                 CompiledWord* quote = quoteParser.compileRestOfQuote(dynamic_cast<SmolParser&>(parser));
                 parser.compileLiteral(Value(quote));
-                StackEffect effect;
-               // effect.addOutput(TypeSet::quoteWithEffect(quote->stackEffect()));
-                return effect;
+                return StackEffect{ {}, {TypeSet().withQuoteEffect(quote->stackEffect())} };
             }));
 
             // ';' separates expressions. All but the last have their output values dropped.
@@ -213,7 +218,7 @@ namespace tails {
                     auto rhs = parser.nextExpression(1_pri);
                     if (rhs.inputCount() > 0)
                         parser.fail("stack underflow, RHS of ';'");
-                    return StackEffect(lhs.inputs(), TypesView{});
+                    return StackEffect(lhs.inputs(), {});
                 }
             }));
 

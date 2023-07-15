@@ -128,10 +128,8 @@ TEST_CASE("Pratt Parser") {
                Value(6));
     //TODO: Make tail recursion work! The _DROPARGS is preventing it
 
-#if 0 // FIXME: This test doesn't work yet
     testParser("( -- #) let q = {3+4}; q()",
-               "_LITERAL<{( -- #)}> _RETURN",
+               "_LOCALS<1> _LITERAL<{( -- #)}> _SETARG<-1> _GETARG<0> CALL _DROPARGS<1,1> _RETURN",
                {},
-               0);
-#endif
+               Value(7));
 }

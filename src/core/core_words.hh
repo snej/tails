@@ -23,11 +23,11 @@
 namespace tails::core_words {
 
     /// All the words defined herein.
-    extern const Word
+    extern const ROMWord
         _INTERP, _TAILINTERP,
         _RETURN, _LITERAL, _INT,
         NOP, _RECURSE,
-        DROP, DUP, OVER, ROT, SWAP, _OVERN,
+        DROP, DUP, OVER, ROT, SWAP, _ROTn,
         EQ, NE, EQ_ZERO, NE_ZERO,
         GE, GT, GT_ZERO,
         LE, LT, LT_ZERO,

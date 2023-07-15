@@ -31,19 +31,19 @@ namespace tails::word {
 
     static bool sAtLeftMargin = true;
 
-    NATIVE_WORD(PRINT, ".", "a --"_sfx) {
+    NATIVE_WORD(PRINT, ".", ROMStackEffect{{ROMTypeSet::anyType()}, {}}) {
         std::cout << *(sp--);
         sAtLeftMargin = false;
         NEXT();
     }
 
-    NATIVE_WORD(SP, "SP.", "--"_sfx) {
+    NATIVE_WORD(SP, "SP.", ROMStackEffect{}) {
         std::cout << ' ';
         sAtLeftMargin = false;
         NEXT();
     }
 
-    NATIVE_WORD(NL, "NL.", "--"_sfx) {
+    NATIVE_WORD(NL, "NL.", ROMStackEffect{}) {
         std::cout << '\n';
         sAtLeftMargin = true;
         NEXT();
@@ -56,7 +56,7 @@ namespace tails::word {
         }
     }
 
-    NATIVE_WORD(NLQ, "NL?", "--"_sfx) {
+    NATIVE_WORD(NLQ, "NL?", ROMStackEffect{}) {
         endLine();
         NEXT();
     }

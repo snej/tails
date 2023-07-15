@@ -44,6 +44,7 @@ namespace tails {
     ,_instrs(move(instrs))
     {
         _effect = effect;
+        _romEffect = &_effect;
         _instr = Instruction((Instruction*)&_instrs.front());
         if (!_nameStr.empty()) {
             _name = _nameStr.c_str();
@@ -319,7 +320,7 @@ namespace tails {
 
     namespace core_words {
 
-        NATIVE_WORD(DEFINE, "DEFINE", "{code} $name -- "_sfx) {
+        NATIVE_WORD(DEFINE, "DEFINE", ROMStackEffect{ {Value::AQuote, Value::AString}, {} }) {
             auto name = sp[0].asString();
             auto quote = (const CompiledWord*)sp[-1].asQuote();
             sp -= 2;

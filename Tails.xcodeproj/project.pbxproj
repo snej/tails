@@ -41,6 +41,8 @@
 		27D7D9D62A49F9AE0058B3BF /* TestsMain.cc in Sources */ = {isa = PBXBuildFile; fileRef = 27D7D9D52A49F9AE0058B3BF /* TestsMain.cc */; };
 		27D7D9DC2A4DEDED0058B3BF /* symbol.cc in Sources */ = {isa = PBXBuildFile; fileRef = 27D7D9DB2A4DEDED0058B3BF /* symbol.cc */; };
 		27D7D9DD2A4DEDED0058B3BF /* symbol.cc in Sources */ = {isa = PBXBuildFile; fileRef = 27D7D9DB2A4DEDED0058B3BF /* symbol.cc */; };
+		27F6FE9A2A61F8C8007629FC /* effect_stack.cc in Sources */ = {isa = PBXBuildFile; fileRef = 27F6FE992A61F8C8007629FC /* effect_stack.cc */; };
+		27F6FE9B2A61F8C8007629FC /* effect_stack.cc in Sources */ = {isa = PBXBuildFile; fileRef = 27F6FE992A61F8C8007629FC /* effect_stack.cc */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -151,6 +153,7 @@
 		27D7D9D92A4A067B0058B3BF /* smoltalk.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = smoltalk.hh; sourceTree = "<group>"; };
 		27D7D9DA2A4DED4C0058B3BF /* symbol.hh */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = symbol.hh; sourceTree = "<group>"; };
 		27D7D9DB2A4DEDED0058B3BF /* symbol.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = symbol.cc; sourceTree = "<group>"; };
+		27F6FE992A61F8C8007629FC /* effect_stack.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = effect_stack.cc; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -277,6 +280,7 @@
 				273B209826434A1000A14EC4 /* vocabulary.hh */,
 				2753DACE2666E1BD008EBCE0 /* stack_effect_parser.hh */,
 				27AC39332A44B45E00C9A8E6 /* effect_stack.hh */,
+				27F6FE992A61F8C8007629FC /* effect_stack.cc */,
 				273B20AF2645D67000A14EC4 /* compiler.hh */,
 				273B20B02645D67000A14EC4 /* compiler.cc */,
 				275B4D312A5C8F1E00E00723 /* assembler.hh */,
@@ -491,6 +495,7 @@
 				2732FA2C2655E8DB0013063A /* compiler+parser.cc in Sources */,
 				275B4D302A5C750A00E00723 /* stack_effect.cc in Sources */,
 				2732F9ED2652DE510013063A /* compiler.cc in Sources */,
+				27F6FE9B2A61F8C8007629FC /* effect_stack.cc in Sources */,
 				2753DAD42667EAFE008EBCE0 /* more_words.cc in Sources */,
 				27D7D9DD2A4DEDED0058B3BF /* symbol.cc in Sources */,
 				275B4D332A5F202800E00723 /* test_utils.cc in Sources */,
@@ -516,6 +521,7 @@
 				27D7D9DC2A4DEDED0058B3BF /* symbol.cc in Sources */,
 				273B20B12645D67000A14EC4 /* compiler.cc in Sources */,
 				2753DACF2666E1BD008EBCE0 /* stack_effect_parser.hh in Sources */,
+				27F6FE9A2A61F8C8007629FC /* effect_stack.cc in Sources */,
 				2732F9C72652DB940013063A /* repl.cc in Sources */,
 				2732FA2B2655E89D0013063A /* compiler+parser.cc in Sources */,
 			);

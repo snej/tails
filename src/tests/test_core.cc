@@ -21,9 +21,6 @@
 using namespace tails::core_words;
 
 
-__unused static constexpr StackEffect kSomeTS = "x# -- y#"_sfx;
-
-
 TEST_CASE("StackEffect") {
     StackEffect sfx = "--"_sfx;
     CHECK(sfx.inputCount() == 0);

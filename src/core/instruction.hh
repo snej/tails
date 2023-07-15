@@ -32,7 +32,7 @@ namespace tails {
         _INTERP, _TAILINTERP,
         _LITERAL, _INT, _RETURN, _BRANCH, _ZBRANCH,
         NOP, _RECURSE,
-        DROP, DUP, OVER, ROT, SWAP,
+        DROP, DUP, OVER, ROT, _ROTn, SWAP,
         ZERO, ONE,
         EQ, NE, EQ_ZERO, NE_ZERO,
         GE, GT, GT_ZERO,

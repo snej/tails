@@ -32,26 +32,8 @@ namespace tails {
     class VocabularyStack;
 
     namespace core_words {
-        extern const Word _LITERAL, _INT;
+        extern const ROMWord _LITERAL, _INT;
     }
-
-
-    /// A subclass of Word that manages storage of its name and instructions, so it can be
-    /// created at runtime.
-    class CompiledWord : public Word {
-    public:
-        CompiledWord(std::string &&name, StackEffect effect, std::vector<Opcode> &&instrs);
-
-        /// Constructs a word from a compiler. Call this instead of Compiler::finish.
-        explicit CompiledWord(Compiler&&);
-
-        /// Copies a CompiledWord, adding a name.
-        CompiledWord(const CompiledWord&, std::string &&name);
-
-    private:
-        std::string const           _nameStr;   // Backing store for inherited _name
-        std::vector<Opcode> const   _instrs {}; // Backing store for inherited _instr
-    };
 
 
     /// An object that assembles an interpreted word from a list of words to call.
@@ -227,7 +209,7 @@ namespace tails {
         std::string                 _name;
         Word::Flags                 _flags {};
         std::list<SourceWord>       _words;
-        StackEffect                 _effect;
+        StackEffect          _effect;
         bool                        _effectCanAddInputs = true;
         bool                        _effectCanAddOutputs = true;
         bool                        _effectCanAddOutputTypes = true;

@@ -22,10 +22,11 @@
 
 
 namespace tails {
+    class Compiler;
 
-    /// A Forth word definition: name, flags and code.
-    /// This base class itself is used for predefined words that are constructed at compile time.
-    /// The subclass \ref CompiledWord builds words at runtime.
+    /// Abstract base class of a Forth word definition: name, flags and code.
+    /// Subclass \ref ROMWord is used for predefined words that are constructed at compile time.
+    /// Subclass \ref CompiledWord builds words at runtime.
     class Word {
     public:
         enum Flags : uint8_t {
@@ -43,30 +44,9 @@ namespace tails {
             MagicWordParam = Magic | HasWordParam,
         };
 
-        constexpr Word(const char *name,
-                       Opcode native,
-                       StackEffect effect,
-                       Flags flags =NoFlags,
-                       uint8_t nParams =0)
-        :_instr(native)
-        ,_name(name)
-        ,_effect(effect)
-        ,_flags(Flags(flags | Native))
-        ,_nParams(std::max(nParams, uint8_t((flags & (HasIntParam|HasValParam|HasWordParam)) != 0)))
-        { }
-
-        constexpr Word(const char *name,
-                       StackEffect effect,
-                       const Instruction words[])
-        :_instr(words)
-        ,_name(name)
-        ,_effect(effect)
-        ,_flags(NoFlags)
-        { }
-
         constexpr const char* name() const              {return _name;}
         constexpr Instruction const& instruction() const{return _instr;}
-        constexpr StackEffect stackEffect() const       {return _effect;}
+        constexpr ROMStackEffect const& stackEffect() const{return *_romEffect;}
 
         constexpr bool hasFlag(Flags f) const           {return (_flags & f) != 0;}
         constexpr bool isNative() const                 {return hasFlag(Native);}
@@ -91,13 +71,66 @@ namespace tails {
        }
 
     protected:
-        Word() :_instr {}, _name(nullptr), _effect(), _flags(NoFlags) { };
+        Word() :_instr {}, _name(nullptr), _romEffect(nullptr), _flags(NoFlags) { };
+
+        constexpr Word(const char *name,
+                       Instruction instr,
+                       Flags flags,
+                       uint8_t nParams)
+        :_instr(instr)
+        ,_name(name)
+        ,_romEffect(nullptr)
+        ,_flags(flags)
+        ,_nParams(nParams)
+        { }
 
         Instruction _instr;         // Instruction that calls it (either an Op or an Instruction*)
         const char* _name;          // Forth name, or NULL if anonymous
-        StackEffect _effect;        // Number of function parameters / return values
+        ROMStackEffect const* _romEffect;        // Number of function parameters / return values
         Flags       _flags;         // Flags (see above)
         uint8_t     _nParams = 0;   // Number of parameters following instr in code
+    };
+
+
+    /// A built-in native-code Word created at compile time.
+    class ROMWord : public Word {
+    public:
+        constexpr ROMWord(const char *name,
+                          Opcode native,
+                          ROMStackEffect const& effect,
+                          Flags flags =NoFlags,
+                          uint8_t nParams =0)
+        :Word(name, Instruction(native), Flags(flags | Native), nParams)
+        {
+            _effectStorage = effect;
+            _romEffect = &_effectStorage;
+            if (_nParams == 0 && (flags & (HasIntParam|HasValParam|HasWordParam)))
+                _nParams = 1;
+        }
+
+    private:
+        ROMStackEffect _effectStorage;
+    };
+
+
+    /// A subclass of Word that manages storage of its name and instructions, so it can be
+    /// created at runtime.
+    class CompiledWord : public Word {
+    public:
+        CompiledWord(std::string &&name, StackEffect effect, std::vector<Opcode> &&instrs);
+
+        /// Constructs a word from a compiler. Call this instead of Compiler::finish.
+        explicit CompiledWord(Compiler&&);
+
+        /// Copies a CompiledWord, adding a name.
+        CompiledWord(const CompiledWord&, std::string &&name);
+
+        StackEffect const& stackEffect() const {return _effect;}
+
+    private:
+        std::string const           _nameStr;   // Backing store for inherited _name
+        StackEffect                 _effect;    // Backing store for inherited _effect
+        std::vector<Opcode> const   _instrs {}; // Backing store for inherited _instr
     };
 
 

@@ -43,7 +43,7 @@ namespace tails {
     // Flags and parameter count may optionally follow, as per the Word constructor.
     #define NATIVE_WORD(NAME, FORTHNAME, EFFECT, ...) \
         extern "C" Value* f_##NAME(Value *sp, const AfterInstruction* pc); \
-        constexpr Word NAME(FORTHNAME, Opcode::NAME, EFFECT, ## __VA_ARGS__); \
+        constexpr ROMWord NAME(FORTHNAME, Opcode::NAME, EFFECT, ## __VA_ARGS__); \
         Value* f_##NAME(Value *sp, const AfterInstruction* pc) // { ...function body follows... }
 
 

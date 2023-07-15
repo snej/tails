@@ -79,29 +79,52 @@ namespace tails {
             }
             i->knownStack = curStack;
 
+            std::cerr << "ComputeEffect: " << curStack << "  ... now " << i->word->name() << std::endl;
+
             // apply the instruction's effect:
             if (i->word == &_LITERAL) {
                 // A literal, just push it
                 curStack.push(i->param.param.literal);
             } else if (i->word == &_INT) {
                 curStack.push(Value(i->param.param.offset));
+            } else if (i->word == &_ROTn) {
+                curStack.rotate(i->param.param.offset);
             } else if (i->word == &_GETARG || i->word == &_SETARG) {
                 // Get/set a function argument. Adjust the offset for the current stack:
                 auto offset = i->param.param.offset;
-                TypeSet paramType;
-                if (offset <= 0)
-                    paramType = _effect.inputs()[-offset];
-                else
-                    paramType = _localsTypes[offset - 1];
                 i->param.param.offset -= curStack.depth() - _effect.inputCount();
-                if (i->word == &_GETARG)
-                    curStack.push(paramType);
-                else
-                    curStack.add(*i->word, StackEffect({paramType}, {}), i->sourceCode);
+                if (offset <= 0) {
+                    // parameter:
+                    TypeSet paramType = _effect.inputs()[-offset];
+                    if (i->word == &_GETARG)
+                        curStack.push(paramType);
+                    else
+                        curStack.add(*i->word, StackEffect({paramType}, {}), i->sourceCode);
+               } else {
+                   // local:
+                   offset = -i->param.param.offset;
+                   if (i->word == &_GETARG) {
+                       curStack.over(offset);
+                       if (!curStack.at(0).types())
+                           throw compile_error("Reading local before it's assigned a value", nullptr);
+                   } else {
+                       TypeSet localType = curStack.at(offset).types();
+                       TypeSet valueType = curStack.at(0).types();
+                       if (localType) {
+                           if (TypeSet badTypes = valueType - localType) {
+                               throw compile_error(format("Type mismatch assigning to local"),
+                                                   nullptr);
+                           }
+                       } else {
+                           curStack.setLocalType(offset, valueType);
+                       }
+                       curStack.pop();
+                   }
+                }
             } else if (i->word == &_LOCALS) {
                 // Reserving space for local variables:
                 for (auto n = i->param.param.offset; n > 0; --n)
-                    curStack.push(Value());
+                    curStack.push(TypeSet());
             } else if (i->word == &_DROPARGS) {
                 // Popping the parameters:
                 auto nParams = i->param.param.drop.locals;
@@ -111,9 +134,18 @@ namespace tails {
                     throw compile_error(format("Should return %d values, not %d",
                                                nResults, actualResults), nullptr);
                 curStack.erase(nResults, nResults + nParams);
-           } else {
-                // Determine the effect of a word:
-                StackEffect nextEffect = i->word->stackEffect();
+            } else if (i->word == &CALL) {
+                TypeSet callee = curStack.pop().types();
+                if (callee != Value::AQuote)
+                    throw compile_error(format("Can't call a value of type %s",
+                                               callee.description().c_str()), nullptr);
+                auto quoteEffect = callee.quoteEffect();
+                if (!quoteEffect)
+                    throw compile_error("This quote's parameters aren't known", nullptr);
+                curStack.add(*i->word, *quoteEffect, nullptr);
+            } else {
+               // Determine the effect of a word:
+               StackEffect nextEffect = i->word->stackEffect();
                 if (nextEffect.isWeird()) {
                     if (i->word == &_RECURSE) {
                         if (_effectCanAddInputs || _effectCanAddOutputs)
@@ -129,7 +161,8 @@ namespace tails {
                     } else if (i->word == &IFELSE) {
                         nextEffect = effectOfIFELSE(i, curStack);
                     } else {
-                        throw compile_error("Oops, don't know word's stack effect", i->sourceCode);
+                        throw compile_error(format("Oops, don't know word '%s's stack effect",
+                                                   i->word->name()), i->sourceCode);
                     }
                 }
 
@@ -149,6 +182,7 @@ namespace tails {
                 curStack.add(*i->word, nextEffect, i->sourceCode);
             }
 
+            // Handle control flow:
             if (i->word == &_RETURN) {
                 // The stack when RETURN is reached determines the word's output effect.
                 curStack.checkOutputs(_effect, _effectCanAddOutputs, _effectCanAddOutputTypes);
@@ -177,11 +211,9 @@ namespace tails {
     StackEffect Compiler::effectOfIFELSE(InstructionPos pos, EffectStack &curStack) {
         // Special case for IFELSE, which has a non-constant stack effect.
         // The two top stack items must be literal quotation values (not just types):
-        auto getQuoteEffect = [&](int i) {
-            if (auto valP = curStack.literalAt(i); valP) {
-                if (auto quote = valP->asQuote(); quote)
-                    return quote->stackEffect();
-            }
+        auto getQuoteEffect = [&](int i) -> StackEffect {
+            if (auto effect = curStack.at(i).types().quoteEffect())
+                return *effect;
             throw compile_error("IFELSE must be preceded by two quotations", pos->sourceCode);
         };
         StackEffect a = getQuoteEffect(1), b = getQuoteEffect(0);

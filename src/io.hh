@@ -7,11 +7,14 @@
 #pragma once
 #include "stack_effect.hh"
 #include "disassembler.hh"
+#include "effect_stack.hh"
 #include <iostream>
 #include <sstream>
 
 namespace tails {
 
+    inline std::ostream& operator<< (std::ostream &out, const StackEffect &effect);
+    
     // Prints a Value
     std::ostream& operator<< (std::ostream&, Value);  // defined in value.cc
 
@@ -24,10 +27,16 @@ namespace tails {
             out << "∅";
         else {
             static constexpr const char *kNames[] = {"?", "#", "$", "[]", "{}"};
-            for (int i = 0; i <= Value::MaxType; ++i) {
+            for (int i = 0; i < Value::MaxType; ++i) {
                 if (entry.canBeType(Value::Type(i))) {
                     out << kNames[i];
                 }
+            }
+            if (entry.canBeType(Value::AQuote)) {
+                out << '{';
+                if (auto effect = entry.quoteEffect())
+                    out << *effect;
+                out << '}';
             }
         }
         if (entry.isInputMatch())
@@ -37,7 +46,7 @@ namespace tails {
 
 
     // Prints a TypesView
-    inline std::ostream& operator<< (std::ostream &out, TypesView types) {
+    inline std::ostream& operator<< (std::ostream &out, std::vector<TypeSet> const& types) {
         for (auto i = types.rbegin(); i != types.rend(); ++i) {
             if (i != types.rbegin()) out << ' ';
             out << *i;
