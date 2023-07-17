@@ -68,30 +68,35 @@ namespace tails {
         Opcode opcode;
         do {
             assert(i != _words.end());
-            // Handle merging flows of control at branch destinations:
-            if (i->isBranchDestination) {
-                if (i->knownStack) {
-                    if (*i->knownStack == curStack) {
-                        // Nothing more to do: already handled this control flow + types
-                        break;
+            try {
+                // Handle merging flows of control at branch destinations:
+                if (i->isBranchDestination) {
+                    if (i->knownStack) {
+                        if (*i->knownStack == curStack) {
+                            // Nothing more to do: already handled this control flow + types
+                            break;
+                        } else {
+                            // Merge current stack and the one from the other control path.
+                            curStack.mergeWith(*i->knownStack);
+                            *i->knownStack = curStack;
+                        }
                     } else {
-                        // Merge current stack and the one from the other control path.
-                        curStack.mergeWith(*i->knownStack, i->sourceCode);
-                        *i->knownStack = curStack;
+                        // Memoize the current stack so when we parse the other flow of control we
+                        // can compare with this flow:
+                        i->knownStack = make_unique<EffectStack>(curStack);
                     }
-                } else {
-                    // Memoize the current stack so when we parse the other flow of control we
-                    // can compare with this flow:
-                    i->knownStack = make_unique<EffectStack>(curStack);
                 }
+                
+                //cerr << "ComputeEffect: " << curStack << "  ... now " << i->word->name() << endl;
+                
+                // Apply the instruction's compile-time behavior to the type-stack:
+                opcode = i->word->instruction().opcode;
+                OpcodeChecks[uint8_t(opcode)](i, curStack, checkCtx);
+
+            } catch(compile_error const& err) {
+                throw err.withLocation(i->sourceCode);
             }
-
-            //cerr << "ComputeEffect: " << curStack << "  ... now " << i->word->name() << endl;
-
-            // Apply the instruction's compile-time behavior to the type-stack:
-            opcode = i->word->instruction().opcode;
-            OpcodeChecks[uint8_t(opcode)](i, curStack, checkCtx);
-
+            
             // Handle control flow:
             if (opcode == Opcode::_BRANCH || opcode == Opcode::_ZBRANCH) {
                 assert(i->branchTo);
@@ -112,15 +117,6 @@ namespace tails {
 #pragma mark - OPCODE CHECK UTILITIES:
 
 
-    // Returns true if this instruction a RETURN, or a BRANCH to a RETURN.
-    static bool returnsImmediately(InstructionPos i) {
-        if (i->word == &_BRANCH)
-            return returnsImmediately(*i->branchTo);
-        else
-            return (i->word == &_RETURN);
-    }
-
-
     // Default checking, but given a stack effect to use:
     static void defaultCheckWithEffect(InstructionPos i, EffectStack& curStack, CheckContext& ctx,
                                        StackEffect const& nextEffect)
@@ -139,7 +135,7 @@ namespace tails {
         }
 
         // apply the word's effect:
-        curStack.add(*i->word, nextEffect, i->sourceCode);
+        curStack.add(*i->word, nextEffect);
     }
 
 
@@ -184,7 +180,8 @@ namespace tails {
             if (i->word == &_GETARG)
                 curStack.push(paramType);
             else
-                curStack.add(*i->word, StackEffect({paramType}, {}), i->sourceCode);
+                curStack.add(*i->word, StackEffect({paramType}, {}));
+
         } else {
             // Get/set a local variable:
             auto offset = i->param.param.offset;
@@ -196,17 +193,16 @@ namespace tails {
             if (i->word == &_GETARG) {
                 curStack.over(offset);
                 if (!curStack.at(0).types())
-                    throw compile_error("Reading local before it's assigned a value", nullptr);
+                    throw compile_error("Reading local before it's assigned a value");
             } else {
-                TypeSet localType = curStack.at(offset).types();
-                TypeSet valueType = curStack.at(0).types();
+                TypeSet localType = curStack[offset].types();
+                TypeSet valueType = curStack[0].types();
                 if (localType) {
                     if (TypeSet badTypes = valueType - localType) {
-                        throw compile_error(format("Type mismatch assigning to local"),
-                                            nullptr);
+                        throw compile_error(format("Type mismatch assigning to local"));
                     }
                 } else {
-                    curStack.setLocalType(offset, valueType);
+                    curStack.setTypeAt(offset, valueType);
                 }
                 curStack.pop();
             }
@@ -219,7 +215,7 @@ namespace tails {
     static void chk__LOCALS(InstructionPos i, EffectStack& curStack, CheckContext& ctx) {
         // Reserving space for local variables:
         for (auto n = i->param.param.offset; n > 0; --n)
-            curStack.push(TypeSet());
+            curStack.push(TypeSet());   // type starts out as 'none'; will be set on 1st assignment
     }
 
 
@@ -230,7 +226,7 @@ namespace tails {
         auto actualResults = curStack.depth() - nParams;
         if (actualResults != nResults)
             throw compile_error(format("Should return %d values, not %d",
-                                       nResults, actualResults), nullptr);
+                                       nResults, actualResults));
         curStack.erase(nResults, nResults + nParams);
     }
 
@@ -239,11 +235,11 @@ namespace tails {
         TypeSet callee = curStack.pop().types();
         if (callee != Value::AQuote)
             throw compile_error(format("Can't call a value of type %s",
-                                       callee.description().c_str()), nullptr);
+                                       callee.description().c_str()));
         auto quoteEffect = callee.quoteEffect();
         if (!quoteEffect)
-            throw compile_error("This quote's parameters aren't known", nullptr);
-        curStack.add(*i->word, *quoteEffect, nullptr);
+            throw compile_error("This quote's parameters aren't known");
+        curStack.add(*i->word, *quoteEffect);
     }
 
 
@@ -259,13 +255,11 @@ namespace tails {
 
     static void chk__RECURSE(InstructionPos i, EffectStack& curStack, CheckContext& ctx) {
         if (ctx.effectCanAddInputs || ctx.effectCanAddOutputs)
-            throw compile_error("RECURSE requires an explicit stack effect declaration",
-                                i->sourceCode);
+            throw compile_error("RECURSE requires an explicit stack effect declaration");
         StackEffect nextEffect = ctx.effect;
-        if (!returnsImmediately(next(i))) {
+        if (!next(i)->returnsImmediately()) {
             if (ctx.flags & Word::Inline)
-                throw compile_error("Illegal recursion in an inline word",
-                                    i->sourceCode);
+                throw compile_error("Illegal recursion in an inline word");
             nextEffect = nextEffect.withUnknownMax();   // non-tail recursion
         }
         defaultCheckWithEffect(i, curStack, ctx, nextEffect);
@@ -275,15 +269,15 @@ namespace tails {
     static void chk_IFELSE(InstructionPos i, EffectStack& curStack, CheckContext& ctx) {
         // The two top stack items must be literal quotation values (not just types):
         auto getQuoteEffect = [&](int stackPos) -> StackEffect {
-            if (auto effect = curStack.at(stackPos).types().quoteEffect())
+            if (auto effect = curStack[stackPos].types().quoteEffect())
                 return *effect;
-            throw compile_error("IFELSE must be preceded by two quotations", i->sourceCode);
+            throw compile_error("IFELSE must be preceded by two quotations");
         };
         StackEffect a = getQuoteEffect(1), b = getQuoteEffect(0);
 
         // Check if the quotations' effects are compatible, and merge them:
         if (a.net() != b.net())
-            throw compile_error("IFELSE quotes have inconsistent stack depths", nullptr);
+            throw compile_error("IFELSE quotes have inconsistent stack depths");
 
         StackEffect opEffect = a;
 
@@ -292,8 +286,8 @@ namespace tails {
             if (inp < a.inputCount()) {
                 entry = entry & opEffect.inputs()[inp];
                 if (!entry)
-                    throw compile_error(format("IFELSE quotes have incompatible parameter #%d", inp),
-                                        i->sourceCode);
+                    throw compile_error(format("IFELSE quotes have incompatible parameter #%d",
+                                               inp));
                 opEffect.inputs()[inp] = entry;
             } else {
                 opEffect.addInput(entry);

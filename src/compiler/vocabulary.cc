@@ -25,7 +25,7 @@
 
 namespace tails {
 
-    const Vocabulary Vocabulary::core(core_words::kWords);
+    const Vocabulary Vocabulary::core(OpWords);
 
 
     Vocabulary::Vocabulary(const Word* const *wordList) {
@@ -93,12 +93,27 @@ namespace tails {
         return nullptr;
     }
 
+    VocabularyStack::iterator VocabularyStack::begin() const {
+        auto vi = _active.begin();
+        while (vi != _active.end() && ((*vi)->begin() == (*vi)->end()))
+            ++vi;
+        return iterator(vi, _active.end(),
+                        (*vi)->begin(), (*vi)->end());
+    }
+
+    VocabularyStack::iterator VocabularyStack::end() const   {
+        return iterator(_active.end(), _active.end(),
+                        _active.back()->end(), _active.back()->end());
+    }
+
+
     VocabularyStack::iterator& VocabularyStack::iterator::operator++ () {
-        if (++_iWord == _endWords) {
-            if (++_iVoc != _endVoc) {
-                _iWord = (*_iVoc)->begin();
-                _endWords = (*_iVoc)->end();
-            }
+        ++_iWord;
+        while (_iWord == _endWords) {
+            if (++_iVoc == _endVoc)
+                break;
+            _iWord = (*_iVoc)->begin();
+            _endWords = (*_iVoc)->end();
         }
         return *this;
     }

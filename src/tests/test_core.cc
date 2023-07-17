@@ -76,7 +76,7 @@ TEST_CASE("Vocabulary") {
         ++n;
     }
     cout << "\n";
-    CHECK(n == 46);     // This needs to be updated whenever new core words are added
+    CHECK(n == 48);     // This needs to be updated whenever new core words are added
 
     for (int i = 0; i < 256 && OpWords[i]; i++) {
         INFO("Checking " << OpWords[i]->name());

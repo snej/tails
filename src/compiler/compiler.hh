@@ -156,7 +156,7 @@ namespace tails {
         /// Reserves stack space at the start of the function for another local variable.
         /// Returns the stack offset of the variable at the start of the function, >= 1.
         /// This is the `stackOffset` arg to pass to addGetArg/addSetArg to access that variable.
-        int reserveLocalVariable(TypeSet types);
+        int reserveLocalVariable();
 
         /// Adds a word by inlining its definition, if it's interpreted. Native words added normally.
         InstructionPos addInline(const Word&, const char *source);
@@ -195,9 +195,19 @@ namespace tails {
             SourceWord(SourceWord&&);
             SourceWord& operator=(SourceWord&&);
 
+            Opcode opcode() const {return word->instruction().opcode;}
+
             void branchesTo(InstructionPos pos) {
                 branchTo = pos;
                 pos->isBranchDestination = true;
+            }
+
+            // Returns true if is a RETURN, or a BRANCH to a RETURN.
+            bool returnsImmediately() const {
+                if (opcode() == Opcode::_BRANCH)
+                    return (*branchTo)->returnsImmediately();
+                else
+                    return (opcode() == Opcode::_RETURN);
             }
 
             const char*  sourceCode;                        // Points to source code where word appears
@@ -220,7 +230,6 @@ namespace tails {
         Value parseQuote(const char* &input);
         void pushBranch(char identifier, const Word *branch =nullptr);
         InstructionPos popBranch(const char *matching);
-        bool returnsImmediately(InstructionPos);
         void computeEffect();
         void computeEffect(InstructionPos i,
                            EffectStack stack);
@@ -234,8 +243,8 @@ namespace tails {
         bool                        _effectCanAddOutputTypes = true;
         std::string_view            _curToken;
         std::vector<BranchTarget>   _controlStack;
+        int                         _nLocals = 0;
         bool                        _usesArgs = false;
-        std::vector<TypeSet>        _localsTypes;
     };
 
 }

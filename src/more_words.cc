@@ -23,7 +23,7 @@
 #include <iostream>
 
 
-namespace tails::word {
+namespace tails::core_words {
     using namespace std;
 
 
@@ -60,17 +60,5 @@ namespace tails::word {
         endLine();
         NEXT();
     }
-
-
-
-#pragma mark - LIST OF WORDS:
-
-
-    // This null-terminated list is used to register these words in the Vocabulary at startup.
-
-    const Word* const kWords[] = {
-        &PRINT, &SP, &NL, &NLQ,
-        nullptr
-    };
 
 }

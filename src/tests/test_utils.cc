@@ -20,7 +20,7 @@
 
 
 void initVocabulary() {
-    static Vocabulary defaultVocab(word::kWords);
+    static Vocabulary defaultVocab;
     Compiler::activeVocabularies.use(defaultVocab);
     Compiler::activeVocabularies.setCurrent(defaultVocab);
 }

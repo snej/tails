@@ -29,7 +29,7 @@ namespace tails {
     /// A lookup table to find Words by name. Used by the Compiler.
     class Vocabulary {
     public:
-        Vocabulary();
+        Vocabulary() = default;
 
         explicit Vocabulary(const Word* const *wordList);
 
@@ -57,7 +57,7 @@ namespace tails {
     /// A stack of (references to) Vocabulary objects to look up Words in. Used by the Compiler.
     class VocabularyStack {
     public:
-        VocabularyStack()               :_active{&Vocabulary::core} { }
+        VocabularyStack()                           :_active{&Vocabulary::core} { }
 
         void push(const Vocabulary &v);
         void pop();
@@ -69,7 +69,7 @@ namespace tails {
         const Word* lookup(Instruction const&) const;
 
         /// The Vocabulary to which new Words are added, if any.
-        Vocabulary* current() const             {return _current;}
+        Vocabulary* current() const                 {return _current;}
 
         void setCurrent(Vocabulary* v)              {_current = v;}
         void setCurrent(Vocabulary &v)              {return setCurrent(&v);}
@@ -97,9 +97,8 @@ namespace tails {
             Vocabulary::iterator                            _iWord, _endWords;
         };
 
-        iterator begin() const {return iterator(_active.begin(), _active.end(),
-                                                _active.front()->begin(), _active.front()->end());}
-        iterator end() const   {return iterator(_active.end(), _active.end(), _active.front()->end(),   _active.front()->end());}
+        iterator begin() const;
+        iterator end() const;
 
     private:
         std::vector<const Vocabulary*>  _active;

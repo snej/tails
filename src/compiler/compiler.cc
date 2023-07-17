@@ -182,7 +182,7 @@ namespace tails {
 
     Compiler::InstructionPos Compiler::addGetArg(int stackOffset, const char *sourcePos) {
         assert(stackOffset >= 1 - _effect.inputCount());
-        assert(stackOffset <= int(_localsTypes.size()));
+        assert(stackOffset <= _nLocals);
         _usesArgs = true;
         return add({_GETARG, stackOffset}, sourcePos);
     }
@@ -192,17 +192,15 @@ namespace tails {
     }
 
 
-    int Compiler::reserveLocalVariable(TypeSet type) {
+    int Compiler::reserveLocalVariable() {
         // First find the _LOCALS instruction at the start, or add one:
         InstructionPos iLocals;
         if (!_words.empty() && _words.begin()->word == &_LOCALS)
             iLocals = _words.begin();
         else
             iLocals = _words.insert(_words.begin(), SourceWord({_LOCALS, 0}, nullptr));
-        _localsTypes.push_back(type);
-        int offset = int(_localsTypes.size());
-        iLocals->param.param.offset = offset;
-        return offset;
+        iLocals->param.param.offset = ++_nLocals;
+        return _nLocals;
     }
 
 
@@ -246,23 +244,14 @@ namespace tails {
     }
 
 
-    // Returns true if this instruction a RETURN, or a BRANCH to a RETURN.
-    bool Compiler::returnsImmediately(Compiler::InstructionPos pos) {
-        if (pos->word == &_BRANCH)
-            return returnsImmediately(*pos->branchTo);
-        else
-            return (pos->word == &_RETURN);
-    }
-
-
     vector<Opcode> Compiler::generateInstructions() {
         if (!_controlStack.empty())
             throw compile_error("Unfinished IF-ELSE-THEN or BEGIN-WHILE-REPEAT)", nullptr);
 
         // If the word preserves its args or has locals, clean up the stack:
-        if (_usesArgs || !_localsTypes.empty()) {
+        if (_usesArgs || _nLocals > 0) {
             AfterInstruction::DropCount drop {
-                .locals = uint8_t(_effect.inputCount() + _localsTypes.size()),
+                .locals = uint8_t(_effect.inputCount() + _nLocals),
                 .results = uint8_t(_effect.outputCount()),
             };
             if (drop.locals > 0)
@@ -287,7 +276,7 @@ namespace tails {
                 } else {
                     if (i->word == &_RECURSE) {
                         // Detect tail recursion: Change RECURSE to BRANCH if it's followed by RETURN:
-                        if (returnsImmediately(next(i)))
+                        if (next(i)->returnsImmediately())
                             i->word = &_BRANCH;
                         else
                             _flags = Word::Flags(_flags | Word::Recursive);

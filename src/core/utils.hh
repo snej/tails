@@ -37,8 +37,17 @@ namespace tails {
 
     class compile_error : public std::runtime_error {
     public:
-        compile_error(const char *msg, const char *loc) :runtime_error(msg), location(loc) {log();}
-        compile_error(const std::string &msg, const char *loc) :runtime_error(msg), location(loc) {log();}
+        compile_error(const char *msg, const char *loc =nullptr)
+        :runtime_error(msg), location(loc)
+        {log();}
+
+        compile_error(const std::string &msg, const char *loc =nullptr)
+        :runtime_error(msg), location(loc)
+        {log();}
+
+        compile_error withLocation(const char* loc) const {
+            return (location == nullptr) ? compile_error(what(), loc) : *this;
+        }
 
         void log() {
             if (DEBUG) fprintf(stderr, "*** THROWING compile_error: %s", what());

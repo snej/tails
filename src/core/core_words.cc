@@ -169,6 +169,7 @@ namespace tails::core_words {
     }
     
     // Pushes an arg/local on the stack. Param is its current stack offset (negative!)
+    // _GETARG<0> is DUP, _GETARG<-1> is OVER, ...
     NATIVE_WORD(_GETARG, "_GETARG", ROMStackEffect::weird(),  // or, StackEffect({}, {Any})
                 Word::MagicIntParam, 1)
     {
@@ -180,7 +181,6 @@ namespace tails::core_words {
     }
     
     // Writes to a function parameter. Pops a value and stores it `n` items back in the stack.
-    // _GETARG<0> is DUP, _GETARG<1> is OVER, ...
     NATIVE_WORD(_SETARG, "_SETARG", ROMStackEffect::weird(),  // or, StackEffect({Any}, {})
                 Word::MagicIntParam, 1)
     {
@@ -342,33 +342,6 @@ namespace tails::core_words {
         NEXT();
     }
     
-    
-#pragma mark - LIST OF CORE WORDS:
-    
-    
-    // This null-terminated list is used to register these words in the Vocabulary at startup.
-    
-    const Word* const kWords[] = {
-        &_INTERP,
-        &_TAILINTERP,
-        &_LITERAL, &_RETURN, &_BRANCH, &_ZBRANCH,
-        &NOP, &_RECURSE,
-        &DROP, &DUP, &OVER, &ROT, &SWAP,
-        &ZERO, &ONE,
-        &EQ, &NE, &EQ_ZERO, &NE_ZERO,
-        &GE, &GT, &GT_ZERO,
-        &LE, &LT, &LT_ZERO,
-        &ABS, &MAX, &MIN,
-        &DIV, &MOD, &MINUS, &MULT, &PLUS,
-        &CALL,
-        &NULL_,
-        &LENGTH,
-        &IFELSE,
-        &DEFINE,
-        &_GETARG, &_SETARG, &_LOCALS, &_DROPARGS,
-        nullptr
-    };
-    
 }
 
 
@@ -376,7 +349,6 @@ namespace tails::core_words {
 
 namespace tails {
     using namespace core_words;
-    using namespace word;
 
 
     extern "C" {

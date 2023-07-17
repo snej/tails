@@ -272,7 +272,7 @@ namespace tails {
                             parser.fail("No value to assign to " + name);
                         TypeSet type = rhsEffect.outputs()[0];
 
-                        auto offset = parser.compiler().reserveLocalVariable(type);
+                        auto offset = parser.compiler().reserveLocalVariable();
                         parser.symbols().add(FnParam(name, type, offset));
                         parser.compileSetArg(type, offset);
                         return StackEffect();

@@ -33,7 +33,11 @@ namespace tails {
         _compiler->setStackEffect(_effect);
         _compiler->preservesArgs();
 
-        __unused auto exprEffect = parseTopLevel(); // Parse it all!
+        try {
+            __unused auto exprEffect = parseTopLevel(); // Parse it all!
+        } catch (compile_error const& error) {
+            throw error.withLocation(_tokens.position());
+        }
         if (!_tokens.atEnd())
             fail("Expected input to end here");
 
@@ -129,38 +133,42 @@ namespace tails {
 
 
     StackEffect Parser::compileLiteral(Value literal) {
-        _compiler->add(literal);
+        _compiler->add(literal, _tokens.position());
         _stack.push(literal);
         return StackEffect({}, {TypeSet(literal.type())});
     }
 
     void Parser::compileCall(Word const& word) {
-        if (word == core_words::_RECURSE) {
-            _compiler->addRecurse();
-            _stack.add(word, _effect, _tokens.position());
-        } else if (word == core_words::CALL) {
-            auto quoteEffect = _stack.pop().types().quoteEffect();
-            if (!quoteEffect)
-                fail("Can't call this value");
-            _compiler->add(word, _tokens.position());
-            _stack.add(word, *quoteEffect, _tokens.position());
-        } else {
-            _compiler->add(word);
-            _stack.add(word, word.stackEffect(), _tokens.position());
+        try {
+            if (word == core_words::_RECURSE) {
+                _compiler->addRecurse();
+                _stack.add(word, _effect);
+            } else if (word == core_words::CALL) {
+                auto quoteEffect = _stack.pop().types().quoteEffect();
+                if (!quoteEffect)
+                    fail("Can't call this value");
+                _compiler->add(word, _tokens.position());
+                _stack.add(word, *quoteEffect);
+            } else {
+                _compiler->add(word);
+                _stack.add(word, word.stackEffect());
+            }
+        } catch(compile_error const& err) {
+            throw err.withLocation(_tokens.position());
         }
     }
 
     StackEffect Parser::compileGetArg(TypeSet type, int stackPos) {
         _compiler->addGetArg(stackPos, _tokens.position());
         StackEffect effect({}, {type});
-        _stack.add(core_words::_GETARG, effect, _tokens.position());
+        _stack.add(core_words::_GETARG, effect);
         return effect;
     }
 
     StackEffect Parser::compileSetArg(TypeSet type, int stackPos) {
         _compiler->addSetArg(stackPos, _tokens.position());
         StackEffect effect({type}, {});
-        _stack.add(core_words::_SETARG, effect, _tokens.position());
+        _stack.add(core_words::_SETARG, effect);
         return effect;
     }
 

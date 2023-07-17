@@ -298,8 +298,8 @@
 			children = (
 				273B209B26434B6B00A14EC4 /* platform.hh */,
 				27BE518F266190850010DC42 /* utils.hh */,
-				273B20922643479600A14EC4 /* instruction.hh */,
 				2791006C2A6307A6004A6887 /* opcodes.hh */,
+				273B20922643479600A14EC4 /* instruction.hh */,
 				275B4D2E2A5C750A00E00723 /* stack_effect.cc */,
 				2732FA0D26543FBF0013063A /* stack_effect.hh */,
 				27AC39322A427CBB00C9A8E6 /* type_set.hh */,
