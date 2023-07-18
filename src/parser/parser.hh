@@ -53,6 +53,8 @@ namespace tails {
         /// Compiles an instruction to set a param/local's value from a value popped from the stack.
         StackEffect compileSetArg(TypeSet type, int stackPos);
 
+        void compileROTn(int n);
+
         /// Throws a `compile_error`.
         [[noreturn]] void fail(std::string&& message);
 

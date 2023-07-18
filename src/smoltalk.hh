@@ -8,7 +8,7 @@
 #include "parser.hh"
 #include "compiler.hh"
 #include "core_words.hh"
-#include "stack_effect_parser.hh"
+#include "signature_parser.hh"
 #include "io.hh"
 #include <mutex>
 
@@ -58,10 +58,10 @@ namespace tails {
     {
         unsigned nArgs = 0;
         while (!parser.ifToken(")")) {
-            if (nArgs > paramCount)
-                parser.fail(format("Too many arguments; %s expects %d", fnName, paramCount));
             if (nArgs++ > 0)
                 parser.requireToken(",");
+            if (nArgs > paramCount)
+                parser.fail(format("Too many arguments; %s expects %d", fnName, paramCount));
             auto argEffect = parser.nextExpression(10_pri);
             if (argEffect.inputCount() != 0 || argEffect.outputCount() == 0)
                 parser.fail("Invalid function argument");
@@ -135,13 +135,9 @@ namespace tails {
 //        StackEffect parseFunction() {
             if (ifToken("(")) {
                 // A '(' at the start of the code delimits the stack effect / parameter list:
-                const char* begin = _tokens.position();
-                const char *end = _tokens.skipThrough(')');
-                if (!end)
-                    fail("Missing ')' to end parameter list");
-
-                StackEffectParser sep;
-                setStackEffect(sep.parse(begin, end - 1));
+                SignatureParser sep(_tokens);
+                sep.parse();
+                setStackEffect(sep.effect);
 
                 int i = 0;
                 for (auto& name : sep.inputNames) {
@@ -191,12 +187,17 @@ namespace tails {
                 if (!quoteEffect)
                     parser.fail("This quote's parameters/result aren't known");
                 auto nParams = quoteEffect->inputCount();
-                parseParameterList(parser, "a quote", nParams);
-                if (nParams > 0)
-                    parser.compiler().add(&core_words::_ROTn, int16_t(nParams));
+                parseParameterList(parser, "quote", nParams);
+                parser.compileROTn(nParams);
                 parser.compileCall(core_words::CALL);
                 return StackEffect({}, quoteEffect->outputs());
             }));
+
+            // Symbols used by the SignatureParser:
+            sSymbols.add(Symbol("--"));
+            sSymbols.add(Symbol("#"));
+            sSymbols.add(Symbol("$"));
+            sSymbols.add(Symbol("?"));
 
             // Curly braces define a quote/block:
             sSymbols.add(Symbol("}"));
@@ -294,7 +295,7 @@ namespace tails {
             if (auto arg = parser.tokens().peek(); arg.type == Token::Number) {
                 parser.tokens().consumePeeked();
                 parser.compileLiteral(-arg.numberValue);
-                return "-- #"_sfx;
+                return StackEffect({}, {{Value::ANumber}});
             } else {
                 parser.compileCall(core_words::ZERO);
                 auto effect = parser.nextExpression(50_pri);

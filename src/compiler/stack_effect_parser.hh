@@ -99,10 +99,10 @@ namespace tails {
             inputNames.clear();
             outputNames.clear();
 
-            TypeSet entry;                   // Current TypeSet being populated
-            bool inputs = true;                                     // Are we still parsing inputs?
-            const char *token = nullptr;                            // Current token, or NULL
-            const char *tokenNameBegin = nullptr;                              // Does token have alphanumerics?
+            TypeSet entry;                          // Current TypeSet being populated
+            bool inputs = true;                     // Are we still parsing inputs?
+            const char *token = nullptr;            // Current token, or NULL
+            const char *tokenNameBegin = nullptr;   // Token's name
             const char *tokenNameEnd = nullptr;
 
             for (const char *c = str; c <= end; ++c) {

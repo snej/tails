@@ -148,6 +148,7 @@ namespace tails {
         /// Adds the stack effect of calling a word. Throws an exception if the stack contains too
         /// few inputs or the wrong types.
         void add(const Word &word, const StackEffect &effect) {
+            assert(!effect.isWeird());
             // Check that the inputs match what's on the stack:
             const auto nInputs = effect.inputCount();
             if (nInputs > depth())

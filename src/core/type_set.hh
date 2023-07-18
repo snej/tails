@@ -45,6 +45,7 @@ namespace tails {
         constexpr static ROMTypeSet noType()                   {return ROMTypeSet();}
 
         constexpr bool exists() const                       {return _flags != 0;}
+        constexpr bool empty() const                        {return _flags == 0;}
         constexpr bool canBeAnyType() const                 {return typeFlags() == kTypeFlags;}
         constexpr bool canBeType(Value::Type type) const  {return (_flags & (1 << int(type))) != 0;}
 

@@ -5,6 +5,7 @@
 //
 
 #pragma once
+#include <cassert>
 #include <string>
 #include <string_view>
 
@@ -43,6 +44,9 @@ namespace tails {
 
         /// Returns the next token (possibly already peeked) and advances past it.
         Token next();
+
+        /// Undoes the effect of `next`. Can only be used once per `next` call.
+        void backUp()                   {assert(!_hasToken); _hasToken = true;}
 
         /// Returns the next token but does not consume it. Idempotent.
         Token const& peek()             {if (!_hasToken) readToken(); return _cur;}

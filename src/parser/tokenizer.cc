@@ -66,7 +66,7 @@ namespace tails {
         if (!_hasToken)
             readToken();
         _hasToken = false;
-        return std::move(_cur);
+        return _cur;
     }
 
 
@@ -121,7 +121,7 @@ namespace tails {
             // Other symbol -- look for one that's registered:
             _next = readSymbolAt(_next);
             if (!_next)
-                throw compile_error("Unknown token “" + string(start, _next) + "”", start);
+                throw compile_error("Unknown token “" + string(start, 1) + "”", start);
             _cur = Token{
                 .type = Token::Operator,
             };

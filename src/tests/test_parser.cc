@@ -53,7 +53,7 @@ static void testParser(string source,
 }
 
 static void testParserXY(string source, string_view expectedStr, Value expectedOutput) {
-    return testParser("(#x y# -- #) " + source, expectedStr, {7, 8}, expectedOutput);
+    return testParser("(x# y# -- #) " + source, expectedStr, {7, 8}, expectedOutput);
 }
 
 
@@ -132,4 +132,11 @@ TEST_CASE("Pratt Parser") {
                "_LOCALS<1> _LITERAL<{( -- #)}> _SETARG<-1> _GETARG<0> CALL _DROPARGS<1,1> _RETURN",
                {},
                Value(7));
+
+    CompiledWord increment = SmolParser{}.parse("(a# -- #) a+1");
+
+    testParser("(fn {#--#} -- #) fn(3)",
+               "_GETARG<0> _INT<3> SWAP CALL _DROPARGS<1,1> _RETURN",
+               {Value(&increment)},
+               Value(4));
 }

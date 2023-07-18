@@ -50,7 +50,7 @@ namespace tails {
         }
 
         void log() {
-            if (DEBUG) fprintf(stderr, "*** THROWING compile_error: %s", what());
+            if (DEBUG) fprintf(stderr, "*** THROWING compile_error: %s ***\n", what());
         }
         
         const char *const location;

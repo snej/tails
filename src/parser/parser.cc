@@ -172,4 +172,14 @@ namespace tails {
         return effect;
     }
 
+    void Parser::compileROTn(int n) {
+        if (n != 0) {
+            if (abs(n) == 1)
+                _compiler->add(&core_words::SWAP);
+            else
+                _compiler->add(&core_words::_ROTn, int16_t(n));
+            _stack.rotate(n);
+        }
+    }
+
 }
