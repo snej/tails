@@ -80,6 +80,7 @@ namespace tails::core_words {
     {
         sp = call(sp, (pc++)->word);
         sp = call(sp, (pc++)->word);
+        sp = call(sp, (pc++)->word);
         NEXT();
     }
 
