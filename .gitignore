@@ -1,3 +1,6 @@
 *.o
 tails_test
 tails
+build_cmake
+cmake-build-debug
+cmake-build-release
