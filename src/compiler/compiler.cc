@@ -39,7 +39,7 @@ namespace tails {
 
     CompiledWord::CompiledWord(string &&name, StackEffect effect, vector<Instruction> &&instrs)
     :_nameStr(toupper(name))
-    ,_instrs(move(instrs))
+    ,_instrs(std::move(instrs))
     {
         _effect = effect;
         _instr = &_instrs.front();
@@ -51,7 +51,7 @@ namespace tails {
 
 
     CompiledWord::CompiledWord(Compiler &&compiler)
-    :CompiledWord(move(compiler._name), {}, compiler.generateInstructions())
+    :CompiledWord(std::move(compiler._name), {}, compiler.generateInstructions())
     {
         // Compiler's flags & effect are not valid until after generateInstructions(), above.
         assert((compiler._flags & ~(Word::Inline | Word::Recursive | Word::Magic)) == 0);
@@ -61,7 +61,7 @@ namespace tails {
 
 
     CompiledWord::CompiledWord(const CompiledWord &word, std::string &&name)
-    :CompiledWord(move(name), word.stackEffect(), vector<Instruction>(word._instrs))
+    :CompiledWord(std::move(name), word.stackEffect(), vector<Instruction>(word._instrs))
     {
         _flags = word._flags;
     }
@@ -97,7 +97,7 @@ namespace tails {
         Compiler compiler;
         for (auto &ref : words)
             compiler.add(ref);
-        return move(compiler).finish();
+        return std::move(compiler).finish();
     }
 
 
@@ -263,7 +263,7 @@ namespace tails {
 
 
     CompiledWord Compiler::finish() && {
-        return CompiledWord(move(*this));
+        return CompiledWord(std::move(*this));
         // the CompiledWord constructor will call generateInstructions()
     }
 

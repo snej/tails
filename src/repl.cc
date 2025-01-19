@@ -100,7 +100,7 @@ namespace repl {
         Compiler comp;
         comp.setInputStack(&stack.front(), &stack.back());
         comp.parse(source);
-        CompiledWord compiled(move(comp));
+        CompiledWord compiled(std::move(comp));
         run(compiled, stack);
     }
 

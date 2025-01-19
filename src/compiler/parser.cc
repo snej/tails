@@ -253,7 +253,7 @@ namespace tails {
             throw compile_error("Missing '}'; unfinished quotation", input);
         ++input;
 
-        return Value(new CompiledWord(move(quoteCompiler)));
+        return Value(new CompiledWord(std::move(quoteCompiler)));
     }
 
 }

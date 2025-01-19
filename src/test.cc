@@ -117,7 +117,7 @@ static Value _runParser(const char *source) {
     cout << "* Parsing “" << source << "”\n";
     Compiler compiler;
     compiler.parse(string(source));
-    CompiledWord parsed(move(compiler));
+    CompiledWord parsed(std::move(compiler));
 
     cout << "\tDisassembly:";
     printDisassembly(&parsed);

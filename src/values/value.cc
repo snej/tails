@@ -66,7 +66,7 @@ namespace tails {
     :NanTagged((void**)0)
     {
         vector<Value> array(arrayItems);
-        setPointer(new gc::Array(move(array)));
+        setPointer(new gc::Array(std::move(array)));
         setTags(kArrayTag);
     }
 
@@ -74,7 +74,7 @@ namespace tails {
     Value::Value(vector<Value> &&array)
     :NanTagged((void**)0)
     {
-        setPointer(new gc::Array(move(array)));
+        setPointer(new gc::Array(std::move(array)));
         setTags(kArrayTag);
     }
 
@@ -247,7 +247,7 @@ namespace tails {
         } else if (isArray()) {
             // Add item to array:
             vector<Value> newArray(*asArray());
-            Value newVal(move(newArray));
+            Value newVal(std::move(newArray));
             newVal.asArray()->push_back(v);
             return newVal;
         } else {
