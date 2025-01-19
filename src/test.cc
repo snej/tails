@@ -28,6 +28,15 @@
 #include <iomanip>
 #include <iostream>
 
+// Need assert() even in a release build
+#ifdef NDEBUG
+    #undef NDEBUG
+    #include <cassert>
+    #define NDEBUG 1
+#else
+    #include <cassert>
+#endif
+
 using namespace std;
 using namespace tails;
 
@@ -308,7 +317,8 @@ int main(int argc, char *argv[]) {
 
     TEST_PARSER(15,                R"( 1 5 tri )");
 
-#ifndef DEBUG
+#ifdef NDEBUG
+    cout << "Running performance test, `1 100000000 tri` ...\n";
     auto start = std::chrono::steady_clock::now();
     auto result = _runParser(R"( 1 100000000 tri )");
     assert(result.asDouble() == (1e8 * (1e8 + 1)) / 2);

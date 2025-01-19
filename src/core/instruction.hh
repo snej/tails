@@ -27,7 +27,7 @@ namespace tails {
 
     // If ENABLE_TRACING is defined, a function `TRACE(sp,pc)` will be called before each Instruction.
     // Enabling this makes the code much less optimal, so only use when debugging.
-    #if DEBUG
+    #ifndef NDEBUG
     #    define ENABLE_TRACING
     #endif
 
